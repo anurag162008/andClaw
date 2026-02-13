@@ -132,6 +132,11 @@
     <string name="settings_brave_search_desc">เปิดใช้งานการค้นหาเว็บสำหรับเอเจนต์ AI ไม่บังคับ — ปล่อยว่างเพื่อปิดใช้งาน</string>
     <string name="settings_brave_search_optional">ยังไม่ได้กำหนดค่า (ไม่บังคับ)</string>
     <string name="settings_brave_search_get_key">รับคีย์ API Brave Search →</string>
+    <string name="settings_openclaw_doctor_fix">OpenClaw Doctor (Fix)</string>
+    <string name="settings_openclaw_doctor_fix_run">เรียกใช้ `openclaw doctor --fix`</string>
+    <string name="settings_openclaw_doctor_fix_running">กำลังทำงาน…</string>
+    <string name="settings_openclaw_doctor_fix_success">Doctor fix เสร็จสิ้น</string>
+    <string name="settings_openclaw_doctor_fix_failed">Doctor fix ล้มเหลว</string>
 
     <!-- Channels -->
     <string name="settings_section_channels">ช่องทาง</string>

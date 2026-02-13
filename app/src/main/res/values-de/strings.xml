@@ -138,6 +138,11 @@
     <string name="settings_brave_search_desc">Aktiviert die Websuche für den KI-Agenten. Optional — leer lassen zum Deaktivieren.</string>
     <string name="settings_brave_search_optional">Nicht konfiguriert (optional)</string>
     <string name="settings_brave_search_get_key">Brave Search API-Schlüssel erhalten →</string>
+    <string name="settings_openclaw_doctor_fix">OpenClaw Doctor (Fix)</string>
+    <string name="settings_openclaw_doctor_fix_run">`openclaw doctor --fix` ausführen</string>
+    <string name="settings_openclaw_doctor_fix_running">Wird ausgeführt…</string>
+    <string name="settings_openclaw_doctor_fix_success">Doctor-Fix abgeschlossen</string>
+    <string name="settings_openclaw_doctor_fix_failed">Doctor-Fix fehlgeschlagen</string>
 
     <!-- Channels -->
     <string name="settings_section_channels">Kanäle</string>

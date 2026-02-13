@@ -44,6 +44,11 @@ import java.security.SecureRandom
 import java.util.concurrent.atomic.AtomicBoolean
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
+    data class DoctorFixResult(
+        val success: Boolean,
+        val output: String,
+    )
+
     companion object {
         private const val TAG = "AndClawCodexAuth"
         private const val OAUTH_CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann"
@@ -116,6 +121,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     private val _codexAuthDebugLine = MutableStateFlow<String?>(null)
     val codexAuthDebugLine: StateFlow<String?> = _codexAuthDebugLine.asStateFlow()
+    private val _isDoctorFixRunning = MutableStateFlow(false)
+    val isDoctorFixRunning: StateFlow<Boolean> = _isDoctorFixRunning.asStateFlow()
+    private val _doctorFixResult = MutableStateFlow<DoctorFixResult?>(null)
+    val doctorFixResult: StateFlow<DoctorFixResult?> = _doctorFixResult.asStateFlow()
     private val codexAuthRunning = AtomicBoolean(false)
     private val oauthServerLock = Any()
     private var oauthServerSocket: ServerSocket? = null
@@ -220,6 +229,36 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             prefs.setBraveSearchApiKey(key)
             restartGatewayIfRunning()
         }
+    }
+
+    fun runOpenClawDoctorFix() {
+        if (_isDoctorFixRunning.value) return
+        viewModelScope.launch(Dispatchers.IO) {
+            _isDoctorFixRunning.value = true
+            val command = ". /root/.profile && " +
+                "export NODE_OPTIONS='--require /root/.openclaw-patch.js' && " +
+                "openclaw doctor --fix 2>&1"
+            val result = prootManager.executeWithResult(command, timeoutMs = 300_000)
+            _doctorFixResult.value = when {
+                result == null -> DoctorFixResult(
+                    success = false,
+                    output = "Failed to execute command.",
+                )
+                result.timedOut -> DoctorFixResult(
+                    success = false,
+                    output = "Command timed out after 300 seconds.\n\n${result.output}",
+                )
+                else -> DoctorFixResult(
+                    success = result.exitCode == 0,
+                    output = result.output.ifBlank { "No output." },
+                )
+            }
+            _isDoctorFixRunning.value = false
+        }
+    }
+
+    fun consumeDoctorFixResult() {
+        _doctorFixResult.value = null
     }
 
     fun setTelegramEnabled(enabled: Boolean) {

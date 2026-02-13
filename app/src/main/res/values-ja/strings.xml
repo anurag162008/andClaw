@@ -133,6 +133,11 @@
     <string name="settings_brave_search_desc">AIエージェントのウェブ検索を有効にします。任意 — 空欄で無効化されます。</string>
     <string name="settings_brave_search_optional">未設定（任意）</string>
     <string name="settings_brave_search_get_key">Brave Search APIキーを取得 →</string>
+    <string name="settings_openclaw_doctor_fix">OpenClaw Doctor (Fix)</string>
+    <string name="settings_openclaw_doctor_fix_run">`openclaw doctor --fix` を実行</string>
+    <string name="settings_openclaw_doctor_fix_running">実行中…</string>
+    <string name="settings_openclaw_doctor_fix_success">Doctor fix が完了しました</string>
+    <string name="settings_openclaw_doctor_fix_failed">Doctor fix に失敗しました</string>
 
     <!-- Channels -->
     <string name="settings_section_channels">チャンネル</string>

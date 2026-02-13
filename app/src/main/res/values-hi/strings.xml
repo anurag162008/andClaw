@@ -132,6 +132,11 @@
     <string name="settings_brave_search_desc">AI एजेंट के लिए वेब सर्च सक्षम करता है। वैकल्पिक — अक्षम करने के लिए खाली छोड़ें।</string>
     <string name="settings_brave_search_optional">कॉन्फ़िगर नहीं (वैकल्पिक)</string>
     <string name="settings_brave_search_get_key">Brave Search API कुंजी प्राप्त करें →</string>
+    <string name="settings_openclaw_doctor_fix">OpenClaw Doctor (Fix)</string>
+    <string name="settings_openclaw_doctor_fix_run">`openclaw doctor --fix` चलाएँ</string>
+    <string name="settings_openclaw_doctor_fix_running">चल रहा है…</string>
+    <string name="settings_openclaw_doctor_fix_success">Doctor fix पूरा हुआ</string>
+    <string name="settings_openclaw_doctor_fix_failed">Doctor fix विफल</string>
 
     <!-- Channels -->
     <string name="settings_section_channels">चैनल</string>

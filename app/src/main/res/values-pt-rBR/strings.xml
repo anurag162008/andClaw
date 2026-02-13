@@ -132,6 +132,11 @@
     <string name="settings_brave_search_desc">Ativa a pesquisa web para o agente de IA. Opcional — deixe vazio para desativar.</string>
     <string name="settings_brave_search_optional">Não configurado (opcional)</string>
     <string name="settings_brave_search_get_key">Obter chave API do Brave Search →</string>
+    <string name="settings_openclaw_doctor_fix">OpenClaw Doctor (Fix)</string>
+    <string name="settings_openclaw_doctor_fix_run">Executar `openclaw doctor --fix`</string>
+    <string name="settings_openclaw_doctor_fix_running">Executando…</string>
+    <string name="settings_openclaw_doctor_fix_success">Correção do Doctor concluída</string>
+    <string name="settings_openclaw_doctor_fix_failed">Correção do Doctor falhou</string>
 
     <!-- Channels -->
     <string name="settings_section_channels">Canais</string>

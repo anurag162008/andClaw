@@ -132,6 +132,11 @@
     <string name="settings_brave_search_desc">AI ajanı için web aramasını etkinleştirir. İsteğe bağlı — devre dışı bırakmak için boş bırakın.</string>
     <string name="settings_brave_search_optional">Yapılandırılmadı (isteğe bağlı)</string>
     <string name="settings_brave_search_get_key">Brave Search API anahtarı al →</string>
+    <string name="settings_openclaw_doctor_fix">OpenClaw Doctor (Fix)</string>
+    <string name="settings_openclaw_doctor_fix_run">`openclaw doctor --fix` komutunu çalıştır</string>
+    <string name="settings_openclaw_doctor_fix_running">Çalışıyor…</string>
+    <string name="settings_openclaw_doctor_fix_success">Doctor düzeltmesi tamamlandı</string>
+    <string name="settings_openclaw_doctor_fix_failed">Doctor düzeltmesi başarısız oldu</string>
 
     <!-- Channels -->
     <string name="settings_section_channels">Kanallar</string>

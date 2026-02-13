@@ -132,6 +132,11 @@
     <string name="settings_brave_search_desc">Включает веб-поиск для ИИ-агента. Необязательно — оставьте пустым для отключения.</string>
     <string name="settings_brave_search_optional">Не настроено (необязательно)</string>
     <string name="settings_brave_search_get_key">Получить API-ключ Brave Search →</string>
+    <string name="settings_openclaw_doctor_fix">OpenClaw Doctor (Fix)</string>
+    <string name="settings_openclaw_doctor_fix_run">Запустить `openclaw doctor --fix`</string>
+    <string name="settings_openclaw_doctor_fix_running">Выполняется…</string>
+    <string name="settings_openclaw_doctor_fix_success">Исправление Doctor завершено</string>
+    <string name="settings_openclaw_doctor_fix_failed">Исправление Doctor не удалось</string>
 
     <!-- Channels -->
     <string name="settings_section_channels">Каналы</string>

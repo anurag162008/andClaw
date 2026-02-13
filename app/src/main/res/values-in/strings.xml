@@ -132,6 +132,11 @@
     <string name="settings_brave_search_desc">Mengaktifkan pencarian web untuk agen AI. Opsional — kosongkan untuk menonaktifkan.</string>
     <string name="settings_brave_search_optional">Belum dikonfigurasi (opsional)</string>
     <string name="settings_brave_search_get_key">Dapatkan kunci API Brave Search →</string>
+    <string name="settings_openclaw_doctor_fix">OpenClaw Doctor (Fix)</string>
+    <string name="settings_openclaw_doctor_fix_run">Jalankan `openclaw doctor --fix`</string>
+    <string name="settings_openclaw_doctor_fix_running">Berjalan…</string>
+    <string name="settings_openclaw_doctor_fix_success">Perbaikan Doctor selesai</string>
+    <string name="settings_openclaw_doctor_fix_failed">Perbaikan Doctor gagal</string>
 
     <!-- Channels -->
     <string name="settings_section_channels">Saluran</string>

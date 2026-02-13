@@ -143,6 +143,11 @@
     <string name="settings_brave_search_desc">AI 에이전트의 웹 검색을 활성화합니다. 선택 사항 — 비워두면 비활성화됩니다.</string>
     <string name="settings_brave_search_optional">미설정 (선택 사항)</string>
     <string name="settings_brave_search_get_key">Brave Search API 키 발급 →</string>
+    <string name="settings_openclaw_doctor_fix">OpenClaw Doctor (Fix)</string>
+    <string name="settings_openclaw_doctor_fix_run">`openclaw doctor --fix` 실행</string>
+    <string name="settings_openclaw_doctor_fix_running">실행 중…</string>
+    <string name="settings_openclaw_doctor_fix_success">Doctor fix 완료</string>
+    <string name="settings_openclaw_doctor_fix_failed">Doctor fix 실패</string>
 
     <!-- Channels -->
     <string name="settings_section_channels">채널</string>
@@ -190,7 +195,6 @@
     <string name="settings_provider_openai_codex">%1$s (Codex OAuth)</string>
     <string name="settings_bot_token_dialog_title">%1$s Bot Token</string>    <string name="settings_bot_restart_notice_message">게이트웨이를 재시작합니다.</string>
 </resources>
-
 
 
 

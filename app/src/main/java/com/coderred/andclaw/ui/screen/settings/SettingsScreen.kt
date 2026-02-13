@@ -89,6 +89,8 @@ fun SettingsScreen(
     val discordEnabled by viewModel.discordEnabled.collectAsState()
     val discordBotToken by viewModel.discordBotToken.collectAsState()
     val braveSearchApiKey by viewModel.braveSearchApiKey.collectAsState()
+    val isDoctorFixRunning by viewModel.isDoctorFixRunning.collectAsState()
+    val doctorFixResult by viewModel.doctorFixResult.collectAsState()
     val whatsappQrState by viewModel.whatsappQrState.collectAsState()
     val isCodexAuthInProgress by viewModel.isCodexAuthInProgress.collectAsState()
     val isCodexAuthenticated by viewModel.isCodexAuthenticated.collectAsState()
@@ -385,6 +387,19 @@ fun SettingsScreen(
                             stringResource(R.string.settings_brave_search_optional)
                         },
                         onClick = { showBraveKeyDialog = true },
+                    )
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 20.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                    )
+                    SettingClickableRow(
+                        title = stringResource(R.string.settings_openclaw_doctor_fix),
+                        value = if (isDoctorFixRunning) {
+                            stringResource(R.string.settings_openclaw_doctor_fix_running)
+                        } else {
+                            stringResource(R.string.settings_openclaw_doctor_fix_run)
+                        },
+                        onClick = { viewModel.runOpenClawDoctorFix() },
                     )
                 }
             }
@@ -710,6 +725,40 @@ fun SettingsScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showOssLicensesDialog = false }) {
+                    Text(stringResource(android.R.string.ok))
+                }
+            },
+        )
+    }
+
+    if (doctorFixResult != null) {
+        AlertDialog(
+            onDismissRequest = { viewModel.consumeDoctorFixResult() },
+            shape = RoundedCornerShape(24.dp),
+            title = {
+                Text(
+                    if (doctorFixResult?.success == true) {
+                        stringResource(R.string.settings_openclaw_doctor_fix_success)
+                    } else {
+                        stringResource(R.string.settings_openclaw_doctor_fix_failed)
+                    },
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 420.dp)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    Text(
+                        text = doctorFixResult?.output.orEmpty(),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.consumeDoctorFixResult() }) {
                     Text(stringResource(android.R.string.ok))
                 }
             },

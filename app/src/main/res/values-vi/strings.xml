@@ -132,6 +132,11 @@
     <string name="settings_brave_search_desc">Kích hoạt tìm kiếm web cho tác nhân AI. Tùy chọn — để trống để tắt.</string>
     <string name="settings_brave_search_optional">Chưa cấu hình (tùy chọn)</string>
     <string name="settings_brave_search_get_key">Lấy khóa API Brave Search →</string>
+    <string name="settings_openclaw_doctor_fix">OpenClaw Doctor (Fix)</string>
+    <string name="settings_openclaw_doctor_fix_run">Chạy `openclaw doctor --fix`</string>
+    <string name="settings_openclaw_doctor_fix_running">Đang chạy…</string>
+    <string name="settings_openclaw_doctor_fix_success">Sửa lỗi Doctor đã hoàn tất</string>
+    <string name="settings_openclaw_doctor_fix_failed">Sửa lỗi Doctor thất bại</string>
 
     <!-- Channels -->
     <string name="settings_section_channels">Kênh</string>

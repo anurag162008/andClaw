@@ -146,6 +146,11 @@
     <string name="settings_brave_search_desc">Enables web search for AI agent. Optional — leave empty to disable.</string>
     <string name="settings_brave_search_optional">Not configured (optional)</string>
     <string name="settings_brave_search_get_key">Get Brave Search API key →</string>
+    <string name="settings_openclaw_doctor_fix">OpenClaw Doctor (Fix)</string>
+    <string name="settings_openclaw_doctor_fix_run">Run `openclaw doctor --fix`</string>
+    <string name="settings_openclaw_doctor_fix_running">Running…</string>
+    <string name="settings_openclaw_doctor_fix_success">Doctor fix completed</string>
+    <string name="settings_openclaw_doctor_fix_failed">Doctor fix failed</string>
 
     <!-- Channels -->
     <string name="settings_section_channels">Channels</string>
@@ -193,7 +198,6 @@
     <string name="settings_provider_openai_codex">%1$s (Codex OAuth)</string>
     <string name="settings_bot_token_dialog_title">%1$s Bot Token</string>    <string name="settings_bot_restart_notice_message">The gateway will restart.</string>
 </resources>
-
 
 
 
