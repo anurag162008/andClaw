@@ -254,16 +254,8 @@ class ProotManager(private val context: Context) {
         )
     }
 
-    fun buildSetupCommand(): List<String> {
-        return buildProotCommand(
-            ". /root/.profile && " +
-                "export NODE_OPTIONS='--require /root/.openclaw-patch.js' && " +
-                "openclaw onboard --non-interactive --accept-risk 2>&1 || true"
-        )
-    }
-
     val isOpenClawConfigured: Boolean
-        get() = File(rootfsDir, "root/.openclaw").exists()
+        get() = File(rootfsDir, "root/.openclaw/openclaw.json").exists()
 
     fun buildEnvironment(extra: Map<String, String> = emptyMap()): Map<String, String> {
         val nativeDir = context.applicationInfo.nativeLibraryDir

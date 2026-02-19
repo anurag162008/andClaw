@@ -160,13 +160,8 @@ class SetupManager(
             updateStep(SetupStep.VERIFYING, 0.92f)
             verify()
 
-            // ─── Step 10: OpenClaw 온보딩 ───
-            if (!prootManager.isOpenClawConfigured) {
-                updateStep(SetupStep.ONBOARDING, 0.95f)
-                runOnboard()
-            } else {
-                log(">> OpenClaw onboarding already completed, skipping")
-            }
+            // ─── Step 10: OpenClaw 초기 설정 (ensureOpenClawConfig에서 처리) ───
+            log(">> OpenClaw config will be created on first gateway start")
 
             // ─── 완료 ───
             updateStep(SetupStep.COMPLETE, 1.0f)
@@ -598,36 +593,7 @@ class SetupManager(
         log("   All checks passed!")
     }
 
-    // ── Step 10: OpenClaw 온보딩 ──
 
-    private suspend fun runOnboard() = withContext(Dispatchers.IO) {
-        log(">> Running initial OpenClaw setup...")
-        val cmd = prootManager.buildSetupCommand()
-        val env = prootManager.buildEnvironment(mapOf(
-            "HOME" to "/root",
-            "PATH" to "/usr/local/bin:/usr/bin:/bin",
-            "LANG" to "C.UTF-8",
-        ))
-        val pb = ProcessBuilder(cmd).redirectErrorStream(true)
-        pb.environment().putAll(env)
-        val proc = pb.start()
-
-        BufferedReader(InputStreamReader(proc.inputStream)).use { reader ->
-            var line: String?
-            while (reader.readLine().also { line = it } != null) {
-                line?.let {
-                    if (!it.contains("gateway closed") && !it.contains("abnormal closure")) {
-                        log("   $it")
-                    }
-                }
-            }
-        }
-        val exitCode = proc.waitFor()
-        if (exitCode != 0) {
-            log("   Onboarding exit code: $exitCode (continuing)")
-        }
-        log(">> Initial OpenClaw setup complete")
-    }
 
     // ── 유틸 ──
 

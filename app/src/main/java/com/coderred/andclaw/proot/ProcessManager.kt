@@ -105,37 +105,7 @@ class ProcessManager(
                 // 패치 파일이 없으면 생성
                 ensurePatchFile()
 
-                // 첫 실행 시 OpenClaw 초기 설정
-                if (!prootManager.isOpenClawConfigured) {
-                    addLog("[andClaw] Running initial setup...")
-                    val setupCmd = prootManager.buildSetupCommand()
-                    val setupEnv = prootManager.buildEnvironment(mapOf(
-                        "HOME" to "/root",
-                        "PATH" to "/usr/local/bin:/usr/bin:/bin",
-                        "LANG" to "C.UTF-8",
-                    ))
-                    val setupPb = ProcessBuilder(setupCmd).redirectErrorStream(true)
-                    setupPb.environment().putAll(setupEnv)
-                    val setupProc = setupPb.start()
-
-                    // setup 출력 로그 (onboard 중 gateway 미실행 에러는 무시)
-                    withContext(Dispatchers.IO) {
-                        BufferedReader(InputStreamReader(setupProc.inputStream)).use { reader ->
-                            var line: String?
-                            while (reader.readLine().also { line = it } != null) {
-                                line?.let {
-                                    if (!it.contains("gateway closed") && !it.contains("abnormal closure")) {
-                                        addLog(it)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    val setupExit = withContext(Dispatchers.IO) { setupProc.waitFor() }
-                    addLog("[andClaw] Initial setup complete (exit: $setupExit)")
-                }
-
-                // onboard 이후에 모델을 올바른 provider로 맞춤
+                // config 파일 생성/갱신 (모델, 게이트웨이, 브라우저 설정)
                 ensureOpenClawConfig(apiProvider, apiKey, selectedModel, modelReasoning, modelImages, modelContext, modelMaxOutput)
 
                 // 채널 설정 기록
@@ -415,10 +385,27 @@ class ProcessManager(
         modelMaxOutput: Int = 4096,
     ) {
         val configFile = File(prootManager.rootfsDir, "root/.openclaw/openclaw.json")
-        if (!configFile.exists()) return
 
         try {
-            val json = JSONObject(configFile.readText())
+            val json = if (configFile.exists()) {
+                JSONObject(configFile.readText())
+            } else {
+                configFile.parentFile?.mkdirs()
+                addLog("[andClaw] Creating minimal openclaw config")
+                val token = java.security.SecureRandom().let { sr ->
+                    ByteArray(24).also { sr.nextBytes(it) }
+                        .joinToString("") { "%02x".format(it) }
+                }
+                JSONObject().apply {
+                    put("agents", JSONObject().put("defaults", JSONObject()))
+                    put("gateway", JSONObject().apply {
+                        put("auth", JSONObject().apply {
+                            put("mode", "token")
+                            put("token", token)
+                        })
+                    })
+                }
+            }
 
             // agents.defaults가 없으면 생성
             val agents = json.optJSONObject("agents") ?: JSONObject().also { json.put("agents", it) }
@@ -559,14 +546,20 @@ class ProcessManager(
                 changed = true
             }
 
+            // gateway 설정 (mode 및 controlUi.allowedOrigins)
+            val gateway = json.optJSONObject("gateway") ?: JSONObject().also { json.put("gateway", it) }
+
+            // gateway.mode 설정 (필수 - 미설정 시 게이트웨이 시작 불가)
+            if (!gateway.has("mode")) {
+                gateway.put("mode", "local")
+                changed = true
+            }
+
             // gateway.controlUi.allowedOrigins 설정 (앱 내 WebSocket 연결 허용)
-            val gateway = json.optJSONObject("gateway")
-            if (gateway != null) {
-                val controlUi = gateway.optJSONObject("controlUi") ?: JSONObject().also { gateway.put("controlUi", it) }
-                if (!controlUi.has("allowedOrigins")) {
-                    controlUi.put("allowedOrigins", org.json.JSONArray().apply { put("*") })
-                    changed = true
-                }
+            val controlUi = gateway.optJSONObject("controlUi") ?: JSONObject().also { gateway.put("controlUi", it) }
+            if (!controlUi.has("allowedOrigins")) {
+                controlUi.put("allowedOrigins", org.json.JSONArray().apply { put("*") })
+                changed = true
             }
 
             // 현재 번들에 없는 플러그인 엔트리 정리 (게이트웨이 부팅 실패 방지)
@@ -596,10 +589,18 @@ class ProcessManager(
      */
     fun ensureChannelConfig(channelConfig: ChannelConfig) {
         val configFile = File(prootManager.rootfsDir, "root/.openclaw/openclaw.json")
-        if (!configFile.exists()) return
 
         try {
-            val json = JSONObject(configFile.readText())
+            val json = if (configFile.exists()) {
+                JSONObject(configFile.readText())
+            } else {
+                configFile.parentFile?.mkdirs()
+                addLog("[andClaw] Creating minimal openclaw config for channel setup")
+                JSONObject().apply {
+                    put("agents", JSONObject().put("defaults", JSONObject()))
+                    put("gateway", JSONObject())
+                }
+            }
             val channels = JSONObject()
 
             if (channelConfig.whatsappEnabled) {
