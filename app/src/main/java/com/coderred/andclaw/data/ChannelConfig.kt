@@ -6,6 +6,8 @@ data class ChannelConfig(
     val telegramBotToken: String = "",
     val discordEnabled: Boolean = false,
     val discordBotToken: String = "",
+    val discordGuildAllowlist: String = "",
+    val discordRequireMention: Boolean = true,
 )
 
 enum class ChannelConnectionStatus {

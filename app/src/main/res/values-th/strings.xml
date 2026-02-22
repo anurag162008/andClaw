@@ -178,6 +178,13 @@
     <string name="settings_channel_whatsapp">WhatsApp</string>
     <string name="settings_channel_telegram">Telegram</string>
     <string name="settings_channel_discord">Discord</string>
+    <string name="settings_discord_guild_allowlist_title">รายการอนุญาตกิลด์ (ID)</string>
+    <string name="settings_discord_guild_allowlist_hint">หนึ่ง Guild ID ต่อหนึ่งบรรทัด (หรือคั่นด้วยจุลภาค)</string>
+    <string name="settings_discord_guild_allowlist_help">เฉพาะกิลด์ที่อนุญาตเท่านั้นที่ทริกเกอร์ข้อความในช่อง Discord ได้</string>
+    <string name="settings_discord_guild_allowlist_not_configured">ยังไม่ได้กำหนดค่า (บล็อกข้อความจากกิลด์)</string>
+    <string name="settings_discord_guild_allowlist_configured">กำหนดค่ากิลด์แล้ว %1$d รายการ</string>
+    <string name="settings_discord_require_mention_title">ต้องมี @mention ในกิลด์</string>
+    <string name="settings_discord_require_mention_desc">ใช้เงื่อนไขการเมนชันกับช่องของกิลด์ที่อนุญาต</string>
     <string name="settings_about_version">andClaw v%1$s</string>
     <string name="settings_about_powered_by">Powered by OpenClaw</string>
     <string name="settings_provider_openai_api">%1$s (API)</string>
@@ -221,7 +228,6 @@
     <string name="settings_api_key_get_link">รับคีย์ API ของ %1$s →</string>
     <string name="bug_report_included_gateway_logs">- บันทึก UI ของเกตเวย์ (ลบข้อมูลสำคัญแล้ว): %1$d บรรทัด</string>
 </resources>
-
 
 
 

@@ -621,12 +621,27 @@ class ProcessManager(
             }
 
             if (channelConfig.discordEnabled && channelConfig.discordBotToken.isNotBlank()) {
+                val guildAllowlist = parseDiscordGuildAllowlist(channelConfig.discordGuildAllowlist)
                 channels.put("discord", JSONObject().apply {
                     put("token", "\${DISCORD_BOT_TOKEN}")
-                    put("dm", JSONObject().apply {
-                        put("policy", "pairing")
-                    })
+                    put("dmPolicy", "pairing")
+                    // Explicitly disable guild handling when allowlist is empty (no implicit open fallback).
+                    put("groupPolicy", if (guildAllowlist.isNotEmpty()) "allowlist" else "disabled")
+                    if (guildAllowlist.isNotEmpty()) {
+                        put("guilds", JSONObject().apply {
+                            guildAllowlist.forEach { guildId ->
+                                put(guildId, JSONObject().apply {
+                                    put("requireMention", channelConfig.discordRequireMention)
+                                })
+                            }
+                        })
+                    }
                 })
+                if (guildAllowlist.isEmpty()) {
+                    addLog("[andClaw] Discord guild allowlist is empty: guild messages are blocked")
+                } else {
+                    addLog("[andClaw] Discord guild allowlist applied: ${guildAllowlist.size} guild(s)")
+                }
             }
 
             if (channels.length() > 0) {
@@ -867,6 +882,29 @@ class ProcessManager(
             addLog("[andClaw] Gateway is ready!")
             startPairingObserver()
         }
+    }
+
+    private fun parseDiscordGuildAllowlist(raw: String): List<String> {
+        if (raw.isBlank()) return emptyList()
+        return raw
+            .split(',', '\n', ';', '\t')
+            .asSequence()
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .mapNotNull { normalizeDiscordGuildAllowlistEntry(it) }
+            .distinct()
+            .toList()
+    }
+
+    private fun normalizeDiscordGuildAllowlistEntry(value: String): String? {
+        val slug = value
+            .trim()
+            .lowercase()
+            .replace("^#".toRegex(), "")
+            .replace("[^a-z0-9]+".toRegex(), "-")
+            .replace("^-+|-+$".toRegex(), "")
+
+        return slug.ifBlank { null }
     }
 
     // ── Pairing 관리 (파일 직접 읽기/쓰기 방식) ──

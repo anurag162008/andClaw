@@ -179,6 +179,13 @@
     <string name="settings_channel_whatsapp">WhatsApp</string>
     <string name="settings_channel_telegram">Telegram</string>
     <string name="settings_channel_discord">Discord</string>
+    <string name="settings_discord_guild_allowlist_title">ギルド許可リスト（ID）</string>
+    <string name="settings_discord_guild_allowlist_hint">1行に1つのギルドID（またはカンマ区切り）</string>
+    <string name="settings_discord_guild_allowlist_help">許可リストにあるギルドのDiscordチャンネルのみメッセージを処理します。</string>
+    <string name="settings_discord_guild_allowlist_not_configured">未設定（ギルドメッセージはブロック）</string>
+    <string name="settings_discord_guild_allowlist_configured">%1$d 件のギルドを設定済み</string>
+    <string name="settings_discord_require_mention_title">ギルドで @メンション必須</string>
+    <string name="settings_discord_require_mention_desc">許可済みギルドのチャンネルでメンション必須を適用します。</string>
     <string name="settings_about_version">andClaw v%1$s</string>
     <string name="settings_about_powered_by">Powered by OpenClaw</string>
     <string name="settings_provider_openai_api">%1$s (API)</string>
@@ -222,7 +229,6 @@
     <string name="settings_api_key_get_link">%1$s APIキーを取得 →</string>
     <string name="bug_report_included_gateway_logs">- Gateway UIログ（サニタイズ済み）: %1$d 行</string>
 </resources>
-
 
 
 

@@ -190,6 +190,13 @@
     <string name="settings_channel_whatsapp">WhatsApp</string>
     <string name="settings_channel_telegram">Telegram</string>
     <string name="settings_channel_discord">Discord</string>
+    <string name="settings_discord_guild_allowlist_title">Lista de permitidos de guilds (ID)</string>
+    <string name="settings_discord_guild_allowlist_hint">Un ID de guild por línea (o separados por comas)</string>
+    <string name="settings_discord_guild_allowlist_help">Solo los guilds permitidos pueden activar mensajes en canales de Discord.</string>
+    <string name="settings_discord_guild_allowlist_not_configured">No configurado (mensajes de guild bloqueados)</string>
+    <string name="settings_discord_guild_allowlist_configured">%1$d guilds configurados</string>
+    <string name="settings_discord_require_mention_title">Requerir @mención en guilds</string>
+    <string name="settings_discord_require_mention_desc">Aplicar requisito de mención en canales de guild permitidos.</string>
     <string name="settings_about_version">andClaw v%1$s</string>
     <string name="settings_about_powered_by">Powered by OpenClaw</string>
     <string name="settings_provider_openai_api">%1$s (API)</string>
@@ -233,8 +240,6 @@
     <string name="settings_api_key_get_link">Obtener clave API de %1$s →</string>
     <string name="bug_report_included_gateway_logs">- Registros de UI del gateway (depurados): %1$d líneas</string>
 </resources>
-
-
 
 
 

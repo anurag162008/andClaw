@@ -189,6 +189,13 @@
     <string name="settings_channel_whatsapp">WhatsApp</string>
     <string name="settings_channel_telegram">Telegram</string>
     <string name="settings_channel_discord">Discord</string>
+    <string name="settings_discord_guild_allowlist_title">길드 허용 목록(ID)</string>
+    <string name="settings_discord_guild_allowlist_hint">한 줄에 길드 ID 하나(또는 쉼표로 구분)</string>
+    <string name="settings_discord_guild_allowlist_help">허용 목록에 있는 길드만 Discord 채널 메시지를 트리거할 수 있습니다.</string>
+    <string name="settings_discord_guild_allowlist_not_configured">설정되지 않음(길드 메시지 차단됨)</string>
+    <string name="settings_discord_guild_allowlist_configured">길드 %1$d개 설정됨</string>
+    <string name="settings_discord_require_mention_title">길드에서 @멘션 필요</string>
+    <string name="settings_discord_require_mention_desc">허용된 길드 채널에 멘션 게이트를 적용합니다.</string>
     <string name="settings_about_version">andClaw v%1$s</string>
     <string name="settings_about_powered_by">Powered by OpenClaw</string>
     <string name="settings_provider_openai_api">%1$s (API)</string>
@@ -231,7 +238,5 @@
     <string name="settings_api_key_get_link">%1$s API 키 발급 →</string>
     <string name="bug_report_included_gateway_logs">- 게이트웨이 UI 로그(정리됨): %1$d줄</string>
 </resources>
-
-
 
 

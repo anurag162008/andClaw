@@ -135,6 +135,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     val discordBotToken: StateFlow<String> = prefs.discordBotToken
         .stateIn(viewModelScope, SharingStarted.Eagerly, "")
 
+    val discordGuildAllowlist: StateFlow<String> = prefs.discordGuildAllowlist
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "")
+
+    val discordRequireMention: StateFlow<Boolean> = prefs.discordRequireMention
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
     private val _availableModels = MutableStateFlow<List<OpenRouterModel>>(emptyList())
     val availableModels: StateFlow<List<OpenRouterModel>> = _availableModels.asStateFlow()
 
@@ -467,6 +473,24 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun setDiscordGuildAllowlist(raw: String, restartGateway: Boolean = true) {
+        viewModelScope.launch(Dispatchers.IO) {
+            prefs.setDiscordGuildAllowlist(raw)
+            if (restartGateway) {
+                applyChannelConfigAndRestart()
+            }
+        }
+    }
+
+    fun setDiscordRequireMention(enabled: Boolean, restartGateway: Boolean = true) {
+        viewModelScope.launch(Dispatchers.IO) {
+            prefs.setDiscordRequireMention(enabled)
+            if (restartGateway) {
+                applyChannelConfigAndRestart()
+            }
+        }
+    }
+
     private var restartJob: kotlinx.coroutines.Job? = null
 
     private suspend fun applyChannelConfigAndRestart() {
@@ -477,7 +501,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     private fun restartGatewayIfRunning(delayMs: Long = 1000L) {
         val status = processManager.gatewayState.value.status
-        if (status != GatewayStatus.RUNNING && status != GatewayStatus.STARTING) return
+        if (
+            status != GatewayStatus.RUNNING &&
+            status != GatewayStatus.STARTING &&
+            status != GatewayStatus.ERROR
+        ) return
         restartJob?.cancel()
         restartJob = viewModelScope.launch(Dispatchers.Main) {
             kotlinx.coroutines.delay(delayMs)
@@ -495,6 +523,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             action = GatewayService.ACTION_RESTART
         }
         context.startForegroundService(intent)
+    }
+
+    fun restartGatewayIfRunningNow() {
+        restartGatewayIfRunning(delayMs = 0L)
     }
 
     fun fetchModels() {

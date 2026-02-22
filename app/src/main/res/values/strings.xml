@@ -204,6 +204,13 @@
     <string name="settings_channel_whatsapp">WhatsApp</string>
     <string name="settings_channel_telegram">Telegram</string>
     <string name="settings_channel_discord">Discord</string>
+    <string name="settings_discord_guild_allowlist_title">Guild allowlist (IDs)</string>
+    <string name="settings_discord_guild_allowlist_hint">One guild ID per line (or comma-separated)</string>
+    <string name="settings_discord_guild_allowlist_help">Only allowlisted guilds can trigger messages in Discord channels.</string>
+    <string name="settings_discord_guild_allowlist_not_configured">Not configured (guild messages blocked)</string>
+    <string name="settings_discord_guild_allowlist_configured">%1$d guilds configured</string>
+    <string name="settings_discord_require_mention_title">Require @mention in guilds</string>
+    <string name="settings_discord_require_mention_desc">Apply mention gate for allowlisted guild channels.</string>
     <string name="settings_about_version">andClaw v%1$s</string>
     <string name="settings_about_powered_by">Powered by OpenClaw</string>
     <string name="settings_provider_openai_api">%1$s (API)</string>
@@ -233,6 +240,4 @@
     <string name="bug_report_presence_present">present</string>
     <string name="bug_report_presence_none">none</string>
 </resources>
-
-
 

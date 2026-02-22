@@ -98,6 +98,8 @@ fun SettingsScreen(
     val telegramBotToken by viewModel.telegramBotToken.collectAsState()
     val discordEnabled by viewModel.discordEnabled.collectAsState()
     val discordBotToken by viewModel.discordBotToken.collectAsState()
+    val discordGuildAllowlist by viewModel.discordGuildAllowlist.collectAsState()
+    val discordRequireMention by viewModel.discordRequireMention.collectAsState()
     val braveSearchApiKey by viewModel.braveSearchApiKey.collectAsState()
     val isDoctorFixRunning by viewModel.isDoctorFixRunning.collectAsState()
     val doctorFixResult by viewModel.doctorFixResult.collectAsState()
@@ -128,6 +130,7 @@ fun SettingsScreen(
     var showBotRestartNotice by remember { mutableStateOf(false) }
     var showTelegramTokenDialog by remember { mutableStateOf(false) }
     var showDiscordTokenDialog by remember { mutableStateOf(false) }
+    var showDiscordGuildAllowlistDialog by remember { mutableStateOf(false) }
     var showBraveKeyDialog by remember { mutableStateOf(false) }
     var showOssLicensesDialog by remember { mutableStateOf(false) }
     val ossLicensesText = remember {
@@ -498,6 +501,29 @@ fun SettingsScreen(
                             onClick = { showDiscordTokenDialog = true },
                             indent = true,
                         )
+
+                        SettingClickableRow(
+                            title = stringResource(R.string.settings_discord_guild_allowlist_title),
+                            value = discordGuildAllowlistSummary(
+                                raw = discordGuildAllowlist,
+                                notConfigured = stringResource(R.string.settings_discord_guild_allowlist_not_configured),
+                                configuredFormat = stringResource(R.string.settings_discord_guild_allowlist_configured),
+                            ),
+                            valueColor = if (discordGuildAllowlist.trim().isEmpty()) MaterialTheme.colorScheme.error else null,
+                            onClick = { showDiscordGuildAllowlistDialog = true },
+                            indent = true,
+                        )
+
+                        SettingToggle(
+                            title = stringResource(R.string.settings_discord_require_mention_title),
+                            description = stringResource(R.string.settings_discord_require_mention_desc),
+                            checked = discordRequireMention,
+                            onCheckedChange = { enabled ->
+                                viewModel.setDiscordRequireMention(enabled, restartGateway = false)
+                                showBotRestartNotice = true
+                            },
+                            indent = true,
+                        )
                     }
                 }
             }
@@ -677,6 +703,21 @@ fun SettingsScreen(
         )
     }
 
+    if (showDiscordGuildAllowlistDialog) {
+        MultilineTextInputDialog(
+            title = stringResource(R.string.settings_discord_guild_allowlist_title),
+            currentValue = discordGuildAllowlist,
+            hint = stringResource(R.string.settings_discord_guild_allowlist_hint),
+            helpText = stringResource(R.string.settings_discord_guild_allowlist_help),
+            onSave = { raw ->
+                viewModel.setDiscordGuildAllowlist(raw, restartGateway = false)
+                showDiscordGuildAllowlistDialog = false
+                showBotRestartNotice = true
+            },
+            onDismiss = { showDiscordGuildAllowlistDialog = false },
+        )
+    }
+
     // ── Brave Search API Key Dialog ──
     if (showBraveKeyDialog) {
         BraveSearchKeyDialog(
@@ -722,7 +763,7 @@ fun SettingsScreen(
                 TextButton(
                     onClick = {
                         showBotRestartNotice = false
-                        viewModel.restartGatewayNow()
+                        viewModel.restartGatewayIfRunningNow()
                     },
                 ) {
                     Text(stringResource(android.R.string.ok))
@@ -872,12 +913,18 @@ private fun SettingToggle(
     description: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
+    indent: Boolean = false,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onCheckedChange(!checked) }
-            .padding(horizontal = 20.dp, vertical = 14.dp),
+            .padding(
+                start = if (indent) 36.dp else 20.dp,
+                end = 20.dp,
+                top = 14.dp,
+                bottom = 14.dp,
+            ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
@@ -1258,6 +1305,51 @@ private fun BraveSearchKeyDialog(
 }
 
 @Composable
+private fun MultilineTextInputDialog(
+    title: String,
+    currentValue: String,
+    hint: String,
+    helpText: String,
+    onSave: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var text by remember { mutableStateOf(currentValue) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(24.dp),
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    label = { Text(hint) },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 4,
+                    maxLines = 8,
+                )
+                Text(
+                    text = helpText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onSave(text.trim()) }) {
+                Text(stringResource(R.string.settings_api_key_save))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.settings_api_key_cancel))
+            }
+        },
+    )
+}
+
+@Composable
 private fun BugReportDialog(
     state: SettingsViewModel.BugReportUiState,
     onDismiss: () -> Unit,
@@ -1397,6 +1489,42 @@ private fun BugReportDialog(
             }
         },
     )
+}
+
+private fun parseDiscordGuildAllowlist(raw: String): List<String> {
+    if (raw.isBlank()) return emptyList()
+    return raw
+        .split(',', '\n', ';', '\t')
+        .asSequence()
+        .map { it.trim() }
+        .filter { it.isNotBlank() }
+        .mapNotNull { normalizeDiscordGuildAllowlistEntry(it) }
+        .distinct()
+        .toList()
+}
+
+private fun normalizeDiscordGuildAllowlistEntry(value: String): String? {
+    val slug = value
+        .trim()
+        .lowercase()
+        .replace("^#".toRegex(), "")
+        .replace("[^a-z0-9]+".toRegex(), "-")
+        .replace("^-+|-+$".toRegex(), "")
+
+    return slug.ifBlank { null }
+}
+
+private fun discordGuildAllowlistSummary(
+    raw: String,
+    notConfigured: String,
+    configuredFormat: String,
+): String {
+    val ids = parseDiscordGuildAllowlist(raw)
+    return if (ids.isEmpty()) {
+        notConfigured
+    } else {
+        String.format(configuredFormat, ids.size)
+    }
 }
 
 private fun formatFileSize(sizeBytes: Long): String {

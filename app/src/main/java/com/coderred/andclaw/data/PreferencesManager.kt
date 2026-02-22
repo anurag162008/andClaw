@@ -43,6 +43,8 @@ class PreferencesManager(private val context: Context) {
         private val KEY_TELEGRAM_BOT_TOKEN = stringPreferencesKey("telegram_bot_token")
         private val KEY_DISCORD_ENABLED = booleanPreferencesKey("discord_enabled")
         private val KEY_DISCORD_BOT_TOKEN = stringPreferencesKey("discord_bot_token")
+        private val KEY_DISCORD_GUILD_ALLOWLIST = stringPreferencesKey("discord_guild_allowlist")
+        private val KEY_DISCORD_REQUIRE_MENTION = booleanPreferencesKey("discord_require_mention")
         private val KEY_BRAVE_SEARCH_API_KEY = stringPreferencesKey("brave_search_api_key")
         private val KEY_GATEWAY_WAS_RUNNING = booleanPreferencesKey("gateway_was_running")
         private val KEY_BUNDLE_UPDATE_FAIL_COUNT_BY_VERSION = stringPreferencesKey("bundle_update_fail_count_by_version")
@@ -223,6 +225,14 @@ class PreferencesManager(private val context: Context) {
         prefs[KEY_DISCORD_BOT_TOKEN] ?: ""
     }
 
+    val discordGuildAllowlist: Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[KEY_DISCORD_GUILD_ALLOWLIST] ?: ""
+    }
+
+    val discordRequireMention: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[KEY_DISCORD_REQUIRE_MENTION] ?: true
+    }
+
     val channelConfig: Flow<ChannelConfig> = combine(
         whatsappEnabled,
         telegramEnabled,
@@ -238,6 +248,12 @@ class PreferencesManager(private val context: Context) {
             discordBotToken = dcToken,
         )
     }
+        .combine(discordGuildAllowlist) { config, dcGuildAllowlist ->
+            config.copy(discordGuildAllowlist = dcGuildAllowlist)
+        }
+        .combine(discordRequireMention) { config, dcRequireMention ->
+            config.copy(discordRequireMention = dcRequireMention)
+        }
 
     suspend fun setWhatsappEnabled(enabled: Boolean) {
         // no-op: WhatsApp는 always-on 정책
@@ -257,6 +273,14 @@ class PreferencesManager(private val context: Context) {
 
     suspend fun setDiscordBotToken(token: String) {
         context.dataStore.edit { it[KEY_DISCORD_BOT_TOKEN] = token }
+    }
+
+    suspend fun setDiscordGuildAllowlist(raw: String) {
+        context.dataStore.edit { it[KEY_DISCORD_GUILD_ALLOWLIST] = raw }
+    }
+
+    suspend fun setDiscordRequireMention(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_DISCORD_REQUIRE_MENTION] = enabled }
     }
 
     // ── Gateway running state (앱 업데이트 후 자동 재시작용) ──

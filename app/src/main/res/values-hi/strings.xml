@@ -178,6 +178,13 @@
     <string name="settings_channel_whatsapp">WhatsApp</string>
     <string name="settings_channel_telegram">Telegram</string>
     <string name="settings_channel_discord">Discord</string>
+    <string name="settings_discord_guild_allowlist_title">गिल्ड अनुमति सूची (ID)</string>
+    <string name="settings_discord_guild_allowlist_hint">प्रति पंक्ति एक गिल्ड ID (या कॉमा से अलग)</string>
+    <string name="settings_discord_guild_allowlist_help">सिर्फ अनुमति सूची वाली गिल्ड ही Discord चैनलों में संदेश ट्रिगर कर सकती हैं।</string>
+    <string name="settings_discord_guild_allowlist_not_configured">कॉन्फ़िगर नहीं (गिल्ड संदेश अवरुद्ध)</string>
+    <string name="settings_discord_guild_allowlist_configured">%1$d गिल्ड कॉन्फ़िगर</string>
+    <string name="settings_discord_require_mention_title">गिल्ड में @मेंशन आवश्यक</string>
+    <string name="settings_discord_require_mention_desc">अनुमत गिल्ड चैनलों पर मेंशन गेट लागू करें।</string>
     <string name="settings_about_version">andClaw v%1$s</string>
     <string name="settings_about_powered_by">Powered by OpenClaw</string>
     <string name="settings_provider_openai_api">%1$s (API)</string>
@@ -221,7 +228,6 @@
     <string name="settings_api_key_get_link">%1$s API कुंजी प्राप्त करें →</string>
     <string name="bug_report_included_gateway_logs">- गेटवे UI लॉग (सैनिटाइज़्ड): %1$d पंक्तियाँ</string>
 </resources>
-
 
 
 

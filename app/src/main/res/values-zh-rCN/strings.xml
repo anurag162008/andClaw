@@ -179,6 +179,13 @@
     <string name="settings_channel_whatsapp">WhatsApp</string>
     <string name="settings_channel_telegram">Telegram</string>
     <string name="settings_channel_discord">Discord</string>
+    <string name="settings_discord_guild_allowlist_title">Guild 白名单（ID）</string>
+    <string name="settings_discord_guild_allowlist_hint">每行一个 Guild ID（或逗号分隔）</string>
+    <string name="settings_discord_guild_allowlist_help">仅白名单中的 Guild 才能在 Discord 频道触发消息。</string>
+    <string name="settings_discord_guild_allowlist_not_configured">未配置（Guild 消息已阻止）</string>
+    <string name="settings_discord_guild_allowlist_configured">已配置 %1$d 个 Guild</string>
+    <string name="settings_discord_require_mention_title">在 Guild 中要求 @提及</string>
+    <string name="settings_discord_require_mention_desc">对白名单 Guild 频道启用提及门槛。</string>
     <string name="settings_about_version">andClaw v%1$s</string>
     <string name="settings_about_powered_by">Powered by OpenClaw</string>
     <string name="settings_provider_openai_api">%1$s (API)</string>
@@ -222,7 +229,6 @@
     <string name="settings_api_key_get_link">获取 %1$s API 密钥 →</string>
     <string name="bug_report_included_gateway_logs">- 网关 UI 日志（已脱敏）：%1$d 行</string>
 </resources>
-
 
 
 

@@ -178,6 +178,13 @@
     <string name="settings_channel_whatsapp">WhatsApp</string>
     <string name="settings_channel_telegram">Telegram</string>
     <string name="settings_channel_discord">Discord</string>
+    <string name="settings_discord_guild_allowlist_title">Danh sách cho phép guild (ID)</string>
+    <string name="settings_discord_guild_allowlist_hint">Một ID guild mỗi dòng (hoặc phân tách bằng dấu phẩy)</string>
+    <string name="settings_discord_guild_allowlist_help">Chỉ các guild trong danh sách cho phép mới có thể kích hoạt tin nhắn trong kênh Discord.</string>
+    <string name="settings_discord_guild_allowlist_not_configured">Chưa cấu hình (đã chặn tin nhắn guild)</string>
+    <string name="settings_discord_guild_allowlist_configured">Đã cấu hình %1$d guild</string>
+    <string name="settings_discord_require_mention_title">Yêu cầu @đề cập trong guild</string>
+    <string name="settings_discord_require_mention_desc">Áp dụng yêu cầu đề cập cho các kênh guild được cho phép.</string>
     <string name="settings_about_version">andClaw v%1$s</string>
     <string name="settings_about_powered_by">Powered by OpenClaw</string>
     <string name="settings_provider_openai_api">%1$s (API)</string>
@@ -221,7 +228,6 @@
     <string name="settings_api_key_get_link">Lấy khóa API %1$s →</string>
     <string name="bug_report_included_gateway_logs">- Nhật ký UI gateway (đã làm sạch): %1$d dòng</string>
 </resources>
-
 
 
 

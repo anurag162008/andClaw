@@ -178,6 +178,13 @@
     <string name="settings_channel_whatsapp">WhatsApp</string>
     <string name="settings_channel_telegram">Telegram</string>
     <string name="settings_channel_discord">Discord</string>
+    <string name="settings_discord_guild_allowlist_title">Daftar izin guild (ID)</string>
+    <string name="settings_discord_guild_allowlist_hint">Satu ID guild per baris (atau dipisahkan koma)</string>
+    <string name="settings_discord_guild_allowlist_help">Hanya guild yang diizinkan yang dapat memicu pesan di saluran Discord.</string>
+    <string name="settings_discord_guild_allowlist_not_configured">Belum dikonfigurasi (pesan guild diblokir)</string>
+    <string name="settings_discord_guild_allowlist_configured">%1$d guild dikonfigurasi</string>
+    <string name="settings_discord_require_mention_title">Wajib @mention di guild</string>
+    <string name="settings_discord_require_mention_desc">Terapkan syarat mention untuk saluran guild yang diizinkan.</string>
     <string name="settings_about_version">andClaw v%1$s</string>
     <string name="settings_about_powered_by">Powered by OpenClaw</string>
     <string name="settings_provider_openai_api">%1$s (API)</string>
@@ -221,7 +228,6 @@
     <string name="settings_api_key_get_link">Dapatkan kunci API %1$s →</string>
     <string name="bug_report_included_gateway_logs">- Log UI gateway (disanitasi): %1$d baris</string>
 </resources>
-
 
 
 

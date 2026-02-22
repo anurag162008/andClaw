@@ -178,6 +178,13 @@
     <string name="settings_channel_whatsapp">WhatsApp</string>
     <string name="settings_channel_telegram">Telegram</string>
     <string name="settings_channel_discord">Discord</string>
+    <string name="settings_discord_guild_allowlist_title">Guild izin listesi (ID\'ler)</string>
+    <string name="settings_discord_guild_allowlist_hint">Her satıra bir guild ID (veya virgülle ayırın)</string>
+    <string name="settings_discord_guild_allowlist_help">Yalnızca izin verilen guild\'ler Discord kanallarında mesaj tetikleyebilir.</string>
+    <string name="settings_discord_guild_allowlist_not_configured">Yapılandırılmadı (guild mesajları engellenir)</string>
+    <string name="settings_discord_guild_allowlist_configured">%1$d guild yapılandırıldı</string>
+    <string name="settings_discord_require_mention_title">Guild\'lerde @etiket zorunlu</string>
+    <string name="settings_discord_require_mention_desc">İzin verilen guild kanalları için etiket zorunluluğunu uygula.</string>
     <string name="settings_about_version">andClaw v%1$s</string>
     <string name="settings_about_powered_by">Powered by OpenClaw</string>
     <string name="settings_provider_openai_api">%1$s (API)</string>
@@ -221,7 +228,6 @@
     <string name="settings_api_key_get_link">%1$s API anahtarı al →</string>
     <string name="bug_report_included_gateway_logs">- Gateway UI günlükleri (temizlendi): %1$d satır</string>
 </resources>
-
 
 
 
