@@ -12,7 +12,6 @@ import com.coderred.andclaw.AndClawApp
 import com.coderred.andclaw.R
 import com.coderred.andclaw.data.ChannelConfig
 import com.coderred.andclaw.data.GatewayState
-import com.coderred.andclaw.data.GatewayStatus
 import com.coderred.andclaw.data.PairingRequest
 import com.coderred.andclaw.data.SessionLogEntry
 import com.coderred.andclaw.service.GatewayService
@@ -400,11 +399,25 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     private suspend fun refreshBundleUpdateFailure() {
-        _bundleUpdateFailure.value = withContext(Dispatchers.IO) {
+        val bundleFailure = withContext(Dispatchers.IO) {
             app.setupManager.getBundleUpdateFailureState()
         }?.takeIf { failure ->
             failure.failCountForCurrentVersion > 0 && failure.lastError?.isNotBlank() == true
         }
+
+        if (bundleFailure != null) {
+            _bundleUpdateFailure.value = bundleFailure
+            return
+        }
+
+        val runtimeFailure = RuntimeRecoverableFailureDetector.detect(
+            state = gatewayState.value,
+            logs = logLines.value,
+        )
+        _bundleUpdateFailure.value = RuntimeRecoverableFailureDetector.stabilizeWithPrevious(
+            previous = _bundleUpdateFailure.value,
+            current = runtimeFailure,
+        )
     }
 }
 
