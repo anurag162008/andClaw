@@ -362,7 +362,10 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             try {
                 val result = withContext(Dispatchers.IO) {
-                    app.setupManager.updateBundleIfNeededWithPolicy(manualRetry = true)
+                    app.setupManager.updateBundleIfNeededWithPolicy(
+                        manualRetry = true,
+                        includeOpenClawAssetUpdate = true,
+                    )
                 }
                 _bundleActionMessage.value = when (result.outcome) {
                     BundleUpdateOutcome.UPDATED,

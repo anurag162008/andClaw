@@ -14,6 +14,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.coderred.andclaw.R
 import com.coderred.andclaw.AndClawApp
+import com.coderred.andclaw.BuildConfig
 import com.coderred.andclaw.data.BugReportBundleBuilder
 import com.coderred.andclaw.data.BugReportZipArtifact
 import com.coderred.andclaw.data.BugReportZipWriter
@@ -59,6 +60,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     )
 
     data class RecoveryInstallResult(
+        val success: Boolean,
+        val output: String,
+    )
+
+    data class OpenClawUpdateResult(
         val success: Boolean,
         val output: String,
     )
@@ -190,6 +196,16 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     val isRecoveryInstallRunning: StateFlow<Boolean> = _isRecoveryInstallRunning.asStateFlow()
     private val _recoveryInstallResult = MutableStateFlow<RecoveryInstallResult?>(null)
     val recoveryInstallResult: StateFlow<RecoveryInstallResult?> = _recoveryInstallResult.asStateFlow()
+    private val _isOpenClawUpdateRunning = MutableStateFlow(false)
+    val isOpenClawUpdateRunning: StateFlow<Boolean> = _isOpenClawUpdateRunning.asStateFlow()
+    private val _openClawUpdateResult = MutableStateFlow<OpenClawUpdateResult?>(null)
+    val openClawUpdateResult: StateFlow<OpenClawUpdateResult?> = _openClawUpdateResult.asStateFlow()
+    private val _isOpenClawUpdateAvailable = MutableStateFlow(false)
+    val isOpenClawUpdateAvailable: StateFlow<Boolean> = _isOpenClawUpdateAvailable.asStateFlow()
+    private val _installedOpenClawVersion = MutableStateFlow<String?>(null)
+    val installedOpenClawVersion: StateFlow<String?> = _installedOpenClawVersion.asStateFlow()
+    private val _bundledOpenClawVersion = MutableStateFlow<String?>(null)
+    val bundledOpenClawVersion: StateFlow<String?> = _bundledOpenClawVersion.asStateFlow()
     private val _bugReportUiState = MutableStateFlow(BugReportUiState())
     val bugReportUiState: StateFlow<BugReportUiState> = _bugReportUiState.asStateFlow()
     private val codexAuthRunning = AtomicBoolean(false)
@@ -212,6 +228,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch(Dispatchers.IO) {
             refreshWhatsAppLinkStateInternal()
         }
+        refreshOpenClawUpdateInfo()
     }
 
     fun setAutoStartOnBoot(enabled: Boolean) {
@@ -397,7 +414,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun runOpenClawDoctorFix() {
-        if (_isDoctorFixRunning.value || _isRecoveryInstallRunning.value) return
+        if (_isDoctorFixRunning.value || _isRecoveryInstallRunning.value || _isOpenClawUpdateRunning.value) return
         _isDoctorFixRunning.value = true
         viewModelScope.launch(Dispatchers.IO) {
             try {
@@ -466,7 +483,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun runRecoveryInstall() {
-        if (_isRecoveryInstallRunning.value || _isDoctorFixRunning.value) return
+        if (_isRecoveryInstallRunning.value || _isDoctorFixRunning.value || _isOpenClawUpdateRunning.value) return
         _isRecoveryInstallRunning.value = true
         viewModelScope.launch(Dispatchers.IO) {
             try {
@@ -497,8 +514,113 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 }
             } finally {
                 _isRecoveryInstallRunning.value = false
+                refreshOpenClawUpdateInfo()
             }
         }
+    }
+
+    fun refreshOpenClawUpdateInfo() {
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { setupManager.getOpenClawUpdateInfo() }
+                .onSuccess { info ->
+                    _installedOpenClawVersion.value = info.installedVersion
+                    _bundledOpenClawVersion.value = info.bundledVersion
+                    _isOpenClawUpdateAvailable.value = info.updateAvailable
+                }
+                .onFailure {
+                    _isOpenClawUpdateAvailable.value = false
+                }
+        }
+    }
+
+    fun runOpenClawUpdate() {
+        if (_isOpenClawUpdateRunning.value || _isRecoveryInstallRunning.value || _isDoctorFixRunning.value) return
+        _isOpenClawUpdateRunning.value = true
+        _openClawUpdateResult.value = null
+        viewModelScope.launch(Dispatchers.IO) {
+            val context = getApplication<Application>()
+            val wasGatewayActive = processManager.gatewayState.value.status.let { status ->
+                status == GatewayStatus.RUNNING || status == GatewayStatus.STARTING
+            }
+            try {
+                if (wasGatewayActive) {
+                    GatewayService.stop(context)
+                    val stopped = waitForGatewayStopped()
+                    if (!stopped) {
+                        val status = processManager.gatewayState.value.status
+                        throw IllegalStateException("Gateway stop timed out (status=$status). OpenClaw update aborted.")
+                    }
+                }
+                val result = setupManager.runOpenClawManualSync()
+                _openClawUpdateResult.value = OpenClawUpdateResult(
+                    success = true,
+                    output = if (result.fullReinstall) {
+                        context.getString(R.string.dashboard_update_action_done)
+                    } else {
+                        context.getString(
+                            R.string.settings_openclaw_update_result_incremental,
+                            result.copiedCount,
+                            result.deletedCount,
+                            result.skippedCount,
+                        )
+                    },
+                )
+            } catch (error: Exception) {
+                _openClawUpdateResult.value = OpenClawUpdateResult(
+                    success = false,
+                    output = error.message
+                        ?: getApplication<Application>().getString(R.string.dashboard_update_action_failed),
+                )
+            } finally {
+                restoreGatewayIfNeeded(
+                    context = context,
+                    shouldRestore = wasGatewayActive,
+                )
+                _isOpenClawUpdateRunning.value = false
+                refreshOpenClawUpdateInfo()
+            }
+        }
+    }
+
+    private suspend fun waitForGatewayStopped(timeoutMs: Long = 10_000L): Boolean {
+        val startAt = System.currentTimeMillis()
+        while (System.currentTimeMillis() - startAt < timeoutMs) {
+            val status = processManager.gatewayState.value.status
+            if (status == GatewayStatus.STOPPED || status == GatewayStatus.ERROR) {
+                return true
+            }
+            delay(250)
+        }
+        return false
+    }
+
+    private suspend fun restoreGatewayIfNeeded(
+        context: Context,
+        shouldRestore: Boolean,
+        timeoutMs: Long = 10_000L,
+    ) {
+        if (!shouldRestore) return
+
+        val startAt = System.currentTimeMillis()
+        while (System.currentTimeMillis() - startAt < timeoutMs) {
+            when (processManager.gatewayState.value.status) {
+                GatewayStatus.RUNNING,
+                GatewayStatus.STARTING,
+                -> return
+                GatewayStatus.STOPPED,
+                GatewayStatus.ERROR,
+                -> {
+                    GatewayService.start(context)
+                    return
+                }
+                GatewayStatus.STOPPING -> delay(250)
+            }
+        }
+        GatewayService.start(context)
+    }
+
+    fun consumeOpenClawUpdateResult() {
+        _openClawUpdateResult.value = null
     }
 
     fun consumeRecoveryInstallResult() {
@@ -1180,6 +1302,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                             }
                             val title = getApplication<Application>().getString(R.string.settings_api_key_configured)
                             val appName = getApplication<Application>().getString(R.string.app_name)
+                            val appReturnUri = BuildConfig.OAUTH_APP_RETURN_URI
                             body = """
                                 <!doctype html>
                                 <html lang="en">
@@ -1220,6 +1343,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                                       font-size: 20px;
                                       color: #334155;
                                     }
+                                    a {
+                                      display: inline-block;
+                                      margin-top: 20px;
+                                      font-size: 16px;
+                                      color: #2563eb;
+                                      text-decoration: none;
+                                      font-weight: 600;
+                                    }
                                   </style>
                                 </head>
                                 <body>
@@ -1227,7 +1358,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                                     <div class="mark">✓</div>
                                     <h1>$title</h1>
                                     <p>$appName</p>
+                                    <a href="$appReturnUri">Return to $appName</a>
                                   </div>
+                                  <script>
+                                    setTimeout(function() {
+                                      window.location.href = "$appReturnUri";
+                                    }, 350);
+                                  </script>
                                 </body>
                                 </html>
                             """.trimIndent()

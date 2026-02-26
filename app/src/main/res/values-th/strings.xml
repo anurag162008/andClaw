@@ -235,6 +235,14 @@
     <string name="onboarding_provider_nvidia">NVIDIA</string>
     <string name="settings_openai_compatible_base_url">URL พื้นฐาน (รองรับ OpenAI)</string>
     <string name="settings_openai_compatible_model_id">รหัสโมเดล</string>
+
+    <string name="settings_openclaw_update_action">อัปเดต OpenClaw</string>
+    <string name="settings_openclaw_update_running">กำลังอัปเดต OpenClaw…</string>
+    <string name="settings_openclaw_update_available_version">มีอัปเดต: %1$s → %2$s</string>
+    <string name="settings_openclaw_update_current_version">OpenClaw ที่ติดตั้ง: %1$s</string>
+    <string name="settings_openclaw_update_result_incremental">อัปเดต OpenClaw แล้ว (คัดลอก: %1$d, ลบ: %2$d, ข้าม: %3$d)</string>
+    <string name="settings_openclaw_update_result_reinstall">ติดตั้ง OpenClaw ใหม่จากแอสเซ็ตที่มากับแอปแล้ว</string>
+    <string name="settings_openclaw_update_skip_until_next_version">เวอร์ชันถัดไปค่อยแสดงอีกครั้ง</string>
 </resources>
 
 

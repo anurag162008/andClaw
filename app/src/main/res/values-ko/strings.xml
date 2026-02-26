@@ -245,5 +245,12 @@
     <string name="onboarding_provider_nvidia">NVIDIA</string>
     <string name="settings_openai_compatible_base_url">기본 URL (OpenAI 호환)</string>
     <string name="settings_openai_compatible_model_id">모델 ID</string>
-</resources>
 
+    <string name="settings_openclaw_update_action">OpenClaw 업데이트</string>
+    <string name="settings_openclaw_update_running">OpenClaw 업데이트 중…</string>
+    <string name="settings_openclaw_update_available_version">업데이트 가능: %1$s → %2$s</string>
+    <string name="settings_openclaw_update_current_version">설치된 OpenClaw: %1$s</string>
+    <string name="settings_openclaw_update_result_incremental">OpenClaw 업데이트 완료 (복사: %1$d, 삭제: %2$d, 유지: %3$d)</string>
+    <string name="settings_openclaw_update_result_reinstall">번들 에셋에서 OpenClaw를 다시 설치했습니다.</string>
+    <string name="settings_openclaw_update_skip_until_next_version">다음 버전까지 다시 보지 않기</string>
+</resources>

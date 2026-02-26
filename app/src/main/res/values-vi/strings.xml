@@ -235,6 +235,14 @@
     <string name="onboarding_provider_nvidia">NVIDIA</string>
     <string name="settings_openai_compatible_base_url">URL cơ sở (tương thích OpenAI)</string>
     <string name="settings_openai_compatible_model_id">ID mô hình</string>
+
+    <string name="settings_openclaw_update_action">Cập nhật OpenClaw</string>
+    <string name="settings_openclaw_update_running">Đang cập nhật OpenClaw…</string>
+    <string name="settings_openclaw_update_available_version">Có bản cập nhật: %1$s → %2$s</string>
+    <string name="settings_openclaw_update_current_version">OpenClaw đã cài: %1$s</string>
+    <string name="settings_openclaw_update_result_incremental">Đã cập nhật OpenClaw (chép: %1$d, xóa: %2$d, bỏ qua: %3$d)</string>
+    <string name="settings_openclaw_update_result_reinstall">Đã cài lại OpenClaw từ assets đi kèm.</string>
+    <string name="settings_openclaw_update_skip_until_next_version">Không hiển thị lại cho đến phiên bản tiếp theo</string>
 </resources>
 
 

@@ -3,6 +3,7 @@ package com.coderred.andclaw.auth
 import android.content.Context
 import android.net.Uri
 import android.util.Base64
+import com.coderred.andclaw.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -16,11 +17,13 @@ object OpenRouterAuth {
 
     private const val AUTH_URL = "https://openrouter.ai/auth"
     private const val TOKEN_URL = "https://openrouter.ai/api/v1/auth/keys"
-    const val CALLBACK_SCHEME = "andclaw"
+    val CALLBACK_SCHEME: String
+        get() = BuildConfig.OAUTH_CALLBACK_SCHEME
     const val CALLBACK_HOST = "auth"
     const val CALLBACK_PATH = "/callback"
     // Cloudflare Worker가 intent:// URI로 리다이렉트해서 앱으로 돌아옴
-    private const val CALLBACK_URL = "https://andclaw.coderred.com/callback"
+    private val CALLBACK_URL: String
+        get() = BuildConfig.OPENROUTER_CALLBACK_URL
 
     private const val PREFS_NAME = "openrouter_auth"
     private const val KEY_CODE_VERIFIER = "code_verifier"

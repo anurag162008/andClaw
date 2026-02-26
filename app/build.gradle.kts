@@ -1,4 +1,5 @@
 import java.util.Properties
+import org.gradle.api.tasks.testing.Test
 
 plugins {
     id("com.android.application")
@@ -36,13 +37,42 @@ android {
         applicationId = "com.coderred.andclaw"
         minSdk = 26
         targetSdk = 35
-        versionCode = 45
-        versionName = "0.0.45"
+        versionCode = 49
+        versionName = "0.0.49"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk {
             abiFilters += listOf("arm64-v8a")
+        }
+    }
+
+    flavorDimensions += "env"
+    productFlavors {
+        create("prod") {
+            dimension = "env"
+            buildConfigField("String", "OAUTH_CALLBACK_SCHEME", "\"andclaw\"")
+            buildConfigField(
+                "String",
+                "OPENROUTER_CALLBACK_URL",
+                "\"https://andclaw.coderred.com/callback?scheme=andclaw&package=com.coderred.andclaw\"",
+            )
+            buildConfigField("String", "OAUTH_APP_RETURN_URI", "\"andclaw://auth/codex-callback\"")
+            manifestPlaceholders["oauthCallbackScheme"] = "andclaw"
+        }
+        create("dev") {
+            dimension = "env"
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+            resValue("string", "app_name", "andClaw Dev")
+            buildConfigField("String", "OAUTH_CALLBACK_SCHEME", "\"andclaw-dev\"")
+            buildConfigField(
+                "String",
+                "OPENROUTER_CALLBACK_URL",
+                "\"https://andclaw.coderred.com/callback?scheme=andclaw-dev&package=com.coderred.andclaw.dev\"",
+            )
+            buildConfigField("String", "OAUTH_APP_RETURN_URI", "\"andclaw-dev://auth/codex-callback\"")
+            manifestPlaceholders["oauthCallbackScheme"] = "andclaw-dev"
         }
     }
 
@@ -152,4 +182,24 @@ dependencies {
     testImplementation("org.robolectric:robolectric:4.14.1")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
+}
+
+tasks.register<Test>("testDebugUnitTest") {
+    group = "verification"
+    description = "Compatibility alias for prod debug unit tests"
+    val prodDebugTask = tasks.named<Test>("testProdDebugUnitTest").get()
+    testClassesDirs = prodDebugTask.testClassesDirs
+    classpath = prodDebugTask.classpath
+}
+
+tasks.register("connectedDebugAndroidTest") {
+    group = "verification"
+    description = "Compatibility alias for prod debug instrumentation tests"
+    dependsOn("connectedProdDebugAndroidTest")
+}
+
+tasks.register("lintDebug") {
+    group = "verification"
+    description = "Compatibility alias for prod debug lint checks"
+    dependsOn("lintProdDebug")
 }

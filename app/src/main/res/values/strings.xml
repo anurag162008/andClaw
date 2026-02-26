@@ -164,6 +164,12 @@
     <string name="settings_openclaw_doctor_fix_running">Running…</string>
     <string name="settings_openclaw_doctor_fix_success">Doctor fix completed</string>
     <string name="settings_openclaw_doctor_fix_failed">Doctor fix failed</string>
+    <string name="settings_openclaw_update_action">Update OpenClaw</string>
+    <string name="settings_openclaw_update_running">Updating OpenClaw…</string>
+    <string name="settings_openclaw_update_available_version">Update available: %1$s → %2$s</string>
+    <string name="settings_openclaw_update_current_version">Installed OpenClaw: %1$s</string>
+    <string name="settings_openclaw_update_result_incremental">OpenClaw updated (copy: %1$d, delete: %2$d, skip: %3$d)</string>
+    <string name="settings_openclaw_update_result_reinstall">OpenClaw reinstalled from bundled assets.</string>
 
     <!-- Channels -->
     <string name="settings_section_channels">Channels</string>
@@ -247,5 +253,5 @@
     <string name="onboarding_provider_nvidia">NVIDIA</string>
     <string name="settings_openai_compatible_base_url">Base URL (OpenAI-compatible)</string>
     <string name="settings_openai_compatible_model_id">Model ID</string>
+    <string name="settings_openclaw_update_skip_until_next_version">Do not show again until next version</string>
 </resources>
-

@@ -235,6 +235,14 @@
     <string name="onboarding_provider_nvidia">NVIDIA</string>
     <string name="settings_openai_compatible_base_url">URL dasar (kompatibel OpenAI)</string>
     <string name="settings_openai_compatible_model_id">ID model</string>
+
+    <string name="settings_openclaw_update_action">Perbarui OpenClaw</string>
+    <string name="settings_openclaw_update_running">Memperbarui OpenClaw…</string>
+    <string name="settings_openclaw_update_available_version">Pembaruan tersedia: %1$s → %2$s</string>
+    <string name="settings_openclaw_update_current_version">OpenClaw terpasang: %1$s</string>
+    <string name="settings_openclaw_update_result_incremental">OpenClaw diperbarui (salin: %1$d, hapus: %2$d, lewati: %3$d)</string>
+    <string name="settings_openclaw_update_result_reinstall">OpenClaw dipasang ulang dari aset bawaan.</string>
+    <string name="settings_openclaw_update_skip_until_next_version">Jangan tampilkan lagi sampai versi berikutnya</string>
 </resources>
 
 

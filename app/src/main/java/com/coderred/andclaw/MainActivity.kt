@@ -4,6 +4,8 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.core.view.WindowCompat
@@ -12,15 +14,20 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,11 +36,15 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.rememberNavController
 import com.coderred.andclaw.auth.OpenRouterAuth
 import com.coderred.andclaw.proot.BundleUpdateOutcome
+import com.coderred.andclaw.data.GatewayStatus
 import com.coderred.andclaw.data.SetupStep
 import com.coderred.andclaw.ui.navigation.AndClawNavGraph
+import com.coderred.andclaw.service.GatewayService
 import com.coderred.andclaw.ui.theme.AndClawTheme
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -42,6 +53,16 @@ private enum class StartupBundleUpdateStatus {
     UPDATING,
     DONE,
 }
+
+private data class StartupOpenClawUpdatePrompt(
+    val installedVersion: String?,
+    val bundledVersion: String?,
+)
+
+private data class StartupOpenClawUpdateResult(
+    val success: Boolean,
+    val message: String,
+)
 
 class MainActivity : ComponentActivity() {
 
@@ -84,6 +105,22 @@ class MainActivity : ComponentActivity() {
                     var startupUpdateStep by remember(isSetupComplete) {
                         mutableStateOf(SetupStep.CHECKING_PROOT)
                     }
+                    var hasCheckedOpenClawUpdatePrompt by remember(isSetupComplete, isOnboardingComplete) {
+                        mutableStateOf(false)
+                    }
+                    var startupOpenClawUpdatePrompt by remember {
+                        mutableStateOf<StartupOpenClawUpdatePrompt?>(null)
+                    }
+                    var startupOpenClawSkipUntilNextVersion by remember {
+                        mutableStateOf(false)
+                    }
+                    var startupOpenClawUpdateRunning by remember {
+                        mutableStateOf(false)
+                    }
+                    var startupOpenClawUpdateResult by remember {
+                        mutableStateOf<StartupOpenClawUpdateResult?>(null)
+                    }
+                    val scope = rememberCoroutineScope()
 
                     LaunchedEffect(isSetupComplete) {
                         if (!isSetupComplete) {
@@ -110,7 +147,7 @@ class MainActivity : ComponentActivity() {
                             val result = withContext(Dispatchers.IO) {
                                 app.setupManager.updateBundleIfNeededWithPolicy(onStepChanged = { step ->
                                     runOnUiThread { startupUpdateStep = step }
-                                })
+                                }, includeOpenClawAssetUpdate = false)
                             }
                             if (result.outcome == BundleUpdateOutcome.FAILED) {
                                 Log.e("MainActivity", "Bundle update policy run failed: ${result.errorMessage}")
@@ -122,6 +159,40 @@ class MainActivity : ComponentActivity() {
                         }
 
                         startupUpdateStatus = StartupBundleUpdateStatus.DONE
+                    }
+
+                    LaunchedEffect(
+                        isSetupComplete,
+                        isOnboardingComplete,
+                        startupUpdateStatus,
+                        startupOpenClawUpdateRunning,
+                    ) {
+                        if (!isSetupComplete || !isOnboardingComplete) return@LaunchedEffect
+                        if (startupUpdateStatus != StartupBundleUpdateStatus.DONE) return@LaunchedEffect
+                        if (startupOpenClawUpdateRunning) return@LaunchedEffect
+                        if (hasCheckedOpenClawUpdatePrompt) return@LaunchedEffect
+                        hasCheckedOpenClawUpdatePrompt = true
+
+                        val info = withContext(Dispatchers.IO) {
+                            runCatching { app.setupManager.getOpenClawUpdateInfo() }.getOrNull()
+                        } ?: return@LaunchedEffect
+
+                        if (!info.updateAvailable) return@LaunchedEffect
+
+                        val bundledVersion = info.bundledVersion?.trim().orEmpty()
+                        if (bundledVersion.isNotEmpty()) {
+                            val suppressedVersion = withContext(Dispatchers.IO) {
+                                app.preferencesManager.getOpenClawUpdatePromptSuppressedBundledVersion()
+                            }?.trim().orEmpty()
+                            if (suppressedVersion == bundledVersion) {
+                                return@LaunchedEffect
+                            }
+                        }
+
+                        startupOpenClawUpdatePrompt = StartupOpenClawUpdatePrompt(
+                            installedVersion = info.installedVersion,
+                            bundledVersion = info.bundledVersion,
+                        )
                     }
 
                     if (isSetupComplete && startupUpdateStatus != StartupBundleUpdateStatus.DONE) {
@@ -139,6 +210,133 @@ class MainActivity : ComponentActivity() {
                             authCallbackUri = authCallbackUri,
                         )
                     }
+
+                    val openClawPrompt = startupOpenClawUpdatePrompt
+                    if (openClawPrompt != null) {
+                        AlertDialog(
+                            onDismissRequest = {
+                                startupOpenClawUpdatePrompt = null
+                                startupOpenClawSkipUntilNextVersion = false
+                            },
+                            title = { Text(stringResource(R.string.settings_openclaw_update_action)) },
+                            text = {
+                                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    val versionLabel = if (
+                                        !openClawPrompt.installedVersion.isNullOrBlank() &&
+                                        !openClawPrompt.bundledVersion.isNullOrBlank()
+                                    ) {
+                                        stringResource(
+                                            R.string.settings_openclaw_update_available_version,
+                                            openClawPrompt.installedVersion!!,
+                                            openClawPrompt.bundledVersion!!,
+                                        )
+                                    } else {
+                                        stringResource(R.string.settings_openclaw_update_action)
+                                    }
+                                    Text(text = versionLabel)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Checkbox(
+                                            checked = startupOpenClawSkipUntilNextVersion,
+                                            onCheckedChange = { startupOpenClawSkipUntilNextVersion = it },
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(stringResource(R.string.settings_openclaw_update_skip_until_next_version))
+                                    }
+                                }
+                            },
+                            confirmButton = {
+                                TextButton(
+                                    onClick = {
+                                        val prompt = startupOpenClawUpdatePrompt
+                                        startupOpenClawUpdatePrompt = null
+                                        val skipChecked = startupOpenClawSkipUntilNextVersion
+                                        startupOpenClawSkipUntilNextVersion = false
+                                        scope.launch {
+                                            val bundledVersion = prompt?.bundledVersion
+                                            if (skipChecked) {
+                                                withContext(Dispatchers.IO) {
+                                                    app.preferencesManager.setOpenClawUpdatePromptSuppressedBundledVersion(
+                                                        bundledVersion,
+                                                    )
+                                                }
+                                            }
+                                            startupOpenClawUpdateRunning = true
+                                            startupOpenClawUpdateResult = withContext(Dispatchers.IO) {
+                                                runStartupOpenClawUpdate(app)
+                                            }
+                                            startupOpenClawUpdateRunning = false
+                                        }
+                                    },
+                                ) {
+                                    Text(stringResource(R.string.settings_restart_confirm_yes))
+                                }
+                            },
+                            dismissButton = {
+                                TextButton(
+                                    onClick = {
+                                        val prompt = startupOpenClawUpdatePrompt
+                                        startupOpenClawUpdatePrompt = null
+                                        val skipChecked = startupOpenClawSkipUntilNextVersion
+                                        startupOpenClawSkipUntilNextVersion = false
+                                        scope.launch {
+                                            withContext(Dispatchers.IO) {
+                                                if (skipChecked) {
+                                                    app.preferencesManager.setOpenClawUpdatePromptSuppressedBundledVersion(
+                                                        prompt?.bundledVersion,
+                                                    )
+                                                } else {
+                                                    app.preferencesManager.setOpenClawUpdatePromptSuppressedBundledVersion(null)
+                                                }
+                                            }
+                                        }
+                                    },
+                                ) {
+                                    Text(stringResource(R.string.settings_restart_confirm_no))
+                                }
+                            },
+                        )
+                    }
+
+                    if (startupOpenClawUpdateRunning) {
+                        AlertDialog(
+                            onDismissRequest = {},
+                            confirmButton = {},
+                            title = { Text(stringResource(R.string.settings_openclaw_update_running)) },
+                            text = {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                ) {
+                                    CircularProgressIndicator()
+                                    Text(stringResource(R.string.settings_openclaw_update_running))
+                                }
+                            },
+                        )
+                    }
+
+                    val openClawUpdateResult = startupOpenClawUpdateResult
+                    if (openClawUpdateResult != null) {
+                        AlertDialog(
+                            onDismissRequest = { startupOpenClawUpdateResult = null },
+                            title = {
+                                Text(
+                                    if (openClawUpdateResult.success) {
+                                        stringResource(R.string.dashboard_update_action_done)
+                                    } else {
+                                        stringResource(R.string.dashboard_update_action_failed)
+                                    },
+                                )
+                            },
+                            text = {
+                                Text(openClawUpdateResult.message)
+                            },
+                            confirmButton = {
+                                TextButton(onClick = { startupOpenClawUpdateResult = null }) {
+                                    Text(stringResource(android.R.string.ok))
+                                }
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -152,9 +350,100 @@ class MainActivity : ComponentActivity() {
     private fun handleDeepLink(intent: Intent?) {
         val uri = intent?.data ?: return
         if (uri.scheme == OpenRouterAuth.CALLBACK_SCHEME &&
-            uri.host == OpenRouterAuth.CALLBACK_HOST
+            uri.host == OpenRouterAuth.CALLBACK_HOST &&
+            uri.path == OpenRouterAuth.CALLBACK_PATH
         ) {
             authCallbackUri = uri
+        }
+    }
+
+    private suspend fun runStartupOpenClawUpdate(app: AndClawApp): StartupOpenClawUpdateResult {
+        val wasGatewayActive = app.processManager.gatewayState.value.status.let { status ->
+            status == GatewayStatus.RUNNING || status == GatewayStatus.STARTING
+        }
+
+        return try {
+            if (wasGatewayActive) {
+                GatewayService.stop(this)
+                val stopped = waitForGatewayStopped(app)
+                if (!stopped) {
+                    return StartupOpenClawUpdateResult(
+                        success = false,
+                        message = getString(R.string.dashboard_update_action_failed),
+                    )
+                }
+            }
+
+            val result = app.setupManager.runOpenClawManualSync()
+            if (result.fullReinstall) {
+                StartupOpenClawUpdateResult(
+                    success = true,
+                    message = getString(R.string.dashboard_update_action_done),
+                )
+            } else {
+                val message = getString(
+                    R.string.settings_openclaw_update_result_incremental,
+                    result.copiedCount,
+                    result.deletedCount,
+                    result.skippedCount,
+                )
+                StartupOpenClawUpdateResult(success = true, message = message)
+            }
+        } catch (error: Exception) {
+            StartupOpenClawUpdateResult(
+                success = false,
+                message = error.message ?: getString(R.string.dashboard_update_action_failed),
+            )
+        } finally {
+            restoreGatewayIfNeeded(
+                app = app,
+                shouldRestore = wasGatewayActive,
+            )
+        }
+    }
+
+    private suspend fun waitForGatewayStopped(app: AndClawApp, timeoutMs: Long = 10_000L): Boolean {
+        val startAt = System.currentTimeMillis()
+        while (System.currentTimeMillis() - startAt < timeoutMs) {
+            val status = app.processManager.gatewayState.value.status
+            if (status == GatewayStatus.STOPPED || status == GatewayStatus.ERROR) {
+                return true
+            }
+            delay(250)
+        }
+        return false
+    }
+
+    private suspend fun restoreGatewayIfNeeded(
+        app: AndClawApp,
+        shouldRestore: Boolean,
+        timeoutMs: Long = 10_000L,
+    ) {
+        if (!shouldRestore) return
+
+        var startRequested = false
+        val startAt = System.currentTimeMillis()
+        while (System.currentTimeMillis() - startAt < timeoutMs) {
+            when (app.processManager.gatewayState.value.status) {
+                GatewayStatus.RUNNING,
+                GatewayStatus.STARTING,
+                -> return
+                GatewayStatus.STOPPING -> delay(250)
+                GatewayStatus.STOPPED,
+                GatewayStatus.ERROR,
+                -> {
+                    if (!startRequested) {
+                        GatewayService.start(this)
+                        startRequested = true
+                    }
+                    delay(250)
+                }
+            }
+        }
+
+        val status = app.processManager.gatewayState.value.status
+        if (status != GatewayStatus.RUNNING && status != GatewayStatus.STARTING) {
+            GatewayService.start(this)
         }
     }
 }

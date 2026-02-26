@@ -58,6 +58,8 @@ class PreferencesManager(private val context: Context) {
         private val KEY_BUNDLE_UPDATE_LAST_FAILURE_TYPE = stringPreferencesKey("bundle_update_last_failure_type")
         private val KEY_BUNDLE_UPDATE_MANUAL_RETRY_USED = booleanPreferencesKey("bundle_update_manual_retry_used")
         private val KEY_BUNDLE_UPDATE_MANUAL_RETRY_VERSION = intPreferencesKey("bundle_update_manual_retry_version")
+        private val KEY_OPENCLAW_UPDATE_PROMPT_SUPPRESSED_BUNDLED_VERSION =
+            stringPreferencesKey("openclaw_update_prompt_suppressed_bundled_version")
         private val KEY_LOG_SECTION_UNLOCKED = booleanPreferencesKey("log_section_unlocked")
     }
 
@@ -318,6 +320,23 @@ class PreferencesManager(private val context: Context) {
 
     suspend fun setGatewayWasRunning(running: Boolean) {
         context.dataStore.edit { it[KEY_GATEWAY_WAS_RUNNING] = running }
+    }
+
+    suspend fun getOpenClawUpdatePromptSuppressedBundledVersion(): String? {
+        return context.dataStore.data.first()[KEY_OPENCLAW_UPDATE_PROMPT_SUPPRESSED_BUNDLED_VERSION]
+            ?.trim()
+            ?.ifBlank { null }
+    }
+
+    suspend fun setOpenClawUpdatePromptSuppressedBundledVersion(version: String?) {
+        context.dataStore.edit { prefs ->
+            val normalized = version?.trim().orEmpty()
+            if (normalized.isBlank()) {
+                prefs.remove(KEY_OPENCLAW_UPDATE_PROMPT_SUPPRESSED_BUNDLED_VERSION)
+            } else {
+                prefs[KEY_OPENCLAW_UPDATE_PROMPT_SUPPRESSED_BUNDLED_VERSION] = normalized
+            }
+        }
     }
 
     val logSectionUnlocked: Flow<Boolean> = context.dataStore.data.map { prefs ->

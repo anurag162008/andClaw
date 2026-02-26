@@ -235,6 +235,14 @@
     <string name="onboarding_provider_nvidia">NVIDIA</string>
     <string name="settings_openai_compatible_base_url">Temel URL (OpenAI uyumlu)</string>
     <string name="settings_openai_compatible_model_id">Model kimliği</string>
+
+    <string name="settings_openclaw_update_action">OpenClaw’ı güncelle</string>
+    <string name="settings_openclaw_update_running">OpenClaw güncelleniyor…</string>
+    <string name="settings_openclaw_update_available_version">Güncelleme mevcut: %1$s → %2$s</string>
+    <string name="settings_openclaw_update_current_version">Yüklü OpenClaw: %1$s</string>
+    <string name="settings_openclaw_update_result_incremental">OpenClaw güncellendi (kopya: %1$d, silinen: %2$d, atlanan: %3$d)</string>
+    <string name="settings_openclaw_update_result_reinstall">OpenClaw, paketlenmiş varlıklardan yeniden kuruldu.</string>
+    <string name="settings_openclaw_update_skip_until_next_version">Sonraki sürüme kadar tekrar gösterme</string>
 </resources>
 
 

@@ -235,6 +235,14 @@
     <string name="onboarding_provider_nvidia">NVIDIA</string>
     <string name="settings_openai_compatible_base_url">बेस URL (OpenAI-संगत)</string>
     <string name="settings_openai_compatible_model_id">मॉडल ID</string>
+
+    <string name="settings_openclaw_update_action">OpenClaw अपडेट करें</string>
+    <string name="settings_openclaw_update_running">OpenClaw अपडेट हो रहा है…</string>
+    <string name="settings_openclaw_update_available_version">अपडेट उपलब्ध: %1$s → %2$s</string>
+    <string name="settings_openclaw_update_current_version">इंस्टॉल किया गया OpenClaw: %1$s</string>
+    <string name="settings_openclaw_update_result_incremental">OpenClaw अपडेट हुआ (कॉपी: %1$d, हटाए गए: %2$d, छोड़े गए: %3$d)</string>
+    <string name="settings_openclaw_update_result_reinstall">बंडल किए गए एसेट्स से OpenClaw फिर से इंस्टॉल किया गया।</string>
+    <string name="settings_openclaw_update_skip_until_next_version">अगले संस्करण तक फिर से न दिखाएँ</string>
 </resources>
 
 

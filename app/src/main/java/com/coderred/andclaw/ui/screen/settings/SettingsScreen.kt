@@ -112,6 +112,11 @@ fun SettingsScreen(
     val doctorFixResult by viewModel.doctorFixResult.collectAsState()
     val isRecoveryInstallRunning by viewModel.isRecoveryInstallRunning.collectAsState()
     val recoveryInstallResult by viewModel.recoveryInstallResult.collectAsState()
+    val isOpenClawUpdateRunning by viewModel.isOpenClawUpdateRunning.collectAsState()
+    val openClawUpdateResult by viewModel.openClawUpdateResult.collectAsState()
+    val isOpenClawUpdateAvailable by viewModel.isOpenClawUpdateAvailable.collectAsState()
+    val installedOpenClawVersion by viewModel.installedOpenClawVersion.collectAsState()
+    val bundledOpenClawVersion by viewModel.bundledOpenClawVersion.collectAsState()
     val whatsappQrState by viewModel.whatsappQrState.collectAsState()
     val isWhatsAppLinked by viewModel.isWhatsAppLinked.collectAsState()
     val isChannelDisconnecting by viewModel.isChannelDisconnecting.collectAsState()
@@ -119,7 +124,7 @@ fun SettingsScreen(
     val channelDisconnectError by viewModel.channelDisconnectError.collectAsState()
     val isCodexAuthInProgress by viewModel.isCodexAuthInProgress.collectAsState()
     val isCodexAuthenticated by viewModel.isCodexAuthenticated.collectAsState()
-    KeepScreenOnEffect(enabled = isRecoveryInstallRunning)
+    KeepScreenOnEffect(enabled = isRecoveryInstallRunning || isOpenClawUpdateRunning)
     val codexAuthUrl by viewModel.codexAuthUrl.collectAsState()
     val codexAuthDebugLine by viewModel.codexAuthDebugLine.collectAsState()
     val bugReportUiState by viewModel.bugReportUiState.collectAsState()
@@ -149,8 +154,25 @@ fun SettingsScreen(
     var showBraveKeyDialog by remember { mutableStateOf(false) }
     var showOssLicensesDialog by remember { mutableStateOf(false) }
     var showRecoveryInstallConfirmDialog by remember { mutableStateOf(false) }
+    var showOpenClawUpdateConfirmDialog by remember { mutableStateOf(false) }
     var showWhatsAppActionDialog by remember { mutableStateOf(false) }
-    val isMaintenanceBusy = isDoctorFixRunning || isRecoveryInstallRunning
+    val isMaintenanceBusy = isDoctorFixRunning || isRecoveryInstallRunning || isOpenClawUpdateRunning
+    val openClawVersionInfoText = if (!installedOpenClawVersion.isNullOrBlank() && !bundledOpenClawVersion.isNullOrBlank()) {
+        if (isOpenClawUpdateAvailable) {
+            context.getString(
+                R.string.settings_openclaw_update_available_version,
+                installedOpenClawVersion!!,
+                bundledOpenClawVersion!!,
+            )
+        } else {
+            context.getString(
+                R.string.settings_openclaw_update_current_version,
+                installedOpenClawVersion!!,
+            )
+        }
+    } else {
+        null
+    }
     val ossLicensesText = remember {
         runCatching {
             context.resources.openRawResource(R.raw.third_party_licenses)
@@ -630,18 +652,52 @@ fun SettingsScreen(
                 }
             }
 
-            FilledTonalButton(
-                onClick = { showRecoveryInstallConfirmDialog = true },
-                enabled = !isMaintenanceBusy,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
+            if (isOpenClawUpdateAvailable) {
+                FilledTonalButton(
+                    onClick = { showOpenClawUpdateConfirmDialog = true },
+                    enabled = !isMaintenanceBusy,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        if (isOpenClawUpdateRunning) {
+                            stringResource(R.string.settings_openclaw_update_running)
+                        } else {
+                            stringResource(R.string.settings_openclaw_update_action)
+                        },
+                    )
+                }
+            }
+
+            if (!openClawVersionInfoText.isNullOrBlank()) {
                 Text(
-                    if (isRecoveryInstallRunning) {
-                        stringResource(R.string.settings_openclaw_doctor_fix_running)
-                    } else {
-                        stringResource(R.string.dashboard_update_action_recover)
-                    },
+                    text = openClawVersionInfoText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+
+            if (isOpenClawUpdateAvailable) {
+                TextButton(
+                    onClick = { showRecoveryInstallConfirmDialog = true },
+                    enabled = !isMaintenanceBusy,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(stringResource(R.string.dashboard_update_action_recover))
+                }
+            } else {
+                FilledTonalButton(
+                    onClick = { showRecoveryInstallConfirmDialog = true },
+                    enabled = !isMaintenanceBusy,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        if (isRecoveryInstallRunning) {
+                            stringResource(R.string.settings_openclaw_doctor_fix_running)
+                        } else {
+                            stringResource(R.string.dashboard_update_action_recover)
+                        },
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -813,6 +869,36 @@ fun SettingsScreen(
         )
     }
 
+    if (showOpenClawUpdateConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showOpenClawUpdateConfirmDialog = false },
+            shape = RoundedCornerShape(24.dp),
+            title = { Text(stringResource(R.string.settings_openclaw_update_action)) },
+            text = {
+                Text(
+                    text = openClawVersionInfoText
+                        ?: stringResource(R.string.settings_openclaw_update_action),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showOpenClawUpdateConfirmDialog = false
+                        viewModel.runOpenClawUpdate()
+                    },
+                ) {
+                    Text(stringResource(R.string.settings_restart_confirm_yes))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showOpenClawUpdateConfirmDialog = false }) {
+                    Text(stringResource(R.string.settings_restart_confirm_no))
+                }
+            },
+        )
+    }
+
     if (showRestartHint) {
         AlertDialog(
             onDismissRequest = { showRestartHint = false },
@@ -980,8 +1066,38 @@ fun SettingsScreen(
         )
     }
 
-    if (isRecoveryInstallRunning) {
-        RecoveryInstallProgressDialog()
+    if (openClawUpdateResult != null) {
+        AlertDialog(
+            onDismissRequest = { viewModel.consumeOpenClawUpdateResult() },
+            shape = RoundedCornerShape(24.dp),
+            title = {
+                Text(
+                    if (openClawUpdateResult?.success == true) {
+                        stringResource(R.string.dashboard_update_action_done)
+                    } else {
+                        stringResource(R.string.dashboard_update_action_failed)
+                    },
+                )
+            },
+            text = {
+                Text(
+                    text = openClawUpdateResult?.output.orEmpty(),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.consumeOpenClawUpdateResult() }) {
+                    Text(stringResource(android.R.string.ok))
+                }
+            },
+        )
+    }
+
+    if (isRecoveryInstallRunning || isOpenClawUpdateRunning) {
+        RecoveryInstallProgressDialog(
+            isRecoveryInstallRunning = isRecoveryInstallRunning,
+            isOpenClawUpdateRunning = isOpenClawUpdateRunning,
+        )
     }
 
     if (showRecoveryInstallConfirmDialog) {
@@ -1090,7 +1206,23 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun RecoveryInstallProgressDialog() {
+private fun RecoveryInstallProgressDialog(
+    isRecoveryInstallRunning: Boolean,
+    isOpenClawUpdateRunning: Boolean,
+) {
+    val titleText = when {
+        isOpenClawUpdateRunning -> stringResource(R.string.settings_openclaw_update_action)
+        else -> stringResource(R.string.dashboard_update_action_recover)
+    }
+    val statusText = when {
+        isOpenClawUpdateRunning -> null
+        else -> stringResource(R.string.settings_openclaw_doctor_fix_running)
+    }
+    val descriptionText = when {
+        isOpenClawUpdateRunning -> stringResource(R.string.settings_openclaw_update_running)
+        else -> stringResource(R.string.settings_recovery_install_confirm_message)
+    }
+
     Dialog(
         onDismissRequest = { },
         properties = DialogProperties(
@@ -1121,18 +1253,20 @@ private fun RecoveryInstallProgressDialog() {
                 ) {
                     CircularProgressIndicator(modifier = Modifier.size(54.dp))
                     Text(
-                        text = stringResource(R.string.dashboard_update_action_recover),
+                        text = titleText,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                     )
+                    if (statusText != null) {
+                        Text(
+                            text = statusText,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
                     Text(
-                        text = stringResource(R.string.settings_openclaw_doctor_fix_running),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        text = stringResource(R.string.settings_recovery_install_confirm_message),
+                        text = descriptionText,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

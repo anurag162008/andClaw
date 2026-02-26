@@ -366,7 +366,9 @@ class GatewayService : Service() {
             if (!isActionCurrent(actionToken)) return@withTimedWakeLock
 
             try {
-                val result = app.setupManager.updateBundleIfNeededWithPolicy()
+                val result = app.setupManager.updateBundleIfNeededWithPolicy(
+                    includeOpenClawAssetUpdate = false,
+                )
                 if (result.outcome == BundleUpdateOutcome.FAILED) {
                     android.util.Log.e("GatewayService", "Bundle update policy run failed: ${result.errorMessage}")
                     if (isActionCurrent(actionToken)) {

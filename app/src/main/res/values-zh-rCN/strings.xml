@@ -236,6 +236,14 @@
     <string name="onboarding_provider_nvidia">NVIDIA</string>
     <string name="settings_openai_compatible_base_url">基础 URL（OpenAI 兼容）</string>
     <string name="settings_openai_compatible_model_id">模型 ID</string>
+
+    <string name="settings_openclaw_update_action">更新 OpenClaw</string>
+    <string name="settings_openclaw_update_running">正在更新 OpenClaw…</string>
+    <string name="settings_openclaw_update_available_version">有可用更新：%1$s → %2$s</string>
+    <string name="settings_openclaw_update_current_version">已安装 OpenClaw：%1$s</string>
+    <string name="settings_openclaw_update_result_incremental">OpenClaw 更新完成（复制：%1$d，删除：%2$d，跳过：%3$d）</string>
+    <string name="settings_openclaw_update_result_reinstall">已从内置资源重新安装 OpenClaw。</string>
+    <string name="settings_openclaw_update_skip_until_next_version">在下个版本前不再显示</string>
 </resources>
 
 

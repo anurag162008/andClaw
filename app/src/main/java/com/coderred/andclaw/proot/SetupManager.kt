@@ -20,7 +20,6 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
-import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.File
@@ -60,6 +59,25 @@ class SetupManager(
     private val nowEpochMs: () -> Long = { System.currentTimeMillis() },
     private val nowElapsedMs: () -> Long = { SystemClock.elapsedRealtime() },
 ) {
+    data class OpenClawUpdateInfo(
+        val installedVersion: String?,
+        val bundledVersion: String?,
+        val updateAvailable: Boolean,
+    )
+
+    data class OpenClawSyncResult(
+        val copiedCount: Int,
+        val deletedCount: Int,
+        val skippedCount: Int,
+        val fullReinstall: Boolean,
+    )
+
+    private data class OpenClawIncrementalSyncSummary(
+        val copiedCount: Int,
+        val deletedCount: Int,
+        val skippedCount: Int,
+    )
+
     private val executableManifest = ExecutableManifest(context)
     private val tarInstaller = TarInstaller(context, executableManifest)
     private val directoryInstaller = DirectoryInstaller(context, executableManifest)
@@ -67,7 +85,6 @@ class SetupManager(
     private val _state = MutableStateFlow(SetupState())
     val state: StateFlow<SetupState> = _state.asStateFlow()
     private val bundleFingerprintByAsset: Map<String, String> by lazy { loadBundleFingerprintByAsset() }
-    private val openClawFileManifestByPath: Map<String, String> by lazy { loadOpenClawFileManifestByPath() }
 
     // ── 로그 / 상태 헬퍼 ──
 
@@ -378,36 +395,25 @@ class SetupManager(
             throw SetupException("OpenClaw assets directory not found (${ProotManager.OPENCLAW_ASSET_DIR})")
         }
 
-        val incrementalApplied = try {
+        val incrementalSummary = try {
             tryInstallOpenClawIncremental()
         } catch (error: Exception) {
             log("   OpenClaw incremental sync failed, fallback to full reinstall: ${error.message}")
-            false
+            null
         }
 
-        if (incrementalApplied) {
+        if (incrementalSummary != null) {
+            log(
+                "   OpenClaw incremental sync: " +
+                    "copy=${incrementalSummary.copiedCount}, " +
+                    "delete=${incrementalSummary.deletedCount}, " +
+                    "skip=${incrementalSummary.skippedCount}",
+            )
             _state.value = _state.value.copy(progress = 0.65f)
         } else {
-            directoryInstaller.install(
-                DirectoryInstallSpec(
-                    assetPath = ProotManager.OPENCLAW_ASSET_DIR,
-                    destinationDir = prootManager.rootfsDir,
-                    permissionRootDir = prootManager.rootfsDir,
-                    permissionKey = ProotManager.OPENCLAW_ASSET_DIR,
-                    cleanRelativePaths = listOf(
-                        "usr/local/lib/node_modules/openclaw",
-                        "usr/local/bin/openclaw",
-                    ),
-                ),
-            ) { entries ->
-                if (entries % 1000 == 0) log("   Extracting... ($entries entries)")
-                val pct = (entries.toFloat() / 10000).coerceAtMost(1f)
-                _state.value = _state.value.copy(progress = 0.60f + pct * 0.05f)
-            }
-            restoreOpenClawUnderscorePaths()
+            reinstallOpenClawFromAssets(updateProgress = true)
         }
 
-        saveInstalledOpenClawFileManifest(openClawFileManifestByPath)
         ensureOpenClawExecutable()
 
         log("   OpenClaw installation complete")
@@ -422,37 +428,176 @@ class SetupManager(
         log(">> OpenClaw installation complete")
     }
 
-    private fun tryInstallOpenClawIncremental(): Boolean {
-        val targetManifest = openClawFileManifestByPath
-        if (targetManifest.isEmpty()) return false
-        if (hasEncodedOpenClawPaths()) return false
+    suspend fun getOpenClawUpdateInfo(): OpenClawUpdateInfo = withContext(Dispatchers.IO) {
+        val installedVersion = readInstalledOpenClawVersion()
+        val bundledVersion = readBundledOpenClawVersion()
+        val fingerprintOutdated = isOpenClawOutdated()
+        OpenClawUpdateInfo(
+            installedVersion = installedVersion,
+            bundledVersion = bundledVersion,
+            updateAvailable = determineOpenClawUpdateAvailable(
+                installedVersion = installedVersion,
+                bundledVersion = bundledVersion,
+                fingerprintOutdated = fingerprintOutdated,
+            ),
+        )
+    }
 
-        val openclawRoot = File(prootManager.rootfsDir, "usr/local/lib/node_modules/openclaw")
-        val openclawBin = File(prootManager.rootfsDir, "usr/local/bin/openclaw")
-        if (!openclawRoot.exists() || !openclawBin.exists()) return false
-
-        val installedManifest = loadInstalledOpenClawFileManifest()
-        if (installedManifest.isEmpty()) return false
-
-        val stalePaths = installedManifest.keys
-            .asSequence()
-            .filter { it !in targetManifest }
-            .toList()
-
-        val changedPaths = targetManifest.entries
-            .asSequence()
-            .filter { (path, sha) ->
-                installedManifest[path] != sha || !File(prootManager.rootfsDir, path).isFile
-            }
-            .map { it.key }
-            .toList()
-
-        if (stalePaths.isEmpty() && changedPaths.isEmpty()) {
-            log("   OpenClaw incremental sync: no file changes")
-            return true
+    suspend fun runOpenClawManualSync(): OpenClawSyncResult = withContext(Dispatchers.IO) {
+        val hasOpenClawDir = context.assets.list(ProotManager.OPENCLAW_ASSET_DIR)?.isNotEmpty() == true
+        if (!hasOpenClawDir) {
+            throw SetupException("OpenClaw assets directory not found (${ProotManager.OPENCLAW_ASSET_DIR})")
         }
 
-        log("   OpenClaw incremental sync: copy=${changedPaths.size}, delete=${stalePaths.size}")
+        val summary = try {
+            tryInstallOpenClawIncremental()
+        } catch (error: Exception) {
+            log("   OpenClaw manual sync failed, fallback to full reinstall: ${error.message}")
+            null
+        }
+
+        val result = if (summary != null) {
+            OpenClawSyncResult(
+                copiedCount = summary.copiedCount,
+                deletedCount = summary.deletedCount,
+                skippedCount = summary.skippedCount,
+                fullReinstall = false,
+            )
+        } else {
+            reinstallOpenClawFromAssets(updateProgress = false)
+            OpenClawSyncResult(
+                copiedCount = 0,
+                deletedCount = 0,
+                skippedCount = 0,
+                fullReinstall = true,
+            )
+        }
+
+        ensureOpenClawExecutable()
+        saveVersion(openclawVersionFile)
+        saveFingerprint(openclawFingerprintFile, ProotManager.OPENCLAW_ASSET_DIR)
+        result
+    }
+
+    private fun readInstalledOpenClawVersion(): String? {
+        val packageJson = File(prootManager.rootfsDir, OPENCLAW_PACKAGE_JSON_RELATIVE_PATH)
+        if (!packageJson.exists()) return null
+        return runCatching {
+            JSONObject(packageJson.readText()).optString("version").trim().ifBlank { null }
+        }.getOrNull()
+    }
+
+    private fun readBundledOpenClawVersion(): String? {
+        val assetPath = "${ProotManager.OPENCLAW_ASSET_DIR}/$OPENCLAW_PACKAGE_JSON_RELATIVE_PATH"
+        return runCatching {
+            context.assets.open(assetPath).bufferedReader().use { reader ->
+                JSONObject(reader.readText()).optString("version").trim().ifBlank { null }
+            }
+        }.getOrNull()
+    }
+
+    internal fun determineOpenClawUpdateAvailable(
+        installedVersion: String?,
+        bundledVersion: String?,
+        fingerprintOutdated: Boolean,
+    ): Boolean {
+        val versionComparison = compareBundledOpenClawVersion(installedVersion, bundledVersion)
+        return when {
+            versionComparison != null && versionComparison < 0 -> false
+            versionComparison != null && versionComparison > 0 -> true
+            else -> fingerprintOutdated
+        }
+    }
+
+    private fun compareBundledOpenClawVersion(installedVersion: String?, bundledVersion: String?): Int? {
+        val bundled = parseComparableVersion(bundledVersion) ?: return null
+        val installed = parseComparableVersion(installedVersion) ?: return 1
+        val maxSize = maxOf(installed.size, bundled.size)
+        for (index in 0 until maxSize) {
+            val installedPart = installed.getOrElse(index) { 0 }
+            val bundledPart = bundled.getOrElse(index) { 0 }
+            if (bundledPart > installedPart) return 1
+            if (bundledPart < installedPart) return -1
+        }
+        return 0
+    }
+
+    private fun parseComparableVersion(version: String?): List<Int>? {
+        if (version.isNullOrBlank()) return null
+        val normalized = version.trim()
+        val parts = normalized.split(".")
+            .map { segment ->
+                val digits = segment.takeWhile { it.isDigit() }
+                if (digits.isEmpty()) return null
+                digits.toIntOrNull() ?: return null
+            }
+        return if (parts.isEmpty()) null else parts
+    }
+
+    private suspend fun reinstallOpenClawFromAssets(updateProgress: Boolean) {
+        directoryInstaller.install(
+            DirectoryInstallSpec(
+                assetPath = ProotManager.OPENCLAW_ASSET_DIR,
+                destinationDir = prootManager.rootfsDir,
+                permissionRootDir = prootManager.rootfsDir,
+                permissionKey = ProotManager.OPENCLAW_ASSET_DIR,
+                cleanRelativePaths = listOf(
+                    "usr/local/lib/node_modules/openclaw",
+                    "usr/local/bin/openclaw",
+                ),
+            ),
+        ) { entries ->
+            if (updateProgress) {
+                if (entries % 1000 == 0) log("   Extracting... ($entries entries)")
+                val pct = (entries.toFloat() / 10000).coerceAtMost(1f)
+                _state.value = _state.value.copy(progress = 0.60f + pct * 0.05f)
+            }
+        }
+        restoreOpenClawUnderscorePaths()
+    }
+
+    private fun tryInstallOpenClawIncremental(): OpenClawIncrementalSyncSummary? {
+        if (hasEncodedOpenClawPaths()) return null
+
+        val bundledFilesByRelativePath = listBundledOpenClawFilesByRelativePath()
+        if (bundledFilesByRelativePath.isEmpty()) return null
+
+        val installedPaths = listInstalledOpenClawFiles()
+        if (installedPaths.isEmpty()) return null
+
+        val stalePaths = installedPaths
+            .asSequence()
+            .filter { it !in bundledFilesByRelativePath.keys }
+            .toList()
+
+        var copiedCount = 0
+        var skippedCount = 0
+        bundledFilesByRelativePath.entries.forEachIndexed { index, (relativePath, encodedAssetRelativePath) ->
+            if (!isSafeOpenClawSyncPath(relativePath)) {
+                throw SetupException("Unsafe OpenClaw asset path: $relativePath")
+            }
+            val assetPath = "${ProotManager.OPENCLAW_ASSET_DIR}/$encodedAssetRelativePath"
+            val destination = File(prootManager.rootfsDir, relativePath)
+            val unchanged = destination.isFile && isAssetContentIdentical(assetPath, destination)
+            if (unchanged) {
+                skippedCount++
+            } else {
+                copyAssetFile(assetPath, destination)
+                copiedCount++
+            }
+            if ((index + 1) % 500 == 0) {
+                log("   Incremental scan... (${index + 1}/${bundledFilesByRelativePath.size})")
+            }
+        }
+
+        if (stalePaths.isEmpty() && copiedCount == 0) {
+            log("   OpenClaw incremental sync: no file changes")
+            return OpenClawIncrementalSyncSummary(
+                copiedCount = 0,
+                deletedCount = 0,
+                skippedCount = skippedCount,
+            )
+        }
 
         stalePaths.sortedByDescending { it.length }.forEach { relativePath ->
             if (!isSafeOpenClawSyncPath(relativePath)) return@forEach
@@ -464,22 +609,13 @@ class SetupManager(
             }
         }
 
-        changedPaths.forEachIndexed { index, relativePath ->
-            if (!isSafeOpenClawSyncPath(relativePath)) {
-                throw SetupException("Unsafe OpenClaw manifest path: $relativePath")
-            }
-            val encodedPath = encodeOpenClawAssetPath(relativePath)
-            val assetPath = "${ProotManager.OPENCLAW_ASSET_DIR}/$encodedPath"
-            val destination = File(prootManager.rootfsDir, relativePath)
-            copyAssetFile(assetPath, destination)
-            if ((index + 1) % 500 == 0) {
-                log("   Incremental copy... (${index + 1}/${changedPaths.size})")
-            }
-        }
-
         pruneEmptyOpenClawDirectories()
         executableManifest.apply(ProotManager.OPENCLAW_ASSET_DIR, prootManager.rootfsDir)
-        return true
+        return OpenClawIncrementalSyncSummary(
+            copiedCount = copiedCount,
+            deletedCount = stalePaths.size,
+            skippedCount = skippedCount,
+        )
     }
 
     private fun copyAssetFile(assetPath: String, destination: File) {
@@ -491,15 +627,83 @@ class SetupManager(
         }
     }
 
-    private fun encodeOpenClawAssetPath(relativePath: String): String {
+    private fun decodeOpenClawAssetPath(relativePath: String): String {
         return relativePath.split("/")
             .joinToString("/") { segment ->
-                if (segment.startsWith("_")) {
-                    OPENCLAW_UNDERSCORE_PREFIX + segment.removePrefix("_")
+                if (segment.startsWith(OPENCLAW_UNDERSCORE_PREFIX)) {
+                    "_" + segment.removePrefix(OPENCLAW_UNDERSCORE_PREFIX)
                 } else {
                     segment
                 }
             }
+    }
+
+    private fun listBundledOpenClawFilesByRelativePath(): Map<String, String> {
+        val files = mutableMapOf<String, String>()
+        val allAssets = listAssetFilesRecursively(ProotManager.OPENCLAW_ASSET_DIR)
+        allAssets.forEach { assetPath ->
+            if (assetPath == ProotManager.OPENCLAW_ASSET_DIR) return@forEach
+            val encodedRelativePath = assetPath.removePrefix("${ProotManager.OPENCLAW_ASSET_DIR}/")
+            if (encodedRelativePath.isBlank()) return@forEach
+            val decodedRelativePath = decodeOpenClawAssetPath(encodedRelativePath)
+            if (!isSafeOpenClawSyncPath(decodedRelativePath)) return@forEach
+            val replaced = files.put(decodedRelativePath, encodedRelativePath)
+            if (replaced != null && replaced != encodedRelativePath) {
+                throw SetupException("Duplicated OpenClaw asset path after decode: $decodedRelativePath")
+            }
+        }
+        return files
+    }
+
+    private fun listAssetFilesRecursively(rootAssetPath: String): List<String> {
+        val children = runCatching { context.assets.list(rootAssetPath) }.getOrNull() ?: return emptyList()
+        if (children.isEmpty()) return listOf(rootAssetPath)
+        val files = mutableListOf<String>()
+        children.sorted().forEach { child ->
+            val childPath = if (rootAssetPath.isBlank()) child else "$rootAssetPath/$child"
+            files += listAssetFilesRecursively(childPath)
+        }
+        return files
+    }
+
+    private fun listInstalledOpenClawFiles(): Set<String> {
+        val files = mutableSetOf<String>()
+        val rootfs = prootManager.rootfsDir
+        val openclawRoot = File(rootfs, "usr/local/lib/node_modules/openclaw")
+        if (openclawRoot.exists()) {
+            openclawRoot.walkTopDown()
+                .filter { it.isFile }
+                .forEach { file ->
+                    val relativePath = file.relativeTo(rootfs).invariantSeparatorsPath
+                    if (isSafeOpenClawSyncPath(relativePath)) {
+                        files += relativePath
+                    }
+                }
+        }
+        val openclawBin = File(rootfs, "usr/local/bin/openclaw")
+        if (openclawBin.isFile) {
+            files += "usr/local/bin/openclaw"
+        }
+        return files
+    }
+
+    private fun isAssetContentIdentical(assetPath: String, destination: File): Boolean {
+        if (!destination.isFile) return false
+        context.assets.open(assetPath).buffered(65536).use { assetInput ->
+            destination.inputStream().buffered(65536).use { destinationInput ->
+                val assetBuffer = ByteArray(65536)
+                val destinationBuffer = ByteArray(65536)
+                while (true) {
+                    val assetRead = assetInput.read(assetBuffer)
+                    val destinationRead = destinationInput.read(destinationBuffer)
+                    if (assetRead != destinationRead) return false
+                    if (assetRead <= 0) return true
+                    for (index in 0 until assetRead) {
+                        if (assetBuffer[index] != destinationBuffer[index]) return false
+                    }
+                }
+            }
+        }
     }
 
     private fun pruneEmptyOpenClawDirectories() {
@@ -607,17 +811,22 @@ class SetupManager(
      * 3개 번들을 각각 독립적으로 체크하고, 아웃데이트된 것만 재추출한다.
      * SetupScreen 없이 GatewayService에서 직접 호출 가능.
      */
-    fun isBundleUpdateRequired(): Boolean {
+    fun isBundleUpdateRequired(includeOpenClawAssetUpdate: Boolean = false): Boolean {
+        val openClawUpdateRequired = !prootManager.isOpenClawInstalled ||
+            hasEncodedOpenClawPaths() ||
+            (includeOpenClawAssetUpdate && isOpenClawOutdated())
         return !prootManager.isSystemToolsInstalled ||
             isToolsOutdated() ||
-            !prootManager.isOpenClawInstalled ||
-            hasEncodedOpenClawPaths() ||
-            isOpenClawOutdated() ||
+            openClawUpdateRequired ||
             !prootManager.isChromiumInstalled ||
             isPlaywrightOutdated()
     }
 
-    suspend fun updateBundleIfNeeded(onStepChanged: ((SetupStep) -> Unit)? = null) = withContext(Dispatchers.IO) {
+    suspend fun updateBundleIfNeeded(
+        onStepChanged: ((SetupStep) -> Unit)? = null,
+        includeOpenClawAssetUpdate: Boolean = false,
+        forceOpenClawReinstall: Boolean = false,
+    ) = withContext(Dispatchers.IO) {
         val appVersion = getAppVersionCode()
 
         if (!prootManager.isSystemToolsInstalled || isToolsOutdated()) {
@@ -628,7 +837,11 @@ class SetupManager(
         }
 
         val openClawPathRecoveryRequired = hasEncodedOpenClawPaths()
-        if (!prootManager.isOpenClawInstalled || isOpenClawOutdated() || openClawPathRecoveryRequired) {
+        val openClawUpdateRequired = forceOpenClawReinstall ||
+            !prootManager.isOpenClawInstalled ||
+            openClawPathRecoveryRequired ||
+            (includeOpenClawAssetUpdate && isOpenClawOutdated())
+        if (openClawUpdateRequired) {
             android.util.Log.i("SetupManager", "OpenClaw update required (installed=${getInstalledVersion(openclawVersionFile)}, app=$appVersion)")
             if (openClawPathRecoveryRequired) {
                 android.util.Log.i("SetupManager", "OpenClaw encoded underscore paths detected; reinstall required")
@@ -656,11 +869,15 @@ class SetupManager(
         onStepChanged: ((SetupStep) -> Unit)? = null,
         timeoutMs: Long = DEFAULT_UPDATE_TIMEOUT_MS,
         manualRetry: Boolean = false,
+        includeOpenClawAssetUpdate: Boolean = true,
+        forceOpenClawReinstall: Boolean = false,
     ): BundleUpdateAttemptResult = withContext(Dispatchers.IO) {
         return@withContext runBundleUpdateWithPolicy(
             onStepChanged = onStepChanged,
             timeoutMs = timeoutMs,
             manualRetry = manualRetry,
+            includeOpenClawAssetUpdate = includeOpenClawAssetUpdate,
+            forceOpenClawReinstall = forceOpenClawReinstall,
         )
     }
 
@@ -673,6 +890,8 @@ class SetupManager(
             // Clearing install markers is enough to force re-install on the recovery path.
             beforeUpdate = { clearDependentInstallMarkers() },
             allowWhenUpdateNotRequired = true,
+            includeOpenClawAssetUpdate = true,
+            forceOpenClawReinstall = true,
         )
     }
 
@@ -682,11 +901,16 @@ class SetupManager(
         manualRetry: Boolean,
         beforeUpdate: (() -> Unit)? = null,
         allowWhenUpdateNotRequired: Boolean = false,
+        includeOpenClawAssetUpdate: Boolean = false,
+        forceOpenClawReinstall: Boolean = false,
     ): BundleUpdateAttemptResult = withContext(Dispatchers.IO) {
         val appVersion = getAppVersionCode()
         val prefs = preferencesManager
         var consumeManualRetryOnFailure = false
-        if (!isBundleUpdateRequired() && !allowWhenUpdateNotRequired) {
+        val updateRequired = forceOpenClawReinstall || isBundleUpdateRequired(
+            includeOpenClawAssetUpdate = includeOpenClawAssetUpdate,
+        )
+        if (!updateRequired && !allowWhenUpdateNotRequired) {
             prefs?.clearBundleUpdateFailure(appVersion)
             return@withContext BundleUpdateAttemptResult(
                 outcome = BundleUpdateOutcome.SKIPPED_NOT_REQUIRED,
@@ -719,7 +943,11 @@ class SetupManager(
         return@withContext try {
             beforeUpdate?.invoke()
             withTimeout(timeoutMs) {
-                updateBundleIfNeeded(onStepChanged)
+                updateBundleIfNeeded(
+                    onStepChanged = onStepChanged,
+                    includeOpenClawAssetUpdate = includeOpenClawAssetUpdate,
+                    forceOpenClawReinstall = forceOpenClawReinstall,
+                )
             }
             prefs?.clearBundleUpdateFailure(appVersion)
             BundleUpdateAttemptResult(
@@ -791,9 +1019,6 @@ class SetupManager(
 
     private val openclawFingerprintFile: File
         get() = File(prootManager.rootfsDir, ".bundle_fingerprint")
-
-    private val openclawInstalledManifestFile: File
-        get() = File(prootManager.rootfsDir, ".openclaw_file_manifest.json")
 
     private val playwrightFingerprintFile: File
         get() = File(prootManager.rootfsDir, ".playwright_fingerprint")
@@ -873,7 +1098,6 @@ class SetupManager(
         toolsFingerprintFile.delete()
         openclawFingerprintFile.delete()
         playwrightFingerprintFile.delete()
-        openclawInstalledManifestFile.delete()
     }
 
     private fun clearBundleInstallArtifacts() {
@@ -936,7 +1160,8 @@ class SetupManager(
     private companion object {
         private const val OPENCLAW_UNDERSCORE_PREFIX = "andclaw_us__"
         private const val BUNDLE_FINGERPRINT_ASSET = "bundle-fingerprint.json"
-        private const val OPENCLAW_FILE_MANIFEST_ASSET = "openclaw-file-manifest.json"
+        private const val OPENCLAW_PACKAGE_JSON_RELATIVE_PATH =
+            "usr/local/lib/node_modules/openclaw/package.json"
         private const val AUTO_RETRY_LIMIT = 3
         private const val COOLDOWN_MS = 24L * 60L * 60L * 1000L
         private const val DEFAULT_UPDATE_TIMEOUT_MS = 20L * 60L * 1000L
@@ -992,78 +1217,6 @@ class SetupManager(
             }
         } catch (_: Exception) {
             emptyMap()
-        }
-    }
-
-    private fun loadOpenClawFileManifestByPath(): Map<String, String> {
-        val jsonText = try {
-            context.assets.open(OPENCLAW_FILE_MANIFEST_ASSET).bufferedReader().use { it.readText() }
-        } catch (_: FileNotFoundException) {
-            return emptyMap()
-        } catch (_: Exception) {
-            return emptyMap()
-        }
-
-        return try {
-            val root = JSONObject(jsonText)
-            val files = root.optJSONArray("files") ?: JSONArray()
-            buildMap {
-                for (index in 0 until files.length()) {
-                    val entry = files.optJSONObject(index) ?: continue
-                    val path = entry.optString("path").trim()
-                    val sha = entry.optString("sha256").trim()
-                    if (path.isNotEmpty() && sha.isNotEmpty() && isSafeOpenClawSyncPath(path)) {
-                        put(path, sha)
-                    }
-                }
-            }
-        } catch (_: Exception) {
-            emptyMap()
-        }
-    }
-
-    private fun loadInstalledOpenClawFileManifest(): Map<String, String> {
-        if (!openclawInstalledManifestFile.exists()) return emptyMap()
-        return try {
-            val root = JSONObject(openclawInstalledManifestFile.readText())
-            val files = root.optJSONArray("files") ?: JSONArray()
-            buildMap {
-                for (index in 0 until files.length()) {
-                    val entry = files.optJSONObject(index) ?: continue
-                    val path = entry.optString("path").trim()
-                    val sha = entry.optString("sha256").trim()
-                    if (path.isNotEmpty() && sha.isNotEmpty() && isSafeOpenClawSyncPath(path)) {
-                        put(path, sha)
-                    }
-                }
-            }
-        } catch (_: Exception) {
-            emptyMap()
-        }
-    }
-
-    private fun saveInstalledOpenClawFileManifest(manifestByPath: Map<String, String>) {
-        try {
-            if (manifestByPath.isEmpty()) {
-                openclawInstalledManifestFile.delete()
-                return
-            }
-
-            val fileArray = JSONArray()
-            manifestByPath.toSortedMap().forEach { (path, sha) ->
-                fileArray.put(
-                    JSONObject()
-                        .put("path", path)
-                        .put("sha256", sha),
-                )
-            }
-            val root = JSONObject()
-                .put("version", 1)
-                .put("asset", ProotManager.OPENCLAW_ASSET_DIR)
-                .put("files", fileArray)
-            openclawInstalledManifestFile.writeText(root.toString())
-        } catch (error: Exception) {
-            log("   WARNING: Failed to persist OpenClaw file manifest (${error.message})")
         }
     }
 

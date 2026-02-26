@@ -235,6 +235,14 @@
     <string name="onboarding_provider_nvidia">NVIDIA</string>
     <string name="settings_openai_compatible_base_url">URL base (compatível com OpenAI)</string>
     <string name="settings_openai_compatible_model_id">ID do modelo</string>
+
+    <string name="settings_openclaw_update_action">Atualizar OpenClaw</string>
+    <string name="settings_openclaw_update_running">Atualizando OpenClaw…</string>
+    <string name="settings_openclaw_update_available_version">Atualização disponível: %1$s → %2$s</string>
+    <string name="settings_openclaw_update_current_version">OpenClaw instalado: %1$s</string>
+    <string name="settings_openclaw_update_result_incremental">OpenClaw atualizado (copiados: %1$d, excluídos: %2$d, ignorados: %3$d)</string>
+    <string name="settings_openclaw_update_result_reinstall">OpenClaw foi reinstalado a partir dos assets incluídos.</string>
+    <string name="settings_openclaw_update_skip_until_next_version">Não mostrar novamente até a próxima versão</string>
 </resources>
 
 
