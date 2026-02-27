@@ -16,7 +16,7 @@
     <string name="setup_proot_unavailable">不可用</string>
     <string name="setup_description">所需的一切都已包含在内。只需点击下方按钮。</string>
     <string name="setup_steps_detail">1. 准备环境\n2. 安装组件\n3. 设置 AI 引擎\n4. 最终配置</string>
-    <string name="setup_estimate">1–2 分钟</string>
+    <string name="setup_estimate">1–3 分钟</string>
     <string name="setup_btn_start">开始安装</string>
     <string name="setup_btn_next_step">继续</string>
     <string name="setup_btn_retry">重试</string>

@@ -19,7 +19,7 @@
     <string name="setup_proot_unavailable">없음</string>
     <string name="setup_description">필요한 모든 것이 포함되어 있어요. 아래 버튼만 누르면 돼요.</string>
     <string name="setup_steps_detail">1. 환경 준비\n2. 구성 요소 설치\n3. AI 엔진 설치\n4. 마무리 설정</string>
-    <string name="setup_estimate">1~2분 소요</string>
+    <string name="setup_estimate">1~3분 소요</string>
     <string name="setup_btn_start">설치 시작</string>
     <string name="setup_btn_next_step">다음 단계로</string>
     <string name="setup_btn_retry">다시 시도</string>

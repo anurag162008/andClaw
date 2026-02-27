@@ -18,6 +18,7 @@ import com.coderred.andclaw.BuildConfig
 import com.coderred.andclaw.data.BugReportBundleBuilder
 import com.coderred.andclaw.data.BugReportZipArtifact
 import com.coderred.andclaw.data.BugReportZipWriter
+import com.coderred.andclaw.data.SetupState
 import com.coderred.andclaw.data.OpenRouterModel
 import com.coderred.andclaw.data.SessionLogEntry
 import com.coderred.andclaw.data.parseOpenRouterModels
@@ -111,6 +112,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     val autoStartOnBoot: StateFlow<Boolean> = prefs.autoStartOnBoot
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    val setupState: StateFlow<SetupState> = setupManager.state
+        .stateIn(viewModelScope, SharingStarted.Eagerly, SetupState())
 
     val chargeOnlyMode: StateFlow<Boolean> = prefs.chargeOnlyMode
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)

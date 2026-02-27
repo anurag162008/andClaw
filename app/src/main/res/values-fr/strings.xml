@@ -16,7 +16,7 @@
     <string name="setup_proot_unavailable">Non disponible</string>
     <string name="setup_description">Tout est inclus. Appuyez simplement sur le bouton ci-dessous.</string>
     <string name="setup_steps_detail">1. Préparer l\'environnement\n2. Installer les composants\n3. Configurer le moteur IA\n4. Configuration finale</string>
-    <string name="setup_estimate">1–2 minutes</string>
+    <string name="setup_estimate">1–3 minutes</string>
     <string name="setup_btn_start">Démarrer l\'installation</string>
     <string name="setup_btn_next_step">Continuer</string>
     <string name="setup_btn_retry">Réessayer</string>

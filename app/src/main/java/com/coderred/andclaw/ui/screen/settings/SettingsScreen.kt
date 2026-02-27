@@ -45,6 +45,7 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -77,6 +78,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.coderred.andclaw.BuildConfig
 import com.coderred.andclaw.R
 import com.coderred.andclaw.data.BugReportEmailIntentBuilder
+import com.coderred.andclaw.data.SetupStep
 import com.coderred.andclaw.data.BugReportEmailMetadata
 import com.coderred.andclaw.data.BugReportEmailSummary
 import com.coderred.andclaw.ui.component.KeepScreenOnEffect
@@ -117,6 +119,7 @@ fun SettingsScreen(
     val isOpenClawUpdateAvailable by viewModel.isOpenClawUpdateAvailable.collectAsState()
     val installedOpenClawVersion by viewModel.installedOpenClawVersion.collectAsState()
     val bundledOpenClawVersion by viewModel.bundledOpenClawVersion.collectAsState()
+    val setupState by viewModel.setupState.collectAsState()
     val whatsappQrState by viewModel.whatsappQrState.collectAsState()
     val isWhatsAppLinked by viewModel.isWhatsAppLinked.collectAsState()
     val isChannelDisconnecting by viewModel.isChannelDisconnecting.collectAsState()
@@ -1097,6 +1100,11 @@ fun SettingsScreen(
         RecoveryInstallProgressDialog(
             isRecoveryInstallRunning = isRecoveryInstallRunning,
             isOpenClawUpdateRunning = isOpenClawUpdateRunning,
+            progress = setupState.progress,
+            stepLabel = stringResource(setupState.currentStep.displayNameRes),
+            isFileCountMode = setupState.currentStep == SetupStep.INSTALLING_OPENCLAW,
+            downloadedBytes = setupState.downloadedBytes,
+            totalBytes = setupState.totalBytes,
         )
     }
 
@@ -1209,6 +1217,11 @@ fun SettingsScreen(
 private fun RecoveryInstallProgressDialog(
     isRecoveryInstallRunning: Boolean,
     isOpenClawUpdateRunning: Boolean,
+    progress: Float,
+    stepLabel: String,
+    isFileCountMode: Boolean,
+    downloadedBytes: Long,
+    totalBytes: Long,
 ) {
     val titleText = when {
         isOpenClawUpdateRunning -> stringResource(R.string.settings_openclaw_update_action)
@@ -1270,9 +1283,57 @@ private fun RecoveryInstallProgressDialog(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    LinearProgressIndicator(
+                        progress = { progress.coerceIn(0f, 1f) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(8.dp),
+                    )
+                    Text(
+                        text = if (isFileCountMode) {
+                            val safeDownloaded = downloadedBytes.coerceAtLeast(0L)
+                            "${(progress.coerceIn(0f, 1f) * 100).toInt()}% · $stepLabel · " +
+                                if (totalBytes > 0L) {
+                                    "($safeDownloaded/$totalBytes)"
+                                } else {
+                                    "($safeDownloaded/?)"
+                                }
+                        } else {
+                            "${(progress.coerceIn(0f, 1f) * 100).toInt()}% · $stepLabel"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (!isFileCountMode && downloadedBytes > 0L) {
+                        Text(
+                            text = if (totalBytes > 0L) {
+                                "${formatBytesForProgress(downloadedBytes)} / ${formatBytesForProgress(totalBytes)}"
+                            } else {
+                                formatBytesForProgress(downloadedBytes)
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
         }
+    }
+}
+
+private fun formatBytesForProgress(bytes: Long): String {
+    if (bytes <= 0L) return "0 B"
+    val units = arrayOf("B", "KB", "MB", "GB")
+    var value = bytes.toDouble()
+    var unitIndex = 0
+    while (value >= 1024 && unitIndex < units.lastIndex) {
+        value /= 1024.0
+        unitIndex++
+    }
+    return if (value >= 100 || unitIndex == 0) {
+        String.format(Locale.US, "%.0f %s", value, units[unitIndex])
+    } else {
+        String.format(Locale.US, "%.1f %s", value, units[unitIndex])
     }
 }
 

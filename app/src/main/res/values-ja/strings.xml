@@ -16,7 +16,7 @@
     <string name="setup_proot_unavailable">利用不可</string>
     <string name="setup_description">必要なものはすべて含まれています。下のボタンを押すだけ。</string>
     <string name="setup_steps_detail">1. 環境の準備\n2. コンポーネントのインストール\n3. AIエンジンのセットアップ\n4. 最終設定</string>
-    <string name="setup_estimate">1〜2分</string>
+    <string name="setup_estimate">1〜3分</string>
     <string name="setup_btn_start">セットアップ開始</string>
     <string name="setup_btn_next_step">次へ</string>
     <string name="setup_btn_retry">再試行</string>

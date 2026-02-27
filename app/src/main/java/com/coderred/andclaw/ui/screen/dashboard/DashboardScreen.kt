@@ -54,6 +54,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -95,6 +96,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.coderred.andclaw.R
+import com.coderred.andclaw.data.SetupStep
 import com.coderred.andclaw.data.GatewayStatus
 import com.coderred.andclaw.data.PairingRequest
 import com.coderred.andclaw.proot.BundleUpdateFailureState
@@ -107,6 +109,7 @@ import com.coderred.andclaw.ui.theme.StatusStopped
 import com.coderred.andclaw.ui.theme.StatusWarning
 import java.text.DateFormat
 import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -133,6 +136,8 @@ fun DashboardScreen(
     val bundleUpdateFailure by viewModel.bundleUpdateFailure.collectAsState()
     val bundleActionInProgress by viewModel.bundleActionInProgress.collectAsState()
     val bundleActionMessage by viewModel.bundleActionMessage.collectAsState()
+    val bundleActionType by viewModel.bundleActionType.collectAsState()
+    val setupState by viewModel.setupState.collectAsState()
     val context = LocalContext.current
     KeepScreenOnEffect(enabled = bundleActionInProgress)
 
@@ -324,6 +329,24 @@ fun DashboardScreen(
                 PairingActionType.DENY -> stringResource(R.string.pairing_deny)
             },
             request = progress.request,
+        )
+    }
+
+    if (bundleActionInProgress) {
+        BundleActionProgressDialog(
+            titleText = when (bundleActionType) {
+                BundleActionType.RECOVERY -> stringResource(R.string.dashboard_update_action_recover)
+                else -> stringResource(R.string.dashboard_update_action_retry)
+            },
+            descriptionText = when (bundleActionType) {
+                BundleActionType.RECOVERY -> stringResource(R.string.settings_recovery_install_confirm_message)
+                else -> stringResource(R.string.dashboard_update_failed_title)
+            },
+            stepLabel = stringResource(setupState.currentStep.displayNameRes),
+            progress = setupState.progress,
+            isFileCountMode = setupState.currentStep == SetupStep.INSTALLING_OPENCLAW,
+            downloadedBytes = setupState.downloadedBytes,
+            totalBytes = setupState.totalBytes,
         )
     }
 }
@@ -1114,5 +1137,110 @@ private fun PairingActionProgressDialog(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun BundleActionProgressDialog(
+    titleText: String,
+    descriptionText: String,
+    stepLabel: String,
+    progress: Float,
+    isFileCountMode: Boolean,
+    downloadedBytes: Long,
+    totalBytes: Long,
+) {
+    val safeProgress = progress.coerceIn(0f, 1f)
+    Dialog(
+        onDismissRequest = { },
+        properties = DialogProperties(
+            dismissOnBackPress = false,
+            dismissOnClickOutside = false,
+            usePlatformDefaultWidth = false,
+        ),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(20.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(28.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                ),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 28.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(54.dp))
+                    Text(
+                        text = titleText,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        text = descriptionText,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    LinearProgressIndicator(
+                        progress = { safeProgress },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(8.dp),
+                    )
+                    Text(
+                        text = if (isFileCountMode) {
+                            val safeDownloaded = downloadedBytes.coerceAtLeast(0L)
+                            "${(safeProgress * 100).toInt()}% · $stepLabel · " +
+                                if (totalBytes > 0L) {
+                                    "($safeDownloaded/$totalBytes)"
+                                } else {
+                                    "($safeDownloaded/?)"
+                                }
+                        } else {
+                            "${(safeProgress * 100).toInt()}% · $stepLabel"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (!isFileCountMode && downloadedBytes > 0L) {
+                        Text(
+                            text = if (totalBytes > 0L) {
+                                "${formatBytesForProgress(downloadedBytes)} / ${formatBytesForProgress(totalBytes)}"
+                            } else {
+                                formatBytesForProgress(downloadedBytes)
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun formatBytesForProgress(bytes: Long): String {
+    if (bytes <= 0L) return "0 B"
+    val units = arrayOf("B", "KB", "MB", "GB")
+    var value = bytes.toDouble()
+    var unitIndex = 0
+    while (value >= 1024 && unitIndex < units.lastIndex) {
+        value /= 1024.0
+        unitIndex++
+    }
+    return if (value >= 100 || unitIndex == 0) {
+        String.format(Locale.US, "%.0f %s", value, units[unitIndex])
+    } else {
+        String.format(Locale.US, "%.1f %s", value, units[unitIndex])
     }
 }

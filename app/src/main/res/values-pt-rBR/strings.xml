@@ -18,7 +18,7 @@
     <string name="setup_proot_unavailable">Não disponível</string>
     <string name="setup_description">Tudo está incluído. Basta tocar no botão abaixo.</string>
     <string name="setup_steps_detail">1. Preparar ambiente\n2. Instalar componentes\n3. Configurar mecanismo de IA\n4. Configuração final</string>
-    <string name="setup_estimate">Leva 1–2 minutos</string>
+    <string name="setup_estimate">Leva 1–3 minutos</string>
     <string name="setup_btn_start">Iniciar Configuração</string>
     <string name="setup_btn_next_step">Continuar</string>
     <string name="setup_btn_retry">Tentar Novamente</string>

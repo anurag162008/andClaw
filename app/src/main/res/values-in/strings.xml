@@ -18,7 +18,7 @@
     <string name="setup_proot_unavailable">Tidak tersedia</string>
     <string name="setup_description">Semuanya sudah disertakan. Cukup ketuk tombol di bawah.</string>
     <string name="setup_steps_detail">1. Siapkan lingkungan\n2. Instal komponen\n3. Atur mesin AI\n4. Konfigurasi akhir</string>
-    <string name="setup_estimate">Membutuhkan 1–2 menit</string>
+    <string name="setup_estimate">Membutuhkan 1–3 menit</string>
     <string name="setup_btn_start">Mulai Pengaturan</string>
     <string name="setup_btn_next_step">Lanjutkan</string>
     <string name="setup_btn_retry">Coba Lagi</string>

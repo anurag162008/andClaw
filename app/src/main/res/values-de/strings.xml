@@ -18,7 +18,7 @@
     <string name="setup_proot_unavailable">Nicht verfügbar</string>
     <string name="setup_description">Alles Nötige ist enthalten. Einfach auf den Button tippen.</string>
     <string name="setup_steps_detail">1. Umgebung vorbereiten\n2. Komponenten installieren\n3. KI-Engine einrichten\n4. Abschließende Konfiguration</string>
-    <string name="setup_estimate">1–2 Minuten</string>
+    <string name="setup_estimate">1–3 Minuten</string>
     <string name="setup_btn_start">Installation starten</string>
     <string name="setup_btn_next_step">Weiter</string>
     <string name="setup_btn_retry">Erneut versuchen</string>

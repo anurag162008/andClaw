@@ -1,6 +1,7 @@
 package com.coderred.andclaw.proot.installer
 
 import android.content.Context
+import android.content.res.AssetFileDescriptor
 import com.coderred.andclaw.proot.ArchiveUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -13,9 +14,37 @@ class TarInstaller(
     override suspend fun install(
         spec: TarInstallSpec,
         onProgress: (entries: Int) -> Unit,
+    ) {
+        installInternal(
+            spec = spec,
+            onProgress = onProgress,
+            onCopyProgress = { _, _ -> },
+        )
+    }
+
+    suspend fun install(
+        spec: TarInstallSpec,
+        onProgress: (entries: Int) -> Unit,
+        onCopyProgress: (copiedBytes: Long, totalBytes: Long) -> Unit,
+    ) {
+        installInternal(
+            spec = spec,
+            onProgress = onProgress,
+            onCopyProgress = onCopyProgress,
+        )
+    }
+
+    private suspend fun installInternal(
+        spec: TarInstallSpec,
+        onProgress: (entries: Int) -> Unit,
+        onCopyProgress: (copiedBytes: Long, totalBytes: Long) -> Unit,
     ) = withContext<Unit>(Dispatchers.IO) {
         val cacheFile = File(spec.cacheDir, spec.assetName)
-        copyAssetToFile(spec.assetName, cacheFile)
+        val totalBytes = readAssetLength(spec.assetName)
+        copyAssetToFile(spec.assetName, cacheFile) { copied ->
+            onCopyProgress(copied, totalBytes)
+        }
+        onCopyProgress(totalBytes.takeIf { it > 0 } ?: cacheFile.length(), totalBytes)
 
         try {
             ArchiveUtils.extractTarGz(
@@ -31,7 +60,11 @@ class TarInstaller(
         Unit
     }
 
-    private fun copyAssetToFile(assetName: String, destFile: File): Long {
+    private fun copyAssetToFile(
+        assetName: String,
+        destFile: File,
+        onChunkCopied: (copiedBytes: Long) -> Unit,
+    ): Long {
         destFile.parentFile?.mkdirs()
         var total = 0L
         context.assets.open(assetName).buffered(65536).use { input ->
@@ -41,10 +74,18 @@ class TarInstaller(
                 while (input.read(buffer).also { read = it } != -1) {
                     output.write(buffer, 0, read)
                     total += read
+                    onChunkCopied(total)
                 }
                 output.flush()
             }
         }
         return total
+    }
+
+    private fun readAssetLength(assetName: String): Long {
+        val descriptor: AssetFileDescriptor = runCatching { context.assets.openFd(assetName) }.getOrElse { return -1L }
+        return descriptor.use {
+            if (it.length >= 0) it.length else -1L
+        }
     }
 }

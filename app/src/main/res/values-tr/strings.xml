@@ -18,7 +18,7 @@
     <string name="setup_proot_unavailable">Kullanılamıyor</string>
     <string name="setup_description">Her şey dahil. Aşağıdaki düğmeye dokunun.</string>
     <string name="setup_steps_detail">1. Ortamı hazırlayın\n2. Bileşenleri yükleyin\n3. Yapay zeka motorunu kurun\n4. Son yapılandırma</string>
-    <string name="setup_estimate">1–2 dakika sürer</string>
+    <string name="setup_estimate">1–3 dakika sürer</string>
     <string name="setup_btn_start">Kuruluma Başla</string>
     <string name="setup_btn_next_step">Devam Et</string>
     <string name="setup_btn_retry">Yeniden Dene</string>

@@ -18,7 +18,7 @@
     <string name="setup_proot_unavailable">ไม่พร้อมใช้</string>
     <string name="setup_description">ทั้งหมดรวมอยู่ในแอปแล้ว แค่แตะปุ่มด้านล่างเท่านั้น</string>
     <string name="setup_steps_detail">1. เตรียมสภาพแวดล้อม\n2. ติดตั้งส่วนประกอบ\n3. ตั้งค่าเครื่องมือ AI\n4. การตั้งค่าขั้นสุดท้าย</string>
-    <string name="setup_estimate">ใช้เวลา 1–2 นาที</string>
+    <string name="setup_estimate">ใช้เวลา 1–3 นาที</string>
     <string name="setup_btn_start">เริ่มการตั้งค่า</string>
     <string name="setup_btn_next_step">ต่อไป</string>
     <string name="setup_btn_retry">ลองใหม่</string>

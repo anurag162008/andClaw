@@ -109,7 +109,19 @@ fun SetupScreen(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Text(
-                        text = "${(state.progress * 100).toInt()}%",
+                        text = if (
+                            state.currentStep == SetupStep.INSTALLING_OPENCLAW
+                        ) {
+                            val safeDownloaded = state.downloadedBytes.coerceAtLeast(0L)
+                            "${(state.progress * 100).toInt()}% · " +
+                                if (state.totalBytes > 0L) {
+                                    "($safeDownloaded/${state.totalBytes})"
+                                } else {
+                                    "($safeDownloaded/?)"
+                                }
+                        } else {
+                            "${(state.progress * 100).toInt()}%"
+                        },
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,

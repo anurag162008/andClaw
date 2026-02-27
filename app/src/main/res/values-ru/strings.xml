@@ -18,7 +18,7 @@
     <string name="setup_proot_unavailable">Недоступно</string>
     <string name="setup_description">Всё включено. Просто нажмите кнопку ниже.</string>
     <string name="setup_steps_detail">1. Подготовка окружения\n2. Установка компонентов\n3. Настройка AI движка\n4. Финальная конфигурация</string>
-    <string name="setup_estimate">Займёт 1–2 минуты</string>
+    <string name="setup_estimate">Займёт 1–3 минуты</string>
     <string name="setup_btn_start">Начать установку</string>
     <string name="setup_btn_next_step">Далее</string>
     <string name="setup_btn_retry">Повторить</string>

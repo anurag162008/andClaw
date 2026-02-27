@@ -18,7 +18,7 @@
     <string name="setup_proot_unavailable">Không khả dụng</string>
     <string name="setup_description">Mọi thứ đã được bao gồm. Chỉ cần nhấn nút bên dưới.</string>
     <string name="setup_steps_detail">1. Chuẩn bị môi trường\n2. Cài đặt các thành phần\n3. Thiết lập công cụ AI\n4. Cấu hình cuối cùng</string>
-    <string name="setup_estimate">Mất 1–2 phút</string>
+    <string name="setup_estimate">Mất 1–3 phút</string>
     <string name="setup_btn_start">Bắt đầu cài đặt</string>
     <string name="setup_btn_next_step">Tiếp tục</string>
     <string name="setup_btn_retry">Thử lại</string>

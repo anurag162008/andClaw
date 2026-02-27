@@ -18,7 +18,7 @@
     <string name="setup_proot_unavailable">उपलब्ध नहीं</string>
     <string name="setup_description">सब कुछ शामिल है। बस नीचे दिए गए बटन पर टैप करें।</string>
     <string name="setup_steps_detail">1. वातावरण तैयार करें\n2. घटक स्थापित करें\n3. AI इंजन सेट अप करें\n4. अंतिम कॉन्फ़िगरेशन</string>
-    <string name="setup_estimate">1-2 मिनट लगते हैं</string>
+    <string name="setup_estimate">1-3 मिनट लगते हैं</string>
     <string name="setup_btn_start">सेटअप शुरू करें</string>
     <string name="setup_btn_next_step">जारी रखें</string>
     <string name="setup_btn_retry">पुनः प्रयास करें</string>

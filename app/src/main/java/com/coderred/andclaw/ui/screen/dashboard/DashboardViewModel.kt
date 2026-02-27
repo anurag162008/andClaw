@@ -13,6 +13,7 @@ import com.coderred.andclaw.R
 import com.coderred.andclaw.data.ChannelConfig
 import com.coderred.andclaw.data.GatewayState
 import com.coderred.andclaw.data.PairingRequest
+import com.coderred.andclaw.data.SetupState
 import com.coderred.andclaw.data.SessionLogEntry
 import com.coderred.andclaw.service.GatewayService
 import com.coderred.andclaw.data.OpenRouterModel
@@ -80,6 +81,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val _bundleActionMessage = MutableStateFlow<String?>(null)
     val bundleActionMessage: StateFlow<String?> = _bundleActionMessage.asStateFlow()
 
+    private val _bundleActionType = MutableStateFlow<BundleActionType?>(null)
+    val bundleActionType: StateFlow<BundleActionType?> = _bundleActionType.asStateFlow()
+
     private val _availableModels = MutableStateFlow<List<OpenRouterModel>>(emptyList())
     val availableModels: StateFlow<List<OpenRouterModel>> = _availableModels.asStateFlow()
 
@@ -97,6 +101,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     val pairingRequests: StateFlow<List<PairingRequest>> = app.processManager.pairingRequests
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    val setupState: StateFlow<SetupState> = app.setupManager.state
+        .stateIn(viewModelScope, SharingStarted.Eagerly, SetupState())
 
     private val _pairingActionProgress = MutableStateFlow<PairingActionProgress?>(null)
     val pairingActionProgress: StateFlow<PairingActionProgress?> = _pairingActionProgress.asStateFlow()
@@ -358,6 +365,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     fun retryBundleUpdate() {
         if (_bundleActionInProgress.value) return
         _bundleActionInProgress.value = true
+        _bundleActionType.value = BundleActionType.RETRY
         _bundleActionMessage.value = null
         viewModelScope.launch {
             try {
@@ -378,6 +386,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             } finally {
                 refreshBundleUpdateFailure()
                 _bundleActionInProgress.value = false
+                _bundleActionType.value = null
             }
         }
     }
@@ -385,6 +394,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     fun recoverBundleInstall() {
         if (_bundleActionInProgress.value) return
         _bundleActionInProgress.value = true
+        _bundleActionType.value = BundleActionType.RECOVERY
         _bundleActionMessage.value = null
         viewModelScope.launch {
             try {
@@ -402,6 +412,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             } finally {
                 refreshBundleUpdateFailure()
                 _bundleActionInProgress.value = false
+                _bundleActionType.value = null
             }
         }
     }
@@ -472,3 +483,8 @@ data class PairingActionProgress(
     val action: PairingActionType,
     val request: PairingRequest,
 )
+
+enum class BundleActionType {
+    RETRY,
+    RECOVERY,
+}

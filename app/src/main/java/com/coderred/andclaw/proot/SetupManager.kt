@@ -108,6 +108,17 @@ class SetupManager(
         )
     }
 
+    private fun updateProgressInRange(
+        current: Float,
+        rangeStart: Float,
+        rangeEnd: Float,
+    ) {
+        val clamped = current.coerceIn(0f, 1f)
+        val target = rangeStart + (rangeEnd - rangeStart) * clamped
+        if (target <= _state.value.progress) return
+        _state.value = _state.value.copy(progress = target)
+    }
+
     // ── 메인 설치 흐름 ──
 
     suspend fun runFullSetup(): Boolean = withContext(Dispatchers.IO) {
@@ -180,7 +191,7 @@ class SetupManager(
                 installOpenClaw()
             } else {
                 log(">> OpenClaw already installed (v${getInstalledVersion(openclawVersionFile)}), skipping")
-                updateStep(SetupStep.INSTALLING_CHROMIUM, 0.67f)
+                updateStep(SetupStep.INSTALLING_CHROMIUM, 0.72f)
             }
 
             // ─── Step 7: Playwright Chromium 설치 ───
@@ -231,17 +242,33 @@ class SetupManager(
         updateBytes(0, 0)
 
         tarInstaller.install(
-            TarInstallSpec(
+            spec = TarInstallSpec(
                 assetName = ProotManager.ROOTFS_ASSET,
                 cacheDir = prootManager.cacheDir,
                 destinationDir = prootManager.rootfsDir,
                 permissionRootDir = prootManager.rootfsDir,
             ),
-        ) { entries ->
-            log("   Extracting... ($entries entries)")
-            val pct = (entries.toFloat() / 20000).coerceAtMost(1f)
-            _state.value = _state.value.copy(progress = 0.10f + pct * 0.12f)
-        }
+            onProgress = { entries ->
+                log("   Extracting... ($entries entries)")
+                val pct = (entries.toFloat() / 20000).coerceAtMost(1f)
+                updateProgressInRange(
+                    current = pct,
+                    rangeStart = 0.14f,
+                    rangeEnd = 0.22f,
+                )
+            },
+            onCopyProgress = { copiedBytes, totalBytes ->
+                val safeTotalBytes = totalBytes.coerceAtLeast(0L)
+                updateBytes(copiedBytes, safeTotalBytes)
+                if (totalBytes <= 0L) return@install
+                val pct = (copiedBytes.toFloat() / totalBytes.toFloat()).coerceIn(0f, 1f)
+                updateProgressInRange(
+                    current = pct,
+                    rangeStart = 0.10f,
+                    rangeEnd = 0.14f,
+                )
+            },
+        )
 
         saveVersion(rootfsReadyFile)
         log("   rootfs extraction complete")
@@ -334,18 +361,34 @@ class SetupManager(
         usrLocal.mkdirs()
 
         tarInstaller.install(
-            TarInstallSpec(
+            spec = TarInstallSpec(
                 assetName = ProotManager.NODEJS_ASSET,
                 cacheDir = prootManager.cacheDir,
                 destinationDir = usrLocal,
                 permissionRootDir = prootManager.rootfsDir,
                 stripComponents = 1,
             ),
-        ) { entries ->
-            if (entries % 500 == 0) log("   Installing... ($entries entries)")
-            val pct = (entries.toFloat() / 5000).coerceAtMost(1f)
-            _state.value = _state.value.copy(progress = 0.30f + pct * 0.08f)
-        }
+            onProgress = { entries ->
+                if (entries % 500 == 0) log("   Installing... ($entries entries)")
+                val pct = (entries.toFloat() / 5000).coerceAtMost(1f)
+                updateProgressInRange(
+                    current = pct,
+                    rangeStart = 0.33f,
+                    rangeEnd = 0.38f,
+                )
+            },
+            onCopyProgress = { copiedBytes, totalBytes ->
+                val safeTotalBytes = totalBytes.coerceAtLeast(0L)
+                updateBytes(copiedBytes, safeTotalBytes)
+                if (totalBytes <= 0L) return@install
+                val pct = (copiedBytes.toFloat() / totalBytes.toFloat()).coerceIn(0f, 1f)
+                updateProgressInRange(
+                    current = pct,
+                    rangeStart = 0.30f,
+                    rangeEnd = 0.33f,
+                )
+            },
+        )
 
         saveVersion(nodeVersionFile)
         log("   Node.js installation complete")
@@ -362,17 +405,33 @@ class SetupManager(
         log("   Extracting bundle...")
 
         tarInstaller.install(
-            TarInstallSpec(
+            spec = TarInstallSpec(
                 assetName = ProotManager.SYSTEM_TOOLS_ASSET,
                 cacheDir = prootManager.cacheDir,
                 destinationDir = prootManager.rootfsDir,
                 permissionRootDir = prootManager.rootfsDir,
             ),
-        ) { entries ->
-            if (entries % 1000 == 0) log("   Extracting... ($entries entries)")
-            val pct = (entries.toFloat() / 15000).coerceAtMost(1f)
-            _state.value = _state.value.copy(progress = 0.44f + pct * 0.11f)
-        }
+            onProgress = { entries ->
+                if (entries % 1000 == 0) log("   Extracting... ($entries entries)")
+                val pct = (entries.toFloat() / 15000).coerceAtMost(1f)
+                updateProgressInRange(
+                    current = pct,
+                    rangeStart = 0.49f,
+                    rangeEnd = 0.55f,
+                )
+            },
+            onCopyProgress = { copiedBytes, totalBytes ->
+                val safeTotalBytes = totalBytes.coerceAtLeast(0L)
+                updateBytes(copiedBytes, safeTotalBytes)
+                if (totalBytes <= 0L) return@install
+                val pct = (copiedBytes.toFloat() / totalBytes.toFloat()).coerceIn(0f, 1f)
+                updateProgressInRange(
+                    current = pct,
+                    rangeStart = 0.44f,
+                    rangeEnd = 0.49f,
+                )
+            },
+        )
 
         saveVersion(toolsVersionFile)
         saveFingerprint(toolsFingerprintFile, ProotManager.SYSTEM_TOOLS_ASSET)
@@ -384,6 +443,7 @@ class SetupManager(
 
     private suspend fun installOpenClaw() = withContext(Dispatchers.IO) {
         updateStep(SetupStep.INSTALLING_OPENCLAW, 0.57f)
+        updateBytes(0, 0)
         log(">> Installing OpenClaw...")
         openclawVersionFile.delete()
 
@@ -394,9 +454,32 @@ class SetupManager(
         if (!hasOpenClawDir) {
             throw SetupException("OpenClaw assets directory not found (${ProotManager.OPENCLAW_ASSET_DIR})")
         }
+        val bundledFilesByRelativePath = listBundledOpenClawFilesByRelativePath(
+            onAssetDiscovered = { discovered ->
+                if (discovered % 100 == 0) {
+                    updateBytes(discovered.toLong(), 0L)
+                }
+            },
+        )
+        if (bundledFilesByRelativePath.isEmpty()) {
+            throw SetupException("OpenClaw asset files not found (${ProotManager.OPENCLAW_ASSET_DIR})")
+        }
+        updateBytes(0L, bundledFilesByRelativePath.size.toLong())
 
         val incrementalSummary = try {
-            tryInstallOpenClawIncremental()
+            tryInstallOpenClawIncremental(
+                bundledFilesByRelativePath = bundledFilesByRelativePath,
+                onProgress = { processed, total ->
+                    if (total <= 0) return@tryInstallOpenClawIncremental
+                    updateBytes(processed.toLong(), total.toLong())
+                    val pct = (processed.toFloat() / total.toFloat()).coerceIn(0f, 1f)
+                    updateProgressInRange(
+                        current = pct,
+                        rangeStart = OPENCLAW_INSTALL_PROGRESS_START,
+                        rangeEnd = OPENCLAW_INSTALL_PROGRESS_END,
+                    )
+                },
+            )
         } catch (error: Exception) {
             log("   OpenClaw incremental sync failed, fallback to full reinstall: ${error.message}")
             null
@@ -409,9 +492,18 @@ class SetupManager(
                     "delete=${incrementalSummary.deletedCount}, " +
                     "skip=${incrementalSummary.skippedCount}",
             )
-            _state.value = _state.value.copy(progress = 0.65f)
+            updateBytes(
+                bundledFilesByRelativePath.size.toLong(),
+                bundledFilesByRelativePath.size.toLong(),
+            )
+            _state.value = _state.value.copy(progress = OPENCLAW_INSTALL_PROGRESS_END)
         } else {
-            reinstallOpenClawFromAssets(updateProgress = true)
+            reinstallOpenClawFromAssets(
+                updateProgress = true,
+                expectedFileCount = bundledFilesByRelativePath.size,
+                progressRangeStart = OPENCLAW_INSTALL_PROGRESS_START,
+                progressRangeEnd = OPENCLAW_INSTALL_PROGRESS_END,
+            )
         }
 
         ensureOpenClawExecutable()
@@ -424,7 +516,8 @@ class SetupManager(
 
         saveVersion(openclawVersionFile)
         saveFingerprint(openclawFingerprintFile, ProotManager.OPENCLAW_ASSET_DIR)
-        updateStep(SetupStep.INSTALLING_OPENCLAW, 0.65f)
+        updateStep(SetupStep.INSTALLING_OPENCLAW, OPENCLAW_INSTALL_PROGRESS_END)
+        updateBytes(0, 0)
         log(">> OpenClaw installation complete")
     }
 
@@ -444,39 +537,92 @@ class SetupManager(
     }
 
     suspend fun runOpenClawManualSync(): OpenClawSyncResult = withContext(Dispatchers.IO) {
-        val hasOpenClawDir = context.assets.list(ProotManager.OPENCLAW_ASSET_DIR)?.isNotEmpty() == true
-        if (!hasOpenClawDir) {
-            throw SetupException("OpenClaw assets directory not found (${ProotManager.OPENCLAW_ASSET_DIR})")
-        }
+        updateStep(SetupStep.INSTALLING_OPENCLAW, 0.57f)
+        updateBytes(0, 0)
+        _state.value = _state.value.copy(
+            isInProgress = true,
+            error = null,
+        )
 
-        val summary = try {
-            tryInstallOpenClawIncremental()
+        try {
+            updateStep(SetupStep.INSTALLING_OPENCLAW, 0.60f)
+            val hasOpenClawDir = context.assets.list(ProotManager.OPENCLAW_ASSET_DIR)?.isNotEmpty() == true
+            if (!hasOpenClawDir) {
+                throw SetupException("OpenClaw assets directory not found (${ProotManager.OPENCLAW_ASSET_DIR})")
+            }
+            val bundledFilesByRelativePath = listBundledOpenClawFilesByRelativePath(
+                onAssetDiscovered = { discovered ->
+                    if (discovered % 100 == 0) {
+                        updateBytes(discovered.toLong(), 0L)
+                    }
+                },
+            )
+            if (bundledFilesByRelativePath.isEmpty()) {
+                throw SetupException("OpenClaw asset files not found (${ProotManager.OPENCLAW_ASSET_DIR})")
+            }
+            updateBytes(0L, bundledFilesByRelativePath.size.toLong())
+
+            val summary = try {
+                tryInstallOpenClawIncremental(
+                    bundledFilesByRelativePath = bundledFilesByRelativePath,
+                    onProgress = { processed, total ->
+                        if (total <= 0) return@tryInstallOpenClawIncremental
+                        updateBytes(processed.toLong(), total.toLong())
+                        val pct = (processed.toFloat() / total.toFloat()).coerceIn(0f, 1f)
+                        updateProgressInRange(
+                            current = pct,
+                            rangeStart = OPENCLAW_MANUAL_SYNC_PROGRESS_START,
+                            rangeEnd = OPENCLAW_MANUAL_SYNC_PROGRESS_END,
+                        )
+                    },
+                )
+            } catch (error: Exception) {
+                log("   OpenClaw manual sync failed, fallback to full reinstall: ${error.message}")
+                null
+            }
+
+            val result = if (summary != null) {
+                updateBytes(
+                    bundledFilesByRelativePath.size.toLong(),
+                    bundledFilesByRelativePath.size.toLong(),
+                )
+                OpenClawSyncResult(
+                    copiedCount = summary.copiedCount,
+                    deletedCount = summary.deletedCount,
+                    skippedCount = summary.skippedCount,
+                    fullReinstall = false,
+                )
+            } else {
+                reinstallOpenClawFromAssets(
+                    updateProgress = true,
+                    expectedFileCount = bundledFilesByRelativePath.size,
+                    progressRangeStart = OPENCLAW_MANUAL_SYNC_PROGRESS_START,
+                    progressRangeEnd = OPENCLAW_MANUAL_SYNC_PROGRESS_END,
+                )
+                OpenClawSyncResult(
+                    copiedCount = 0,
+                    deletedCount = 0,
+                    skippedCount = 0,
+                    fullReinstall = true,
+                )
+            }
+
+            updateBytes(0, 0)
+            updateStep(SetupStep.VERIFYING, 0.95f)
+            ensureOpenClawExecutable()
+            saveVersion(openclawVersionFile)
+            saveFingerprint(openclawFingerprintFile, ProotManager.OPENCLAW_ASSET_DIR)
+            updateStep(SetupStep.COMPLETE, 1.0f)
+            _state.value = _state.value.copy(isInProgress = false)
+            result
         } catch (error: Exception) {
-            log("   OpenClaw manual sync failed, fallback to full reinstall: ${error.message}")
-            null
-        }
-
-        val result = if (summary != null) {
-            OpenClawSyncResult(
-                copiedCount = summary.copiedCount,
-                deletedCount = summary.deletedCount,
-                skippedCount = summary.skippedCount,
-                fullReinstall = false,
+            _state.value = _state.value.copy(
+                isInProgress = false,
+                currentStep = SetupStep.FAILED,
+                error = error.message,
             )
-        } else {
-            reinstallOpenClawFromAssets(updateProgress = false)
-            OpenClawSyncResult(
-                copiedCount = 0,
-                deletedCount = 0,
-                skippedCount = 0,
-                fullReinstall = true,
-            )
+            throw error
         }
-
-        ensureOpenClawExecutable()
-        saveVersion(openclawVersionFile)
-        saveFingerprint(openclawFingerprintFile, ProotManager.OPENCLAW_ASSET_DIR)
-        result
     }
 
     private fun readInstalledOpenClawVersion(): String? {
@@ -534,7 +680,13 @@ class SetupManager(
         return if (parts.isEmpty()) null else parts
     }
 
-    private suspend fun reinstallOpenClawFromAssets(updateProgress: Boolean) {
+    private suspend fun reinstallOpenClawFromAssets(
+        updateProgress: Boolean,
+        expectedFileCount: Int = 0,
+        progressRangeStart: Float = 0.60f,
+        progressRangeEnd: Float = 0.65f,
+    ) {
+        val totalEntries = expectedFileCount.coerceAtLeast(1)
         directoryInstaller.install(
             DirectoryInstallSpec(
                 assetPath = ProotManager.OPENCLAW_ASSET_DIR,
@@ -548,19 +700,27 @@ class SetupManager(
             ),
         ) { entries ->
             if (updateProgress) {
-                if (entries % 1000 == 0) log("   Extracting... ($entries entries)")
-                val pct = (entries.toFloat() / 10000).coerceAtMost(1f)
-                _state.value = _state.value.copy(progress = 0.60f + pct * 0.05f)
+                updateBytes(entries.toLong(), totalEntries.toLong())
+                if (entries % 250 == 0) log("   Extracting... ($entries/$totalEntries entries)")
+                val pct = (entries.toFloat() / totalEntries.toFloat()).coerceIn(0f, 1f)
+                updateProgressInRange(
+                    current = pct,
+                    rangeStart = progressRangeStart,
+                    rangeEnd = progressRangeEnd,
+                )
             }
         }
         restoreOpenClawUnderscorePaths()
     }
 
-    private fun tryInstallOpenClawIncremental(): OpenClawIncrementalSyncSummary? {
+    private fun tryInstallOpenClawIncremental(
+        bundledFilesByRelativePath: Map<String, String>,
+        onProgress: ((processed: Int, total: Int) -> Unit)? = null,
+    ): OpenClawIncrementalSyncSummary? {
         if (hasEncodedOpenClawPaths()) return null
 
-        val bundledFilesByRelativePath = listBundledOpenClawFilesByRelativePath()
         if (bundledFilesByRelativePath.isEmpty()) return null
+        val totalEntries = bundledFilesByRelativePath.size
 
         val installedPaths = listInstalledOpenClawFiles()
         if (installedPaths.isEmpty()) return null
@@ -588,6 +748,7 @@ class SetupManager(
             if ((index + 1) % 500 == 0) {
                 log("   Incremental scan... (${index + 1}/${bundledFilesByRelativePath.size})")
             }
+            onProgress?.invoke(index + 1, totalEntries)
         }
 
         if (stalePaths.isEmpty() && copiedCount == 0) {
@@ -638,9 +799,18 @@ class SetupManager(
             }
     }
 
-    private fun listBundledOpenClawFilesByRelativePath(): Map<String, String> {
+    private fun listBundledOpenClawFilesByRelativePath(
+        onAssetDiscovered: ((count: Int) -> Unit)? = null,
+    ): Map<String, String> {
         val files = mutableMapOf<String, String>()
-        val allAssets = listAssetFilesRecursively(ProotManager.OPENCLAW_ASSET_DIR)
+        var discovered = 0
+        val allAssets = listAssetFilesRecursively(
+            rootAssetPath = ProotManager.OPENCLAW_ASSET_DIR,
+            onFileDiscovered = {
+                discovered++
+                onAssetDiscovered?.invoke(discovered)
+            },
+        )
         allAssets.forEach { assetPath ->
             if (assetPath == ProotManager.OPENCLAW_ASSET_DIR) return@forEach
             val encodedRelativePath = assetPath.removePrefix("${ProotManager.OPENCLAW_ASSET_DIR}/")
@@ -655,13 +825,19 @@ class SetupManager(
         return files
     }
 
-    private fun listAssetFilesRecursively(rootAssetPath: String): List<String> {
+    private fun listAssetFilesRecursively(
+        rootAssetPath: String,
+        onFileDiscovered: (() -> Unit)? = null,
+    ): List<String> {
         val children = runCatching { context.assets.list(rootAssetPath) }.getOrNull() ?: return emptyList()
-        if (children.isEmpty()) return listOf(rootAssetPath)
+        if (children.isEmpty()) {
+            onFileDiscovered?.invoke()
+            return listOf(rootAssetPath)
+        }
         val files = mutableListOf<String>()
         children.sorted().forEach { child ->
             val childPath = if (rootAssetPath.isBlank()) child else "$rootAssetPath/$child"
-            files += listAssetFilesRecursively(childPath)
+            files += listAssetFilesRecursively(childPath, onFileDiscovered)
         }
         return files
     }
@@ -775,24 +951,40 @@ class SetupManager(
     // ── Step 7: Playwright Chromium 설치 ──
 
     private suspend fun installPlaywright() = withContext(Dispatchers.IO) {
-        updateStep(SetupStep.INSTALLING_CHROMIUM, 0.67f)
+        updateStep(SetupStep.INSTALLING_CHROMIUM, 0.72f)
         log(">> Installing Playwright Chromium...")
 
-        updateStep(SetupStep.INSTALLING_CHROMIUM, 0.72f)
+        updateStep(SetupStep.INSTALLING_CHROMIUM, 0.76f)
         log("   Extracting bundle...")
 
         tarInstaller.install(
-            TarInstallSpec(
+            spec = TarInstallSpec(
                 assetName = ProotManager.PLAYWRIGHT_ASSET,
                 cacheDir = prootManager.cacheDir,
                 destinationDir = prootManager.rootfsDir,
                 permissionRootDir = prootManager.rootfsDir,
             ),
-        ) { entries ->
-            if (entries % 1000 == 0) log("   Extracting... ($entries entries)")
-            val pct = (entries.toFloat() / 5000).coerceAtMost(1f)
-            _state.value = _state.value.copy(progress = 0.72f + pct * 0.16f)
-        }
+            onProgress = { entries ->
+                if (entries % 1000 == 0) log("   Extracting... ($entries entries)")
+                val pct = (entries.toFloat() / 5000).coerceAtMost(1f)
+                updateProgressInRange(
+                    current = pct,
+                    rangeStart = 0.82f,
+                    rangeEnd = 0.90f,
+                )
+            },
+            onCopyProgress = { copiedBytes, totalBytes ->
+                val safeTotalBytes = totalBytes.coerceAtLeast(0L)
+                updateBytes(copiedBytes, safeTotalBytes)
+                if (totalBytes <= 0L) return@install
+                val pct = (copiedBytes.toFloat() / totalBytes.toFloat()).coerceIn(0f, 1f)
+                updateProgressInRange(
+                    current = pct,
+                    rangeStart = 0.76f,
+                    rangeEnd = 0.82f,
+                )
+            },
+        )
 
         if (!prootManager.refreshChromiumExecutableMarker()) {
             throw SetupException("Cannot find Chromium executable after installation")
@@ -801,7 +993,7 @@ class SetupManager(
 
         saveVersion(playwrightVersionFile)
         saveFingerprint(playwrightFingerprintFile, ProotManager.PLAYWRIGHT_ASSET)
-        updateStep(SetupStep.INSTALLING_CHROMIUM, 0.88f)
+        updateStep(SetupStep.INSTALLING_CHROMIUM, 0.90f)
         log(">> Playwright Chromium installation complete")
     }
 
@@ -1159,6 +1351,10 @@ class SetupManager(
 
     private companion object {
         private const val OPENCLAW_UNDERSCORE_PREFIX = "andclaw_us__"
+        private const val OPENCLAW_INSTALL_PROGRESS_START = 0.60f
+        private const val OPENCLAW_INSTALL_PROGRESS_END = 0.72f
+        private const val OPENCLAW_MANUAL_SYNC_PROGRESS_START = 0.60f
+        private const val OPENCLAW_MANUAL_SYNC_PROGRESS_END = 0.92f
         private const val BUNDLE_FINGERPRINT_ASSET = "bundle-fingerprint.json"
         private const val OPENCLAW_PACKAGE_JSON_RELATIVE_PATH =
             "usr/local/lib/node_modules/openclaw/package.json"
