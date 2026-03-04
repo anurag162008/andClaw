@@ -42,7 +42,6 @@ import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -117,7 +116,7 @@ fun DashboardScreen(
     onNavigateToSettings: () -> Unit,
     viewModel: DashboardViewModel = viewModel(),
 ) {
-    val gatewayState by viewModel.gatewayState.collectAsState()
+    val gatewayUiState by viewModel.gatewayUiState.collectAsState()
     val logLines by viewModel.logLines.collectAsState()
     val batteryLevel by viewModel.batteryLevel.collectAsState()
     val isCharging by viewModel.isCharging.collectAsState()
@@ -202,14 +201,13 @@ fun DashboardScreen(
         ) {
             // ── Hero Section — full bleed, colored background ──
             StatusHero(
-                status = gatewayState.status,
-                errorMessage = gatewayState.errorMessage,
-                uptime = gatewayState.uptime,
+                status = gatewayUiState.status,
+                errorMessage = gatewayUiState.errorMessage,
                 onStart = requestStartGateway,
                 onStop = { viewModel.stopGateway() },
                 onRestart = { viewModel.restartGateway() },
                 onOpenDashboard = { viewModel.openDashboard(context) },
-                dashboardReady = gatewayState.dashboardReady,
+                dashboardReady = gatewayUiState.dashboardReady,
             )
 
             // ── Content below hero ──
@@ -252,7 +250,6 @@ fun DashboardScreen(
 
                 // ── Stats Row ──
                 StatsRow(
-                    uptime = gatewayState.uptime,
                     memoryMb = memoryUsageMb.toInt(),
                     batteryLevel = batteryLevel,
                     isCharging = isCharging,
@@ -450,7 +447,6 @@ private fun BundleUpdateFailureBanner(
 private fun StatusHero(
     status: GatewayStatus,
     errorMessage: String?,
-    uptime: Long,
     onStart: () -> Unit,
     onStop: () -> Unit,
     onRestart: () -> Unit,
@@ -540,14 +536,6 @@ private fun StatusHero(
                 style = MaterialTheme.typography.headlineLarge,
                 color = MaterialTheme.colorScheme.onSurface,
             )
-
-            if (status == GatewayStatus.RUNNING && uptime > 0) {
-                Text(
-                    text = formatUptime(uptime),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
 
             // Error chip
             if (errorMessage != null) {
@@ -723,7 +711,6 @@ private fun ModelBanner(
 
 @Composable
 private fun StatsRow(
-    uptime: Long,
     memoryMb: Int,
     batteryLevel: Int,
     isCharging: Boolean,
@@ -743,12 +730,6 @@ private fun StatsRow(
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
         ) {
             Column {
-                StatItem(
-                    icon = Icons.Default.Timer,
-                    iconTint = MaterialTheme.colorScheme.primary,
-                    label = "Uptime",
-                    value = formatUptime(uptime),
-                )
                 StatItem(
                     icon = Icons.Default.Memory,
                     iconTint = MaterialTheme.colorScheme.secondary,
@@ -965,18 +946,6 @@ private fun LogSection(
                 }
             }
         }
-    }
-}
-
-private fun formatUptime(seconds: Long): String {
-    if (seconds <= 0) return "00:00"
-    val hours = seconds / 3600
-    val minutes = (seconds % 3600) / 60
-    val secs = seconds % 60
-    return if (hours > 0) {
-        String.format("%d:%02d:%02d", hours, minutes, secs)
-    } else {
-        String.format("%02d:%02d", minutes, secs)
     }
 }
 

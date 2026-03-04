@@ -64,6 +64,41 @@ class PreferencesManager(private val context: Context) {
         private val KEY_OPENCLAW_UPDATE_PROMPT_SUPPRESSED_BUNDLED_VERSION =
             stringPreferencesKey("openclaw_update_prompt_suppressed_bundled_version")
         private val KEY_LOG_SECTION_UNLOCKED = booleanPreferencesKey("log_section_unlocked")
+        private val KEY_IN_APP_REVIEW_GATEWAY_HEALTHY_RUN_COUNT =
+            intPreferencesKey("in_app_review_gateway_healthy_run_count")
+        private val KEY_IN_APP_REVIEW_LAST_REQUEST_AT =
+            longPreferencesKey("in_app_review_last_request_at")
+        private val KEY_IN_APP_REVIEW_LAST_REQUEST_VERSION =
+            intPreferencesKey("in_app_review_last_request_version")
+        private val KEY_IN_APP_REVIEW_LAST_ATTEMPT_AT =
+            longPreferencesKey("in_app_review_last_attempt_at")
+        private val KEY_IN_APP_REVIEW_PENDING_REQUEST_VERSION =
+            intPreferencesKey("in_app_review_pending_request_version")
+        private val KEY_IN_APP_REVIEW_PENDING_REQUEST_AT =
+            longPreferencesKey("in_app_review_pending_request_at")
+
+        private const val IN_APP_REVIEW_MIN_HEALTHY_RUNS = 3
+        private const val IN_APP_REVIEW_COOLDOWN_MS = 90L * 24L * 60L * 60L * 1000L
+        private const val IN_APP_REVIEW_ATTEMPT_COOLDOWN_MS = 24L * 60L * 60L * 1000L
+        private const val IN_APP_REVIEW_PENDING_TIMEOUT_MS = 10L * 60L * 1000L
+
+        internal fun isInAppReviewEligibleByPolicy(
+            gatewayHealthyRunCount: Int,
+            lastRequestAtEpochMs: Long?,
+            lastRequestVersion: Int?,
+            currentVersion: Int,
+            nowEpochMs: Long,
+            minHealthyRuns: Int = IN_APP_REVIEW_MIN_HEALTHY_RUNS,
+            cooldownMs: Long = IN_APP_REVIEW_COOLDOWN_MS,
+        ): Boolean {
+            val normalizedRunCount = gatewayHealthyRunCount.coerceAtLeast(0)
+            val normalizedLastRequestAt = lastRequestAtEpochMs?.takeIf { it in 0..nowEpochMs }
+
+            if (normalizedRunCount < minHealthyRuns) return false
+            if (lastRequestVersion == currentVersion) return false
+            if (normalizedLastRequestAt != null && nowEpochMs - normalizedLastRequestAt < cooldownMs) return false
+            return true
+        }
     }
 
     val isSetupComplete: Flow<Boolean> = context.dataStore.data.map { prefs ->
@@ -362,6 +397,134 @@ class PreferencesManager(private val context: Context) {
         context.dataStore.edit { it[KEY_GATEWAY_WAS_RUNNING] = running }
     }
 
+    suspend fun incrementInAppReviewGatewayHealthyRunCount() {
+        context.dataStore.edit { prefs ->
+            val current = (prefs[KEY_IN_APP_REVIEW_GATEWAY_HEALTHY_RUN_COUNT] ?: 0).coerceAtLeast(0)
+            prefs[KEY_IN_APP_REVIEW_GATEWAY_HEALTHY_RUN_COUNT] = (current + 1).coerceAtMost(1_000)
+        }
+    }
+
+    suspend fun resetInAppReviewGatewayHealthyRunCount() {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_IN_APP_REVIEW_GATEWAY_HEALTHY_RUN_COUNT] = 0
+        }
+    }
+
+    suspend fun getInAppReviewEligibility(
+        currentVersion: Int,
+        nowEpochMs: Long = System.currentTimeMillis(),
+    ): InAppReviewEligibility {
+        val snapshot = context.dataStore.data.first()
+        val gatewayHealthyRunCount = (snapshot[KEY_IN_APP_REVIEW_GATEWAY_HEALTHY_RUN_COUNT] ?: 0).coerceAtLeast(0)
+        val lastRequestAtEpochMs = snapshot[KEY_IN_APP_REVIEW_LAST_REQUEST_AT]
+            ?.takeIf { it in 0..nowEpochMs }
+        val lastRequestVersion = snapshot[KEY_IN_APP_REVIEW_LAST_REQUEST_VERSION]
+        return InAppReviewEligibility(
+            eligible = isInAppReviewEligibleByPolicy(
+                gatewayHealthyRunCount = gatewayHealthyRunCount,
+                lastRequestAtEpochMs = lastRequestAtEpochMs,
+                lastRequestVersion = lastRequestVersion,
+                currentVersion = currentVersion,
+                nowEpochMs = nowEpochMs,
+            ),
+            gatewayHealthyRunCount = gatewayHealthyRunCount,
+            lastRequestAtEpochMs = lastRequestAtEpochMs,
+            lastRequestVersion = lastRequestVersion,
+        )
+    }
+
+    suspend fun tryBeginInAppReviewRequest(
+        currentVersion: Int,
+        nowEpochMs: Long = System.currentTimeMillis(),
+    ): Boolean {
+        var begun = false
+        context.dataStore.edit { prefs ->
+            var clearedStalePendingForCurrentVersion = false
+            val pendingVersion = prefs[KEY_IN_APP_REVIEW_PENDING_REQUEST_VERSION]
+            val pendingAt = prefs[KEY_IN_APP_REVIEW_PENDING_REQUEST_AT]
+            if (pendingVersion != null) {
+                val pendingIsFreshForCurrentVersion =
+                    pendingVersion == currentVersion &&
+                        pendingAt != null &&
+                        pendingAt in 0..nowEpochMs &&
+                        nowEpochMs - pendingAt < IN_APP_REVIEW_PENDING_TIMEOUT_MS
+                if (pendingIsFreshForCurrentVersion) {
+                    begun = false
+                    return@edit
+                }
+                // stale pending(크래시/강제종료 잔여) 또는 다른 버전 pending은 정리하고 진행한다.
+                if (pendingVersion == currentVersion) {
+                    clearedStalePendingForCurrentVersion = true
+                }
+                prefs.remove(KEY_IN_APP_REVIEW_PENDING_REQUEST_VERSION)
+                prefs.remove(KEY_IN_APP_REVIEW_PENDING_REQUEST_AT)
+            }
+
+            val lastAttemptAt = prefs[KEY_IN_APP_REVIEW_LAST_ATTEMPT_AT]
+                ?.takeIf { it in 0..nowEpochMs }
+            if (
+                !clearedStalePendingForCurrentVersion &&
+                lastAttemptAt != null &&
+                nowEpochMs - lastAttemptAt < IN_APP_REVIEW_ATTEMPT_COOLDOWN_MS
+            ) {
+                begun = false
+                return@edit
+            }
+
+            val gatewayHealthyRunCount = (prefs[KEY_IN_APP_REVIEW_GATEWAY_HEALTHY_RUN_COUNT] ?: 0).coerceAtLeast(0)
+            val lastRequestAtEpochMs = prefs[KEY_IN_APP_REVIEW_LAST_REQUEST_AT]
+                ?.takeIf { it in 0..nowEpochMs }
+            val lastRequestVersion = prefs[KEY_IN_APP_REVIEW_LAST_REQUEST_VERSION]
+            val eligible = isInAppReviewEligibleByPolicy(
+                gatewayHealthyRunCount = gatewayHealthyRunCount,
+                lastRequestAtEpochMs = lastRequestAtEpochMs,
+                lastRequestVersion = lastRequestVersion,
+                currentVersion = currentVersion,
+                nowEpochMs = nowEpochMs,
+            )
+            if (!eligible) {
+                begun = false
+                return@edit
+            }
+            prefs[KEY_IN_APP_REVIEW_PENDING_REQUEST_VERSION] = currentVersion
+            prefs[KEY_IN_APP_REVIEW_PENDING_REQUEST_AT] = nowEpochMs
+            prefs[KEY_IN_APP_REVIEW_LAST_ATTEMPT_AT] = nowEpochMs
+            begun = true
+        }
+        return begun
+    }
+
+    suspend fun finalizeInAppReviewRequest(
+        currentVersion: Int,
+        requestedAtEpochMs: Long = System.currentTimeMillis(),
+    ): Boolean {
+        var finalized = false
+        context.dataStore.edit { prefs ->
+            val pendingVersion = prefs[KEY_IN_APP_REVIEW_PENDING_REQUEST_VERSION]
+            if (pendingVersion != currentVersion) {
+                finalized = false
+                return@edit
+            }
+            prefs.remove(KEY_IN_APP_REVIEW_PENDING_REQUEST_VERSION)
+            prefs.remove(KEY_IN_APP_REVIEW_PENDING_REQUEST_AT)
+            prefs[KEY_IN_APP_REVIEW_LAST_REQUEST_AT] = requestedAtEpochMs
+            prefs[KEY_IN_APP_REVIEW_LAST_REQUEST_VERSION] = currentVersion
+            prefs[KEY_IN_APP_REVIEW_GATEWAY_HEALTHY_RUN_COUNT] = 0
+            finalized = true
+        }
+        return finalized
+    }
+
+    suspend fun cancelInAppReviewRequest(currentVersion: Int) {
+        context.dataStore.edit { prefs ->
+            val pendingVersion = prefs[KEY_IN_APP_REVIEW_PENDING_REQUEST_VERSION]
+            if (pendingVersion == currentVersion) {
+                prefs.remove(KEY_IN_APP_REVIEW_PENDING_REQUEST_VERSION)
+                prefs.remove(KEY_IN_APP_REVIEW_PENDING_REQUEST_AT)
+            }
+        }
+    }
+
     suspend fun getOpenClawUpdatePromptSuppressedBundledVersion(): String? {
         return context.dataStore.data.first()[KEY_OPENCLAW_UPDATE_PROMPT_SUPPRESSED_BUNDLED_VERSION]
             ?.trim()
@@ -491,4 +654,11 @@ data class BundleUpdateFailureRecord(
     val lastError: String?,
     val lastFailureType: String?,
     val manualRetryUsed: Boolean,
+)
+
+data class InAppReviewEligibility(
+    val eligible: Boolean,
+    val gatewayHealthyRunCount: Int,
+    val lastRequestAtEpochMs: Long?,
+    val lastRequestVersion: Int?,
 )

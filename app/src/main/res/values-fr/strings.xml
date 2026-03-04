@@ -2,7 +2,7 @@
     <string name="notification_channel_name">OpenClaw Gateway</string>
     <string name="notification_channel_description">État d\'exécution du gateway OpenClaw</string>
     <string name="notification_waiting">En attente</string>
-    <string name="notification_running">En cours | %1$s</string>
+    <string name="notification_running">En cours</string>
     <string name="notification_starting">Démarrage…</string>
     <string name="notification_stopping">Arrêt…</string>
     <string name="notification_error">Erreur : %1$s</string>

@@ -9,6 +9,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -40,6 +41,14 @@ class GatewayWsClient(private val prootManager: ProotManager) {
         private val METHOD_NAME_REGEX = Regex("^[A-Za-z0-9_.-]+$")
         private val GATEWAY_STATUS_CALL_MUTEX = Mutex()
     }
+
+    data class HealthProbeTimeoutBudget(
+        val normalizedTimeoutMs: Long,
+        val openTimeoutMs: Long,
+        val handshakeTimeoutMs: Long,
+        val statusTimeoutMs: Long,
+        val statusProbeTimeoutMs: Long,
+    )
 
     data class WhatsAppChannelSnapshot(
         val accountId: String?,
@@ -90,50 +99,55 @@ class GatewayWsClient(private val prootManager: ProotManager) {
      * WebSocket 연결 + connect 핸드셰이크.
      * @return 연결 성공 여부
      */
-    suspend fun connect(): Boolean {
+    suspend fun connect(
+        openTimeoutMs: Long = 10_000L,
+        handshakeTimeoutMs: Long = 30_000L,
+    ): Boolean {
         val token = getAuthToken()
         Log.d(TAG, "connect: tokenPresent=${token.isNotBlank()}")
         if (token.isBlank()) return false
 
         // WebSocket 연결
-        val connected = suspendCancellableCoroutine { cont ->
-            val request = Request.Builder()
-                .url("ws://127.0.0.1:18789")
-                .header("Origin", "http://localhost:18789")
-                .build()
+        val connected = withTimeoutOrNull(openTimeoutMs.coerceAtLeast(250L)) {
+            suspendCancellableCoroutine { cont ->
+                val request = Request.Builder()
+                    .url("ws://127.0.0.1:18789")
+                    .header("Origin", "http://localhost:18789")
+                    .build()
 
-            Log.d(TAG, "connect: opening WebSocket to ws://127.0.0.1:18789")
-            ws = client.newWebSocket(request, object : WebSocketListener() {
-                override fun onOpen(webSocket: WebSocket, response: Response) {
-                    Log.d(TAG, "connect: WebSocket opened")
-                    if (cont.isActive) cont.resume(true)
-                }
-
-                override fun onMessage(webSocket: WebSocket, text: String) {
-                    Log.d(TAG, "onMessage: ${text.take(200)}")
-                    handleMessage(text)
-                }
-
-                override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                    Log.e(TAG, "connect: WebSocket failure: ${t.message}", t)
-                    if (cont.isActive) cont.resume(false)
-                    // 모든 대기 중인 요청 실패 처리
-                    pendingRequests.values.forEach { deferred ->
-                        deferred.completeExceptionally(t)
+                Log.d(TAG, "connect: opening WebSocket to ws://127.0.0.1:18789")
+                ws = client.newWebSocket(request, object : WebSocketListener() {
+                    override fun onOpen(webSocket: WebSocket, response: Response) {
+                        Log.d(TAG, "connect: WebSocket opened")
+                        if (cont.isActive) cont.resume(true)
                     }
-                    pendingRequests.clear()
-                }
 
-                override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-                    pendingRequests.values.forEach { deferred ->
-                        deferred.completeExceptionally(Exception("WebSocket closed: $reason"))
+                    override fun onMessage(webSocket: WebSocket, text: String) {
+                        Log.d(TAG, "onMessage: ${text.take(200)}")
+                        handleMessage(text)
                     }
-                    pendingRequests.clear()
-                }
-            })
 
-            cont.invokeOnCancellation { ws?.cancel() }
-        }
+                    override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                        Log.e(TAG, "connect: WebSocket failure: ${t.message}", t)
+                        if (cont.isActive) cont.resume(false)
+                        // 모든 대기 중인 요청 실패 처리
+                        pendingRequests.values.forEach { deferred ->
+                            deferred.completeExceptionally(t)
+                        }
+                        pendingRequests.clear()
+                    }
+
+                    override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                        pendingRequests.values.forEach { deferred ->
+                            deferred.completeExceptionally(Exception("WebSocket closed: $reason"))
+                        }
+                        pendingRequests.clear()
+                    }
+                })
+
+                cont.invokeOnCancellation { ws?.cancel() }
+            }
+        } ?: false
 
         Log.d(TAG, "connect: WebSocket connected=$connected")
         if (!connected) return false
@@ -164,6 +178,7 @@ class GatewayWsClient(private val prootManager: ProotManager) {
                         put("token", token)
                     })
                 },
+                timeoutMs = handshakeTimeoutMs.coerceAtLeast(250L),
             )
         } catch (e: Exception) {
             Log.e(TAG, "connect: handshake exception: ${e.message}", e)
@@ -172,6 +187,71 @@ class GatewayWsClient(private val prootManager: ProotManager) {
 
         Log.d(TAG, "connect: handshake result=${handshakeResult != null}")
         return handshakeResult != null
+    }
+
+    suspend fun probeGatewayHealth(timeoutMs: Long = 8_000L): Boolean {
+        val budget = resolveHealthProbeTimeoutBudget(timeoutMs)
+        val token = getAuthToken()
+        return try {
+            withTimeoutOrNull(budget.normalizedTimeoutMs) {
+                if (token.isBlank()) {
+                    return@withTimeoutOrNull probeGatewayHealthViaCli(budget)
+                }
+                if (
+                    !connect(
+                        openTimeoutMs = budget.openTimeoutMs,
+                        handshakeTimeoutMs = budget.handshakeTimeoutMs,
+                    )
+                ) {
+                    return@withTimeoutOrNull probeGatewayHealthViaCli(budget)
+                }
+
+                val probeResult = call(
+                    method = "channels.status",
+                    params = JSONObject().apply {
+                        put("probe", false)
+                        put("timeoutMs", budget.statusProbeTimeoutMs)
+                    },
+                    timeoutMs = budget.statusTimeoutMs,
+                )
+                probeResult != null
+            } ?: false
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            false
+        } finally {
+            close()
+        }
+    }
+
+    private suspend fun probeGatewayHealthViaCli(budget: HealthProbeTimeoutBudget): Boolean {
+        val probeResult = callViaGatewayCli(
+            method = "channels.status",
+            params = JSONObject().apply {
+                put("probe", false)
+                put("timeoutMs", budget.statusProbeTimeoutMs)
+            },
+            timeoutMs = budget.statusTimeoutMs,
+        )
+        return probeResult != null
+    }
+
+    internal fun resolveHealthProbeTimeoutBudget(timeoutMs: Long): HealthProbeTimeoutBudget {
+        val normalizedTimeoutMs = timeoutMs.coerceIn(2_000L, 20_000L)
+        val connectTimeoutMs = ((normalizedTimeoutMs * 2) / 3)
+            .coerceIn(1_000L, normalizedTimeoutMs - 1_000L)
+        val openTimeoutMs = (connectTimeoutMs / 2).coerceAtLeast(500L)
+        val handshakeTimeoutMs = (connectTimeoutMs - openTimeoutMs).coerceAtLeast(500L)
+        val statusTimeoutMs = (normalizedTimeoutMs - connectTimeoutMs).coerceAtLeast(1_000L)
+        val statusProbeTimeoutMs = (statusTimeoutMs - 250L).coerceIn(750L, 5_000L)
+        return HealthProbeTimeoutBudget(
+            normalizedTimeoutMs = normalizedTimeoutMs,
+            openTimeoutMs = openTimeoutMs,
+            handshakeTimeoutMs = handshakeTimeoutMs,
+            statusTimeoutMs = statusTimeoutMs,
+            statusProbeTimeoutMs = statusProbeTimeoutMs,
+        )
     }
 
     /**

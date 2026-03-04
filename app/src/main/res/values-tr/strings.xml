@@ -4,7 +4,7 @@
     <string name="notification_channel_name">OpenClaw Ağ Geçidi</string>
     <string name="notification_channel_description">OpenClaw ağ geçidi çalışma durumu</string>
     <string name="notification_waiting">Bekleniyor</string>
-    <string name="notification_running">Çalışıyor | %1$s</string>
+    <string name="notification_running">Çalışıyor</string>
     <string name="notification_starting">Başlatılıyor…</string>
     <string name="notification_stopping">Durduruluyor…</string>
     <string name="notification_error">Hata: %1$s</string>

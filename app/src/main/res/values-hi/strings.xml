@@ -4,7 +4,7 @@
     <string name="notification_channel_name">OpenClaw Gateway</string>
     <string name="notification_channel_description">OpenClaw गेटवे चलने की स्थिति</string>
     <string name="notification_waiting">प्रतीक्षा में</string>
-    <string name="notification_running">चल रहा है | %1$s</string>
+    <string name="notification_running">चल रहा है</string>
     <string name="notification_starting">शुरू हो रहा है…</string>
     <string name="notification_stopping">बंद हो रहा है…</string>
     <string name="notification_error">त्रुटि: %1$s</string>

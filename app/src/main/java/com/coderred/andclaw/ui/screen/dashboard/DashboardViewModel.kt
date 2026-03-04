@@ -30,7 +30,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -53,6 +55,17 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     val gatewayState: StateFlow<GatewayState> = app.processManager.gatewayState
         .stateIn(viewModelScope, SharingStarted.Eagerly, GatewayState())
+
+    val gatewayUiState: StateFlow<DashboardGatewayUiState> = gatewayState
+        .map { state ->
+            DashboardGatewayUiState(
+                status = state.status,
+                errorMessage = state.errorMessage,
+                dashboardReady = state.dashboardReady,
+            )
+        }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, DashboardGatewayUiState())
 
     val logLines: StateFlow<List<String>> = app.processManager.logLines
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
@@ -688,3 +701,9 @@ enum class BundleActionType {
     RETRY,
     RECOVERY,
 }
+
+data class DashboardGatewayUiState(
+    val status: GatewayStatus = GatewayStatus.STOPPED,
+    val errorMessage: String? = null,
+    val dashboardReady: Boolean = false,
+)

@@ -4,7 +4,7 @@
     <string name="notification_channel_name">OpenClaw Gateway</string>
     <string name="notification_channel_description">Trạng thái chạy của cổng OpenClaw</string>
     <string name="notification_waiting">Chờ đợi</string>
-    <string name="notification_running">Đang chạy | %1$s</string>
+    <string name="notification_running">Đang chạy</string>
     <string name="notification_starting">Đang khởi động…</string>
     <string name="notification_stopping">Đang dừng…</string>
     <string name="notification_error">Lỗi: %1$s</string>

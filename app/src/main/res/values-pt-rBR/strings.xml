@@ -4,7 +4,7 @@
     <string name="notification_channel_name">OpenClaw Gateway</string>
     <string name="notification_channel_description">Status de execução do gateway OpenClaw</string>
     <string name="notification_waiting">Aguardando</string>
-    <string name="notification_running">Em execução | %1$s</string>
+    <string name="notification_running">Em execução</string>
     <string name="notification_starting">Iniciando…</string>
     <string name="notification_stopping">Parando…</string>
     <string name="notification_error">Erro: %1$s</string>

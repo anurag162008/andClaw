@@ -290,6 +290,19 @@ class ProcessManager(
     val isRunning: Boolean
         get() = _gatewayState.value.status == GatewayStatus.RUNNING
 
+    suspend fun probeGatewayHealth(timeoutMs: Long = 8_000L): Boolean {
+        if (_gatewayState.value.status != GatewayStatus.RUNNING) return false
+        return withContext(Dispatchers.IO) {
+            try {
+                GatewayWsClient(prootManager).probeGatewayHealth(timeoutMs)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                false
+            }
+        }
+    }
+
     /**
      * OpenClaw 게이트웨이를 시작한다.
      *
@@ -1032,53 +1045,76 @@ class ProcessManager(
                 }
             }
             sanitizeKnownIncompatibleConfigKeys(json)
-            val channels = JSONObject()
+            val channels = json.optJSONObject("channels") ?: JSONObject().also { json.put("channels", it) }
+            val managedChannels = mutableListOf<String>()
 
             if (channelConfig.whatsappEnabled) {
-                channels.put("whatsapp", JSONObject().apply {
-                    put("dmPolicy", "pairing")
-                    put("accounts", JSONObject().apply {
-                        put("default", JSONObject())
-                    })
-                })
+                val whatsapp = channels.optJSONObject("whatsapp") ?: JSONObject().also { channels.put("whatsapp", it) }
+                whatsapp.put("dmPolicy", "pairing")
+                val accounts = whatsapp.optJSONObject("accounts") ?: JSONObject().also { whatsapp.put("accounts", it) }
+                val defaultAccount = accounts.optJSONObject("default") ?: JSONObject().also {
+                    accounts.put("default", it)
+                }
+                defaultAccount.put("enabled", true)
+                managedChannels += "whatsapp"
+            } else if (channels.has("whatsapp")) {
+                channels.remove("whatsapp")
             }
 
             if (channelConfig.telegramEnabled && channelConfig.telegramBotToken.isNotBlank()) {
-                channels.put("telegram", JSONObject().apply {
-                    put("botToken", "\${TELEGRAM_BOT_TOKEN}")
-                    put("dmPolicy", "pairing")
-                })
+                val telegram = channels.optJSONObject("telegram") ?: JSONObject().also { channels.put("telegram", it) }
+                if (telegram.has("accounts")) {
+                    telegram.remove("accounts")
+                }
+                if (telegram.has("tokenFile")) {
+                    telegram.remove("tokenFile")
+                }
+                telegram.put("enabled", true)
+                telegram.put("botToken", "\${TELEGRAM_BOT_TOKEN}")
+                telegram.put("dmPolicy", "pairing")
+                managedChannels += "telegram"
+            } else if (channels.has("telegram")) {
+                channels.remove("telegram")
             }
 
             if (channelConfig.discordEnabled && channelConfig.discordBotToken.isNotBlank()) {
                 val guildAllowlist = parseDiscordGuildAllowlist(channelConfig.discordGuildAllowlist)
-                channels.put("discord", JSONObject().apply {
-                    put("token", "\${DISCORD_BOT_TOKEN}")
-                    put("dmPolicy", "pairing")
-                    // Explicitly disable guild handling when allowlist is empty (no implicit open fallback).
-                    put("groupPolicy", if (guildAllowlist.isNotEmpty()) "allowlist" else "disabled")
-                    if (guildAllowlist.isNotEmpty()) {
-                        put("guilds", JSONObject().apply {
-                            guildAllowlist.forEach { guildId ->
-                                put(guildId, JSONObject().apply {
-                                    put("requireMention", channelConfig.discordRequireMention)
-                                })
-                            }
+                val discord = channels.optJSONObject("discord") ?: JSONObject().also { channels.put("discord", it) }
+                if (discord.has("accounts")) {
+                    discord.remove("accounts")
+                }
+                discord.put("enabled", true)
+                discord.put("token", "\${DISCORD_BOT_TOKEN}")
+                discord.put("dmPolicy", "pairing")
+                // Explicitly disable guild handling when allowlist is empty (no implicit open fallback).
+                discord.put("groupPolicy", if (guildAllowlist.isNotEmpty()) "allowlist" else "disabled")
+                if (guildAllowlist.isNotEmpty()) {
+                    val guilds = JSONObject()
+                    guildAllowlist.forEach { guildId ->
+                        guilds.put(guildId, JSONObject().apply {
+                            put("requireMention", channelConfig.discordRequireMention)
                         })
                     }
-                })
+                    discord.put("guilds", guilds)
+                } else if (discord.has("guilds")) {
+                    discord.remove("guilds")
+                }
+                managedChannels += "discord"
                 if (guildAllowlist.isEmpty()) {
                     addLog("[andClaw] Discord guild allowlist is empty: guild messages are blocked")
                 } else {
                     addLog("[andClaw] Discord guild allowlist applied: ${guildAllowlist.size} guild(s)")
                 }
+            } else if (channels.has("discord")) {
+                channels.remove("discord")
             }
 
             if (channels.length() > 0) {
-                json.put("channels", channels)
-                addLog("[andClaw] Channel config: ${channels.keys().asSequence().joinToString(", ")}")
+                val managedSummary = managedChannels.joinToString(", ").ifBlank { "none" }
+                addLog("[andClaw] Channel config applied (managed=$managedSummary)")
             } else {
                 json.remove("channels")
+                addLog("[andClaw] Channel config cleared")
             }
 
             // 채널에 맞는 플러그인 활성화/비활성화

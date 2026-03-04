@@ -24,6 +24,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -35,6 +36,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.compose.rememberNavController
 import com.coderred.andclaw.auth.OpenRouterAuth
 import com.coderred.andclaw.proot.BundleUpdateOutcome
@@ -43,13 +47,19 @@ import com.coderred.andclaw.data.SetupStep
 import com.coderred.andclaw.ui.navigation.AndClawNavGraph
 import com.coderred.andclaw.service.GatewayService
 import com.coderred.andclaw.ui.theme.AndClawTheme
+import com.google.android.play.core.review.ReviewInfo
+import com.google.android.play.core.review.ReviewManager
+import com.google.android.play.core.review.ReviewManagerFactory
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.Locale
+import kotlin.coroutines.resume
 
 private enum class StartupBundleUpdateStatus {
     CHECKING,
@@ -123,8 +133,28 @@ class MainActivity : ComponentActivity() {
                     var startupOpenClawUpdateResult by remember {
                         mutableStateOf<StartupOpenClawUpdateResult?>(null)
                     }
+                    var hasCompletedOpenClawUpdatePromptCheck by remember(isSetupComplete, isOnboardingComplete) {
+                        mutableStateOf(false)
+                    }
+                    var hasCheckedInAppReviewPrompt by remember(isSetupComplete, isOnboardingComplete) {
+                        mutableStateOf(false)
+                    }
                     val setupState by app.setupManager.state.collectAsState()
                     val scope = rememberCoroutineScope()
+                    val lifecycleOwner = LocalLifecycleOwner.current
+                    var resumeSignal by remember { mutableStateOf(0) }
+
+                    DisposableEffect(lifecycleOwner) {
+                        val observer = LifecycleEventObserver { _, event ->
+                            if (event == Lifecycle.Event.ON_RESUME) {
+                                resumeSignal += 1
+                            }
+                        }
+                        lifecycleOwner.lifecycle.addObserver(observer)
+                        onDispose {
+                            lifecycleOwner.lifecycle.removeObserver(observer)
+                        }
+                    }
 
                     LaunchedEffect(isSetupComplete) {
                         if (!isSetupComplete) {
@@ -176,27 +206,66 @@ class MainActivity : ComponentActivity() {
                         if (startupOpenClawUpdateRunning) return@LaunchedEffect
                         if (hasCheckedOpenClawUpdatePrompt) return@LaunchedEffect
                         hasCheckedOpenClawUpdatePrompt = true
+                        hasCompletedOpenClawUpdatePromptCheck = false
 
-                        val info = withContext(Dispatchers.IO) {
-                            runCatching { app.setupManager.getOpenClawUpdateInfo() }.getOrNull()
-                        } ?: return@LaunchedEffect
+                        try {
+                            val info = withContext(Dispatchers.IO) {
+                                runCatching { app.setupManager.getOpenClawUpdateInfo() }.getOrNull()
+                            } ?: return@LaunchedEffect
 
-                        if (!info.updateAvailable) return@LaunchedEffect
+                            if (!info.updateAvailable) return@LaunchedEffect
 
-                        val bundledVersion = info.bundledVersion?.trim().orEmpty()
-                        if (bundledVersion.isNotEmpty()) {
-                            val suppressedVersion = withContext(Dispatchers.IO) {
-                                app.preferencesManager.getOpenClawUpdatePromptSuppressedBundledVersion()
-                            }?.trim().orEmpty()
-                            if (suppressedVersion == bundledVersion) {
-                                return@LaunchedEffect
+                            val bundledVersion = info.bundledVersion?.trim().orEmpty()
+                            if (bundledVersion.isNotEmpty()) {
+                                val suppressedVersion = withContext(Dispatchers.IO) {
+                                    app.preferencesManager.getOpenClawUpdatePromptSuppressedBundledVersion()
+                                }?.trim().orEmpty()
+                                if (suppressedVersion == bundledVersion) {
+                                    return@LaunchedEffect
+                                }
                             }
-                        }
 
-                        startupOpenClawUpdatePrompt = StartupOpenClawUpdatePrompt(
-                            installedVersion = info.installedVersion,
-                            bundledVersion = info.bundledVersion,
-                        )
+                            startupOpenClawUpdatePrompt = StartupOpenClawUpdatePrompt(
+                                installedVersion = info.installedVersion,
+                                bundledVersion = info.bundledVersion,
+                            )
+                        } finally {
+                            hasCompletedOpenClawUpdatePromptCheck = true
+                        }
+                    }
+
+                    LaunchedEffect(
+                        isSetupComplete,
+                        isOnboardingComplete,
+                        startupUpdateStatus,
+                        hasCompletedOpenClawUpdatePromptCheck,
+                        startupOpenClawUpdatePrompt,
+                        startupOpenClawUpdateRunning,
+                        startupOpenClawUpdateResult,
+                        resumeSignal,
+                    ) {
+                        if (!isSetupComplete || !isOnboardingComplete) return@LaunchedEffect
+                        if (startupUpdateStatus != StartupBundleUpdateStatus.DONE) return@LaunchedEffect
+                        if (!hasCompletedOpenClawUpdatePromptCheck) return@LaunchedEffect
+                        if (startupOpenClawUpdatePrompt != null || startupOpenClawUpdateRunning || startupOpenClawUpdateResult != null) {
+                            return@LaunchedEffect
+                        }
+                        if (hasCheckedInAppReviewPrompt) return@LaunchedEffect
+
+                        // startup 직후 다이얼로그가 겹치지 않도록 짧게 대기한다.
+                        delay(1_500L)
+                        if (startupOpenClawUpdatePrompt != null || startupOpenClawUpdateRunning || startupOpenClawUpdateResult != null) {
+                            return@LaunchedEffect
+                        }
+                        if (!this@MainActivity.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                            return@LaunchedEffect
+                        }
+                        hasCheckedInAppReviewPrompt = true
+                        runCatching {
+                            maybeLaunchInAppReview(app)
+                        }.onFailure { error ->
+                            Log.w("MainActivity", "In-app review flow failed safely", error)
+                        }
                     }
 
                     if (isSetupComplete && startupUpdateStatus != StartupBundleUpdateStatus.DONE) {
@@ -412,6 +481,70 @@ class MainActivity : ComponentActivity() {
             uri.path == OpenRouterAuth.CALLBACK_PATH
         ) {
             authCallbackUri = uri
+        }
+    }
+
+    private suspend fun maybeLaunchInAppReview(app: AndClawApp) {
+        val nowEpochMs = System.currentTimeMillis()
+        val begun = withContext(Dispatchers.IO) {
+            app.preferencesManager.tryBeginInAppReviewRequest(
+                currentVersion = BuildConfig.VERSION_CODE,
+                nowEpochMs = nowEpochMs,
+            )
+        }
+        if (!begun) return
+
+        var finalized = false
+        try {
+            val reviewManager = ReviewManagerFactory.create(this)
+            val reviewInfo = requestReviewInfoOrNull(reviewManager) ?: return
+            val launchSucceeded = launchReviewFlowSafely(reviewManager, reviewInfo)
+            if (!launchSucceeded) return
+
+            val consumedAtEpochMs = System.currentTimeMillis()
+            finalized = withContext(Dispatchers.IO) {
+                app.preferencesManager.finalizeInAppReviewRequest(
+                    currentVersion = BuildConfig.VERSION_CODE,
+                    requestedAtEpochMs = consumedAtEpochMs,
+                )
+            }
+        } finally {
+            if (!finalized) {
+                withContext(NonCancellable + Dispatchers.IO) {
+                    app.preferencesManager.cancelInAppReviewRequest(BuildConfig.VERSION_CODE)
+                }
+            }
+        }
+    }
+
+    private suspend fun requestReviewInfoOrNull(reviewManager: ReviewManager): ReviewInfo? {
+        return suspendCancellableCoroutine { cont ->
+            reviewManager.requestReviewFlow()
+                .addOnCompleteListener { task ->
+                    if (!cont.isActive) return@addOnCompleteListener
+                    if (task.isSuccessful) {
+                        cont.resume(task.result)
+                    } else {
+                        Log.w("MainActivity", "In-app review requestReviewFlow failed", task.exception)
+                        cont.resume(null)
+                    }
+                }
+        }
+    }
+
+    private suspend fun launchReviewFlowSafely(
+        reviewManager: ReviewManager,
+        reviewInfo: ReviewInfo,
+    ): Boolean {
+        return suspendCancellableCoroutine { cont ->
+            reviewManager.launchReviewFlow(this, reviewInfo)
+                .addOnCompleteListener { task ->
+                    if (!cont.isActive) return@addOnCompleteListener
+                    if (!task.isSuccessful) {
+                        Log.w("MainActivity", "In-app review launchReviewFlow failed", task.exception)
+                    }
+                    cont.resume(task.isSuccessful)
+                }
         }
     }
 

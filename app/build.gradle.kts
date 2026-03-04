@@ -37,8 +37,8 @@ android {
         applicationId = "com.coderred.andclaw"
         minSdk = 26
         targetSdk = 35
-        versionCode = 70
-        versionName = "0.0.70"
+        versionCode = 72
+        versionName = "0.0.72"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -159,6 +159,9 @@ dependencies {
 
     // WorkManager (watchdog recovery path)
     implementation("androidx.work:work-runtime-ktx:2.10.0")
+
+    // Google Play In-App Review
+    implementation("com.google.android.play:review-ktx:2.0.2")
 
     // Apache Commons Compress - tar.gz 압축 해제용
     implementation("org.apache.commons:commons-compress:1.27.1")

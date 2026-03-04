@@ -30,7 +30,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.cancelAndJoin
@@ -75,6 +74,51 @@ class GatewayService : Service() {
                 batteryStatus == BatteryManager.BATTERY_STATUS_FULL
         }
 
+        internal data class InAppReviewRunTracker(
+            val runActive: Boolean = false,
+            val runCounted: Boolean = false,
+        )
+
+        internal enum class InAppReviewCounterAction {
+            NONE,
+            INCREMENT,
+            RESET,
+        }
+
+        internal fun advanceInAppReviewRunTracker(
+            tracker: InAppReviewRunTracker,
+            status: GatewayStatus,
+            previousStatus: GatewayStatus?,
+        ): Pair<InAppReviewRunTracker, InAppReviewCounterAction> {
+            return when (status) {
+                GatewayStatus.STARTING -> {
+                    InAppReviewRunTracker(runActive = true) to InAppReviewCounterAction.NONE
+                }
+
+                GatewayStatus.RUNNING -> {
+                    val fromTerminalState = previousStatus == GatewayStatus.STOPPED ||
+                        previousStatus == GatewayStatus.ERROR
+                    if (!tracker.runCounted && (tracker.runActive || fromTerminalState)) {
+                        InAppReviewRunTracker(runActive = true, runCounted = true) to InAppReviewCounterAction.INCREMENT
+                    } else {
+                        tracker to InAppReviewCounterAction.NONE
+                    }
+                }
+
+                GatewayStatus.ERROR -> {
+                    InAppReviewRunTracker() to InAppReviewCounterAction.RESET
+                }
+
+                GatewayStatus.STOPPED -> {
+                    InAppReviewRunTracker() to InAppReviewCounterAction.NONE
+                }
+
+                GatewayStatus.STOPPING -> {
+                    tracker to InAppReviewCounterAction.NONE
+                }
+            }
+        }
+
         /** 현재 서비스의 ProcessManager. 서비스가 살아있을 때만 non-null. */
         val processManager: ProcessManager?
             get() = _instance?.pm
@@ -92,10 +136,15 @@ class GatewayService : Service() {
             }
         }
 
-        fun restart(context: Context, userInitiated: Boolean = true) {
+        fun restart(
+            context: Context,
+            userInitiated: Boolean = true,
+            fromWatchdog: Boolean = false,
+        ) {
             val intent = Intent(context, GatewayService::class.java).apply {
                 action = ACTION_RESTART
                 putExtra(EXTRA_USER_INITIATED, userInitiated)
+                putExtra(EXTRA_FROM_WATCHDOG, fromWatchdog)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
@@ -134,6 +183,7 @@ class GatewayService : Service() {
     private lateinit var pm: ProcessManager
     private lateinit var prefs: PreferencesManager
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private val inAppReviewCounterMutex = Mutex()
     private var actionJob: Job? = null
     private var actionJobType: GatewayActionType? = null
     private val actionSequence = AtomicLong(0L)
@@ -167,14 +217,33 @@ class GatewayService : Service() {
 
         // 상태 변화 → 알림 업데이트
         serviceScope.launch {
-            pm.gatewayState.collectLatest { state ->
-                val text = when (state.status) {
-                    GatewayStatus.RUNNING -> getString(R.string.notification_running, formatUptime(state.uptime))
+            var lastNotificationText: String? = null
+            var lastGatewayStatus: GatewayStatus? = null
+            var reviewRunTracker = InAppReviewRunTracker()
+            pm.gatewayState.collect { state ->
+                val status = state.status
+                if (status != lastGatewayStatus) {
+                    val (updatedTracker, counterAction) = advanceInAppReviewRunTracker(
+                        tracker = reviewRunTracker,
+                        status = status,
+                        previousStatus = lastGatewayStatus,
+                    )
+                    reviewRunTracker = updatedTracker
+                    if (counterAction != InAppReviewCounterAction.NONE) {
+                        applyInAppReviewCounterUpdateSerialized(counterAction, status)
+                    }
+                    lastGatewayStatus = status
+                }
+
+                val text = when (status) {
+                    GatewayStatus.RUNNING -> getString(R.string.notification_running)
                     GatewayStatus.STARTING -> getString(R.string.notification_starting)
                     GatewayStatus.STOPPING -> getString(R.string.notification_stopping)
                     GatewayStatus.ERROR -> getString(R.string.notification_error, state.errorMessage?.take(50) ?: getString(R.string.notification_unknown))
                     GatewayStatus.STOPPED -> getString(R.string.notification_stopped)
                 }
+                if (text == lastNotificationText) return@collect
+                lastNotificationText = text
                 updateNotification(text)
             }
         }
@@ -260,6 +329,7 @@ class GatewayService : Service() {
                 runAction(GatewayActionType.RESTART, startId) { actionToken, actionStartId ->
                     handleRestart(
                         userInitiated = userInitiated,
+                        fromWatchdog = fromWatchdog,
                         actionToken = actionToken,
                         startId = actionStartId,
                     )
@@ -284,6 +354,37 @@ class GatewayService : Service() {
         serviceScope.cancel()
         _instance = null
         super.onDestroy()
+    }
+
+    private suspend fun applyInAppReviewCounterUpdate(
+        action: InAppReviewCounterAction,
+        status: GatewayStatus,
+    ) {
+        val counterResult = runCatching {
+            when (action) {
+                InAppReviewCounterAction.NONE -> Unit
+                InAppReviewCounterAction.INCREMENT -> prefs.incrementInAppReviewGatewayHealthyRunCount()
+                InAppReviewCounterAction.RESET -> prefs.resetInAppReviewGatewayHealthyRunCount()
+            }
+        }
+        if (counterResult.isFailure) {
+            android.util.Log.e(
+                "GatewayService",
+                "Failed to update in-app review counter on gateway status change: $status",
+                counterResult.exceptionOrNull(),
+            )
+        }
+    }
+
+    private suspend fun applyInAppReviewCounterUpdateSerialized(
+        action: InAppReviewCounterAction,
+        status: GatewayStatus,
+    ) {
+        inAppReviewCounterMutex.withLock {
+            withContext(Dispatchers.IO) {
+                applyInAppReviewCounterUpdate(action, status)
+            }
+        }
     }
 
     // ── Notification ──
@@ -490,15 +591,25 @@ class GatewayService : Service() {
         }
     }
 
-    private suspend fun handleRestart(userInitiated: Boolean, actionToken: Long, startId: Int) {
+    private suspend fun handleRestart(
+        userInitiated: Boolean,
+        fromWatchdog: Boolean,
+        actionToken: Long,
+        startId: Int,
+    ) {
         if (!isActionCurrent(actionToken)) return
 
         if (!userInitiated) {
             val shouldKeepRunning = prefs.gatewayWasRunning.first() && prefs.isSetupComplete.first()
+            if (fromWatchdog && !shouldKeepRunning) {
+                GatewayWatchdogReceiver.cancel(applicationContext)
+                stopServiceForeground(startId)
+                return
+            }
+
             val status = pm.gatewayState.value.status
-            val alreadyActive =
-                status == GatewayStatus.RUNNING || status == GatewayStatus.STARTING
-            if (!shouldKeepRunning && !alreadyActive) {
+            val alreadyActive = status == GatewayStatus.RUNNING || status == GatewayStatus.STARTING
+            if (!fromWatchdog && !shouldKeepRunning && !alreadyActive) {
                 GatewayWatchdogReceiver.cancel(applicationContext)
                 stopServiceForeground(startId)
                 return
@@ -648,13 +759,6 @@ class GatewayService : Service() {
             )
         }
         return finalState?.status
-    }
-
-    private fun formatUptime(seconds: Long): String {
-        val h = seconds / 3600
-        val m = (seconds % 3600) / 60
-        val s = seconds % 60
-        return "%02d:%02d:%02d".format(h, m, s)
     }
 
     private fun runAction(

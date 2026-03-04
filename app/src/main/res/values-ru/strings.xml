@@ -4,7 +4,7 @@
     <string name="notification_channel_name">OpenClaw Gateway</string>
     <string name="notification_channel_description">Статус работы шлюза OpenClaw</string>
     <string name="notification_waiting">Ожидание</string>
-    <string name="notification_running">Работает | %1$s</string>
+    <string name="notification_running">Работает</string>
     <string name="notification_starting">Запуск…</string>
     <string name="notification_stopping">Остановка…</string>
     <string name="notification_error">Ошибка: %1$s</string>

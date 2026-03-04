@@ -2,7 +2,7 @@
     <string name="notification_channel_name">OpenClaw 网关</string>
     <string name="notification_channel_description">OpenClaw 网关运行状态</string>
     <string name="notification_waiting">等待中</string>
-    <string name="notification_running">运行中 | %1$s</string>
+    <string name="notification_running">运行中</string>
     <string name="notification_starting">启动中…</string>
     <string name="notification_stopping">停止中…</string>
     <string name="notification_error">错误：%1$s</string>

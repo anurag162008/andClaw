@@ -32,6 +32,7 @@ class GatewayWatchdogRecoveryWorker(
         private const val UNIQUE_WORK_NAME = "gateway_watchdog_recovery"
         private const val CHANNEL_ID = "andclaw_watchdog_recovery"
         private const val NOTIFICATION_ID = 30101
+        private const val HEALTH_PROBE_TIMEOUT_MS = 8_000L
 
         fun enqueue(context: Context) {
             val request = OneTimeWorkRequestBuilder<GatewayWatchdogRecoveryWorker>()
@@ -50,19 +51,51 @@ class GatewayWatchdogRecoveryWorker(
             return Result.success()
         }
 
-        val status = GatewayService.processManager?.gatewayState?.value?.status
-        val needsRecovery = status == null || status == GatewayStatus.STOPPED || status == GatewayStatus.ERROR
+        val processManager = GatewayService.processManager
+        var status = processManager?.gatewayState?.value?.status
+        val needsRecovery = when (status) {
+            null,
+            GatewayStatus.STOPPED,
+            GatewayStatus.ERROR -> true
+            GatewayStatus.RUNNING -> {
+                val healthy = processManager?.probeGatewayHealth(timeoutMs = HEALTH_PROBE_TIMEOUT_MS) == true
+                // Probe 중 상태 전이가 일어난 경우 stale RUNNING 판정을 폐기한다.
+                status = processManager?.gatewayState?.value?.status ?: status
+                when (status) {
+                    GatewayStatus.STOPPED,
+                    GatewayStatus.ERROR -> true
+                    GatewayStatus.RUNNING -> {
+                        if (!healthy) {
+                            Log.w("GatewayWatchdogWorker", "Gateway RUNNING but unhealthy, restarting")
+                        }
+                        !healthy
+                    }
+                    GatewayStatus.STARTING,
+                    GatewayStatus.STOPPING -> false
+                }
+            }
+            GatewayStatus.STARTING,
+            GatewayStatus.STOPPING -> false
+        }
         if (!needsRecovery) {
             return Result.success()
         }
 
         return try {
             setForeground(createForegroundInfo())
-            GatewayService.start(
-                applicationContext,
-                fromWatchdog = true,
-                userInitiated = false,
-            )
+            if (status == GatewayStatus.RUNNING) {
+                GatewayService.restart(
+                    applicationContext,
+                    userInitiated = false,
+                    fromWatchdog = true,
+                )
+            } else {
+                GatewayService.start(
+                    applicationContext,
+                    fromWatchdog = true,
+                    userInitiated = false,
+                )
+            }
             Result.success()
         } catch (error: Exception) {
             Log.e("GatewayWatchdogWorker", "Failed to start gateway from watchdog worker", error)

@@ -15,6 +15,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicInteger
 
 class GatewayWatchdogReceiver : BroadcastReceiver() {
 
@@ -23,6 +24,9 @@ class GatewayWatchdogReceiver : BroadcastReceiver() {
         private const val REQUEST_CODE = 21001
         private const val WATCHDOG_INTERVAL_MS = 30_000L
         private const val MIN_DELAY_MS = 5_000L
+        private const val HEALTH_PROBE_TIMEOUT_MS = 6_000L
+        private const val RUNNING_UNHEALTHY_RECOVERY_THRESHOLD = 2
+        private val runningUnhealthyFailures = AtomicInteger(0)
 
         fun intervalMs(): Long = WATCHDOG_INTERVAL_MS
 
@@ -59,6 +63,48 @@ class GatewayWatchdogReceiver : BroadcastReceiver() {
             val appContext = context.applicationContext
             val alarmManager = appContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
             alarmManager.cancel(buildPendingIntent(appContext))
+            runningUnhealthyFailures.set(0)
+        }
+
+        internal data class RecoveryDecision(
+            val needsRecovery: Boolean,
+            val nextRunningUnhealthyFailures: Int,
+        )
+
+        internal fun decideRecovery(
+            status: GatewayStatus?,
+            runningHealthy: Boolean = true,
+            previousRunningUnhealthyFailures: Int = 0,
+            runningUnhealthyRecoveryThreshold: Int = RUNNING_UNHEALTHY_RECOVERY_THRESHOLD,
+        ): RecoveryDecision {
+            return when (status) {
+                null,
+                GatewayStatus.STOPPED,
+                GatewayStatus.ERROR -> RecoveryDecision(
+                    needsRecovery = true,
+                    nextRunningUnhealthyFailures = 0,
+                )
+                GatewayStatus.RUNNING -> {
+                    if (runningHealthy) {
+                        RecoveryDecision(
+                            needsRecovery = false,
+                            nextRunningUnhealthyFailures = 0,
+                        )
+                    } else {
+                        val nextFailureCount = (previousRunningUnhealthyFailures + 1).coerceAtLeast(1)
+                        val shouldRecover = nextFailureCount >= runningUnhealthyRecoveryThreshold
+                        RecoveryDecision(
+                            needsRecovery = shouldRecover,
+                            nextRunningUnhealthyFailures = if (shouldRecover) 0 else nextFailureCount,
+                        )
+                    }
+                }
+                GatewayStatus.STARTING,
+                GatewayStatus.STOPPING -> RecoveryDecision(
+                    needsRecovery = false,
+                    nextRunningUnhealthyFailures = 0,
+                )
+            }
         }
 
         internal fun shouldUseExactAlarm(sdkInt: Int, canScheduleExact: Boolean): Boolean {
@@ -115,12 +161,38 @@ class GatewayWatchdogReceiver : BroadcastReceiver() {
                     return@launch
                 }
 
-                val status = GatewayService.processManager?.gatewayState?.value?.status
-                val needsRecovery =
-                    status == null ||
-                        status == GatewayStatus.STOPPED ||
-                        status == GatewayStatus.ERROR
-                if (needsRecovery) {
+                val processManager = GatewayService.processManager
+                var status = processManager?.gatewayState?.value?.status
+                val previousRunningUnhealthyFailures = runningUnhealthyFailures.get()
+                val runningHealthy = if (status == GatewayStatus.RUNNING) {
+                    val healthy = processManager?.probeGatewayHealth(timeoutMs = HEALTH_PROBE_TIMEOUT_MS) == true
+                    // Probe 중 상태 전이가 일어난 경우 stale RUNNING 판정을 폐기한다.
+                    status = processManager?.gatewayState?.value?.status ?: status
+                    if (status != GatewayStatus.RUNNING) true else healthy
+                } else {
+                    true
+                }
+                val decision = decideRecovery(
+                    status = status,
+                    runningHealthy = runningHealthy,
+                    previousRunningUnhealthyFailures = previousRunningUnhealthyFailures,
+                )
+                runningUnhealthyFailures.set(decision.nextRunningUnhealthyFailures)
+
+                if (status == GatewayStatus.RUNNING && !runningHealthy) {
+                    val failureForLog = if (decision.needsRecovery) {
+                        previousRunningUnhealthyFailures + 1
+                    } else {
+                        decision.nextRunningUnhealthyFailures
+                    }
+                    Log.w(
+                        "GatewayWatchdog",
+                        "Gateway RUNNING but unhealthy ($failureForLog/$RUNNING_UNHEALTHY_RECOVERY_THRESHOLD)",
+                    )
+                }
+
+                if (decision.needsRecovery) {
+                    runningUnhealthyFailures.set(0)
                     // AlarmReceiver에서 직접 FGS를 시작하지 않고 WorkManager 경유로 복구를 시도한다.
                     GatewayWatchdogRecoveryWorker.enqueue(appContext)
                 }

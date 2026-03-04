@@ -2,7 +2,7 @@
     <string name="notification_channel_name">OpenClaw ゲートウェイ</string>
     <string name="notification_channel_description">OpenClaw ゲートウェイの実行状態</string>
     <string name="notification_waiting">待機中</string>
-    <string name="notification_running">実行中 | %1$s</string>
+    <string name="notification_running">実行中</string>
     <string name="notification_starting">起動中…</string>
     <string name="notification_stopping">停止中…</string>
     <string name="notification_error">エラー：%1$s</string>

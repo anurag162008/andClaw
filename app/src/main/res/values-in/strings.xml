@@ -4,7 +4,7 @@
     <string name="notification_channel_name">Gateway OpenClaw</string>
     <string name="notification_channel_description">Status gateway OpenClaw berjalan</string>
     <string name="notification_waiting">Menunggu</string>
-    <string name="notification_running">Berjalan | %1$s</string>
+    <string name="notification_running">Berjalan</string>
     <string name="notification_starting">Memulai…</string>
     <string name="notification_stopping">Menghentikan…</string>
     <string name="notification_error">Kesalahan: %1$s</string>

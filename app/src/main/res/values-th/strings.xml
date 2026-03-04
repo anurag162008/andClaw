@@ -4,7 +4,7 @@
     <string name="notification_channel_name">OpenClaw Gateway</string>
     <string name="notification_channel_description">สถานะการทำงานของ OpenClaw gateway</string>
     <string name="notification_waiting">รอโปรแกรม</string>
-    <string name="notification_running">ทำงาน | %1$s</string>
+    <string name="notification_running">ทำงาน</string>
     <string name="notification_starting">กำลังเริ่ม…</string>
     <string name="notification_stopping">กำลังหยุด…</string>
     <string name="notification_error">ข้อผิดพลาด: %1$s</string>

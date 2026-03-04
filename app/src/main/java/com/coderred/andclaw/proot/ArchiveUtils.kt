@@ -86,16 +86,24 @@ object ArchiveUtils {
 
                         entry.isLink -> {
                             outFile.parentFile?.mkdirs()
-                            val linkTarget = File(destDir, entry.linkName
+                            val normalizedLinkName = entry.linkName
                                 .removePrefix("./")
-                                .removePrefix("/"))
-                            outFile.delete()
-                            try {
-                                Files.createLink(outFile.toPath(), linkTarget.toPath())
-                            } catch (_: Exception) {
-                                // 하드 링크 실패 시 파일 복사로 폴백
-                                if (linkTarget.exists()) {
-                                    linkTarget.copyTo(outFile, overwrite = true)
+                                .removePrefix("/")
+                            val linkTarget = File(destDir, normalizedLinkName)
+
+                            // tar 입력 중복/자기참조 hardlink가 들어온 경우(예: path -> same path),
+                            // 기존 파일을 지우면 원본까지 사라지므로 no-op 처리한다.
+                            val isSelfHardLink = outFile.absoluteFile.toPath().normalize() ==
+                                linkTarget.absoluteFile.toPath().normalize()
+                            if (!isSelfHardLink) {
+                                outFile.delete()
+                                try {
+                                    Files.createLink(outFile.toPath(), linkTarget.toPath())
+                                } catch (_: Exception) {
+                                    // 하드 링크 실패 시 파일 복사로 폴백
+                                    if (linkTarget.exists()) {
+                                        linkTarget.copyTo(outFile, overwrite = true)
+                                    }
                                 }
                             }
                         }
