@@ -30,6 +30,7 @@ import com.coderred.andclaw.data.isSessionError
 import com.coderred.andclaw.data.parseOpenRouterModels
 import com.coderred.andclaw.proot.BundleUpdateOutcome
 import com.coderred.andclaw.proot.GatewayWsClient
+import com.coderred.andclaw.proot.OpenClawModelCatalogReader
 import com.coderred.andclaw.proot.ProcessManager
 import com.coderred.andclaw.proot.WhatsAppLoginCoordinator
 import com.coderred.andclaw.service.GatewayService
@@ -46,6 +47,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
@@ -122,8 +124,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         private const val WHATSAPP_QR_FORCE_TIMEOUT_MS = 70_000L
         private const val WHATSAPP_GATEWAY_RESTART_READY_TIMEOUT_MS = 20_000L
         private const val WHATSAPP_GATEWAY_RESTART_RETRY_INTERVAL_MS = 250L
-        private const val OPENCLAW_BUILTIN_MODELS_PATH =
-            "usr/local/lib/node_modules/openclaw/node_modules/@mariozechner/pi-ai/dist/models.generated.js"
     }
     private val prefs = (application as AndClawApp).preferencesManager
     private val prootManager = (application as AndClawApp).prootManager
@@ -633,28 +633,72 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private suspend fun promoteGptSubscriptionModelSelection(provider: String) {
         if (provider != "openai" && provider != "openai-codex") return
 
-        val selectedModelIds = prefs.currentProviderSelectedModelIds.first()
-        val targetPrimary = prefs.getEffectivePrimary(provider)
-            ?.takeIf { it.isNotBlank() }
-            ?: defaultBuiltInModels(provider)
-            .firstOrNull()
-            ?.id
-            ?: return
+        val currentSelectedModelIds = prefs.currentProviderSelectedModelIds.first()
+        val savedPrimary = prefs.getEffectivePrimary(provider)?.takeIf { it.isNotBlank() }
+        val (selectedModelIds, targetPrimary, metadataById) = when (provider) {
+            "openai-codex" -> {
+                val installedCodexModels = resolveCodexModelsFromInstalledBundle()
+                val installedCodexModelsByNormalizedId = installedCodexModels.associateBy {
+                    normalizeCodexModelIdForComparison(it.id)
+                }
+                val targetPrimary = savedPrimary
+                    ?: resolvePreferredCodexPrimaryModelFromInstalledBundle().removePrefix("openai-codex/")
+                val selectedModelIds = currentSelectedModelIds
+                    .ifEmpty { listOf(targetPrimary) }
+                    .let { modelIds ->
+                        if (modelIds.contains(targetPrimary)) {
+                            modelIds
+                        } else {
+                            listOf(targetPrimary) + modelIds
+                        }
+                    }
+                    .distinct()
+                val metadataById = selectedModelIds.mapNotNull { modelId ->
+                    val installedModel = installedCodexModelsByNormalizedId[normalizeCodexModelIdForComparison(modelId)]
+                        ?: return@mapNotNull null
+                    modelId to SelectedModelConfigEntry(
+                        id = modelId,
+                        supportsReasoning = installedModel.supportsReasoning,
+                        supportsImages = installedModel.supportsImages,
+                        contextLength = installedModel.contextLength,
+                        maxOutputTokens = installedModel.maxOutputTokens,
+                    )
+                }.toMap()
+                Triple(selectedModelIds, targetPrimary, metadataById)
+            }
+
+            else -> {
+                val targetPrimary = savedPrimary
+                    ?: defaultBuiltInModels(provider)
+                        .firstOrNull()
+                    ?.id
+                    ?: return
+                val selectedModelIds = currentSelectedModelIds
+                    .ifEmpty { listOf(targetPrimary) }
+                    .let { modelIds ->
+                        if (modelIds.contains(targetPrimary)) {
+                            modelIds
+                        } else {
+                            listOf(targetPrimary) + modelIds
+                        }
+                    }
+                    .distinct()
+                Triple(selectedModelIds, targetPrimary, emptyMap())
+            }
+        }
 
         prefs.setSelectedModelIds(
             provider = provider,
-            modelIds = selectedModelIds
-                .ifEmpty { listOf(targetPrimary) }
-                .let { modelIds ->
-                    if (modelIds.contains(targetPrimary)) {
-                        modelIds
-                    } else {
-                        listOf(targetPrimary) + modelIds
-                    }
-                }
-                .distinct(),
+            modelIds = selectedModelIds,
             primary = targetPrimary,
+            metadataById = metadataById,
         )
+    }
+
+    private fun normalizeCodexModelIdForComparison(modelId: String): String {
+        return modelId.trim()
+            .removePrefix("openai-codex/")
+            .removePrefix("openai/")
     }
 
     private fun persistLaunchConfigIfRunnable(
@@ -1300,60 +1344,85 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     private fun loadBuiltInModels(provider: String): List<OpenRouterModel> {
         val fallbackModels = defaultBuiltInModels(provider)
-        val rootfsDir = prootManager.rootfsDir ?: return fallbackModels
-
-        val modelsFile = File(rootfsDir, OPENCLAW_BUILTIN_MODELS_PATH)
-        if (!modelsFile.exists()) {
-            return fallbackModels
-        }
-
-        val content = modelsFile.readText()
-        val sectionName = when (provider) {
-            "openai-codex" -> "openai-codex"
-            else -> provider
-        }
-
-        val entries = extractProviderModelEntries(content, sectionName)
-        if (entries.isEmpty() && provider == "openai-codex") {
-            val fallbackOpenAiEntries = extractProviderModelEntries(content, "openai")
-                .filter { it.id.contains("codex", ignoreCase = true) }
-            if (fallbackOpenAiEntries.isNotEmpty()) {
-                return fallbackOpenAiEntries
-                    .map { it.toOpenRouterModel() }
-                    .distinctBy { it.id }
+        val rootfsDir = prootManager.rootfsDir
+        val builtInModels = OpenClawModelCatalogReader.loadProviderModels(rootfsDir, provider)
+            .ifEmpty {
+                if (provider == "openai-codex") {
+                    val legacyCodexEntries = resolveLegacyOpenAiCodexEntries(rootfsDir)
+                    val syntheticCodexEntries = OpenClawModelCatalogReader.loadSyntheticFallbackEntries(
+                        rootfsDir = rootfsDir,
+                        provider = "openai-codex",
+                        baseEntries = legacyCodexEntries,
+                    )
+                    (legacyCodexEntries + syntheticCodexEntries)
+                        .distinctBy { it.id }
+                } else {
+                    emptyList()
+                }
             }
-        }
+            .map { it.toOpenRouterModel() }
 
-        val builtInModels = if (entries.isNotEmpty()) {
-            entries
-                .map { it.toOpenRouterModel() }
-        } else {
-            fallbackModels
-        }
-
-        return builtInModels.distinctBy { it.id }
+        return (if (builtInModels.isNotEmpty()) builtInModels else fallbackModels)
+            .distinctBy { it.id }
     }
 
-    private data class BuiltInModelEntry(
-        val id: String,
-        val name: String,
-        val contextWindow: Int,
-        val maxTokens: Int,
-        val supportsReasoning: Boolean,
-        val supportsImages: Boolean,
-    ) {
-        fun toOpenRouterModel(): OpenRouterModel {
-            return OpenRouterModel(
-                id = id,
-                name = name,
-                contextLength = contextWindow,
-                maxOutputTokens = maxTokens,
-                isFree = false,
-                pricing = "Built-in",
-                supportsReasoning = supportsReasoning,
-                supportsImages = supportsImages,
-            )
+    private fun resolveCodexModelsFromInstalledBundle(): List<OpenRouterModel> {
+        val rootfsDir = runCatching { prootManager.rootfsDir }.getOrNull() ?: return emptyList()
+
+        val directCodexModels = OpenClawModelCatalogReader.loadProviderModels(rootfsDir, "openai-codex")
+            .map { it.toOpenRouterModel() }
+        if (directCodexModels.isNotEmpty()) return directCodexModels.distinctBy { it.id }
+
+        val legacyCodexEntries = resolveLegacyOpenAiCodexEntries(rootfsDir)
+        val syntheticCodexEntries = OpenClawModelCatalogReader.loadSyntheticFallbackEntries(
+            rootfsDir = rootfsDir,
+            provider = "openai-codex",
+            baseEntries = legacyCodexEntries,
+        )
+        return (legacyCodexEntries + syntheticCodexEntries)
+            .distinctBy { it.id }
+            .map { it.toOpenRouterModel() }
+    }
+
+    private fun resolvePreferredCodexPrimaryModelFromInstalledBundle(): String {
+        val availableIds = resolveCodexModelsFromInstalledBundle().map { it.id }
+        return when {
+            "gpt-5.4" in availableIds -> "openai-codex/gpt-5.4"
+            "gpt-5.3-codex" in availableIds -> "openai-codex/gpt-5.3-codex"
+            availableIds.isNotEmpty() -> "openai-codex/${availableIds.first()}"
+            else -> "openai-codex/gpt-5.3-codex"
         }
+    }
+
+
+    private fun OpenClawModelCatalogReader.ModelEntry.toOpenRouterModel(): OpenRouterModel {
+        return OpenRouterModel(
+            id = id,
+            name = name,
+            contextLength = contextWindow,
+            maxOutputTokens = maxTokens,
+            isFree = false,
+            pricing = "Built-in",
+            supportsReasoning = supportsReasoning,
+            supportsImages = supportsImages,
+        )
+    }
+
+    private fun resolveLegacyOpenAiCodexEntries(rootfsDir: File?): List<OpenClawModelCatalogReader.ModelEntry> {
+        return OpenClawModelCatalogReader.loadProviderModels(rootfsDir, "openai")
+            .asSequence()
+            .filter { isLegacyOpenAiCodexModelId(it.id) }
+            .map { entry -> entry.copy(provider = "openai-codex") }
+            .distinctBy { it.id }
+            .toList()
+    }
+
+    private fun isLegacyOpenAiCodexModelId(modelId: String): Boolean {
+        val normalizedId = normalizeCodexModelIdForComparison(modelId)
+        return normalizedId.contains("codex", ignoreCase = true) ||
+            normalizedId == "gpt-5.1" ||
+            normalizedId == "gpt-5.2" ||
+            normalizedId == "gpt-5.4"
     }
 
     private fun builtInModel(
@@ -1363,14 +1432,16 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         supportsReasoning: Boolean = false,
         supportsImages: Boolean = false,
     ): OpenRouterModel {
-        return BuiltInModelEntry(
+        return OpenRouterModel(
             id = id,
             name = id,
-            contextWindow = contextWindow,
-            maxTokens = maxTokens,
+            contextLength = contextWindow,
+            maxOutputTokens = maxTokens,
+            isFree = false,
+            pricing = "Built-in",
             supportsReasoning = supportsReasoning,
             supportsImages = supportsImages,
-        ).toOpenRouterModel()
+        )
     }
 
     private fun defaultBuiltInModels(provider: String): List<OpenRouterModel> {
@@ -1384,7 +1455,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 builtInModel("gpt-5", contextWindow = 128_000, maxTokens = 16_384),
             )
             "openai-codex" -> listOf(
-                builtInModel("gpt-5.3-codex", contextWindow = 128_000, maxTokens = 16_384),
+                builtInModel("gpt-5.3-codex", contextWindow = 272_000, maxTokens = 128_000, supportsReasoning = true, supportsImages = true),
             )
             "openai-compatible" -> listOf(
                 builtInModel("gpt-4o-mini", contextWindow = 128_000, maxTokens = 16_384),
@@ -1435,166 +1506,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             contextLength = contextLength,
             maxOutputTokens = maxOutputTokens,
         )
-    }
-
-    private fun extractProviderModelEntries(content: String, sectionName: String): List<BuiltInModelEntry> {
-        val marker = "\"$sectionName\": {"
-        val markerIndex = content.indexOf(marker)
-        if (markerIndex < 0) return emptyList()
-
-        val sectionStart = content.indexOf('{', markerIndex + marker.length - 1)
-        if (sectionStart < 0) return emptyList()
-
-        val sectionEnd = findMatchingBraceIndex(content, sectionStart)
-        if (sectionEnd <= sectionStart) return emptyList()
-
-        val result = mutableListOf<BuiltInModelEntry>()
-        var index = sectionStart + 1
-        var depth = 1
-
-        while (index < sectionEnd) {
-            when (content[index]) {
-                '{' -> depth++
-                '}' -> depth--
-                '"' -> {
-                    val (key, endQuoteIndex) = readJsonLikeString(content, index)
-                    index = endQuoteIndex
-                    if (depth == 1) {
-                        var cursor = skipWhitespace(content, endQuoteIndex + 1, sectionEnd)
-                        if (cursor < sectionEnd && content[cursor] == ':') {
-                            cursor = skipWhitespace(content, cursor + 1, sectionEnd)
-                            if (cursor < sectionEnd && content[cursor] == '{') {
-                                val objectEnd = findMatchingBraceIndex(content, cursor)
-                                if (objectEnd in (cursor + 1)..sectionEnd) {
-                                    val body = content.substring(cursor, objectEnd + 1)
-                                    parseBuiltInModelEntry(key, body)?.let { result.add(it) }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            index++
-        }
-
-        return result
-    }
-
-    private fun parseBuiltInModelEntry(id: String, body: String): BuiltInModelEntry? {
-        val contextWindow = parseJsNumberField(body, "contextWindow") ?: return null
-        val maxTokens = parseJsNumberField(body, "maxTokens") ?: 4096
-        val name = parseJsStringField(body, "name") ?: id
-        val supportsReasoning = parseJsBooleanField(body, "reasoning") ?: false
-        val supportsImages = parseInputSupportsImages(body)
-
-        return BuiltInModelEntry(
-            id = id,
-            name = name,
-            contextWindow = contextWindow,
-            maxTokens = maxTokens,
-            supportsReasoning = supportsReasoning,
-            supportsImages = supportsImages,
-        )
-    }
-
-    private fun parseJsStringField(body: String, field: String): String? {
-        val escapedField = Regex.escape(field)
-        val regex = Regex("\\b$escapedField\\s*:\\s*\"((?:\\\\.|[^\\\"])*)\"")
-        val raw = regex.find(body)?.groupValues?.get(1) ?: return null
-        return raw.replace("\\\"", "\"").replace("\\\\", "\\")
-    }
-
-    private fun parseJsBooleanField(body: String, field: String): Boolean? {
-        val escapedField = Regex.escape(field)
-        val regex = Regex("\\b$escapedField\\s*:\\s*(true|false)")
-        return when (regex.find(body)?.groupValues?.get(1)) {
-            "true" -> true
-            "false" -> false
-            else -> null
-        }
-    }
-
-    private fun parseJsNumberField(body: String, field: String): Int? {
-        val escapedField = Regex.escape(field)
-        val regex = Regex("\\b$escapedField\\s*:\\s*([0-9][0-9_]*(?:\\.[0-9_]+)?(?:[eE][+-]?[0-9]+)?)")
-        val raw = regex.find(body)?.groupValues?.get(1)?.replace("_", "") ?: return null
-        val value = raw.toDoubleOrNull() ?: return null
-        if (!value.isFinite() || value <= 0.0) return null
-        val longValue = value.toLong()
-        if (longValue <= 0L) return null
-        return longValue.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
-    }
-
-    private fun parseInputSupportsImages(body: String): Boolean {
-        val regex = Regex("\\binput\\s*:\\s*\\[([^]]*)]", RegexOption.DOT_MATCHES_ALL)
-        val inputBody = regex.find(body)?.groupValues?.get(1) ?: return false
-        return Regex("\"(image|images|vision|video)\"").containsMatchIn(inputBody)
-    }
-
-    private fun skipWhitespace(text: String, start: Int, maxExclusive: Int): Int {
-        var index = start
-        while (index < maxExclusive && text[index].isWhitespace()) {
-            index++
-        }
-        return index
-    }
-
-    private fun findMatchingBraceIndex(text: String, openingBraceIndex: Int): Int {
-        if (openingBraceIndex !in text.indices || text[openingBraceIndex] != '{') return -1
-
-        var depth = 0
-        var inString = false
-        var escaped = false
-        var index = openingBraceIndex
-
-        while (index < text.length) {
-            val ch = text[index]
-            if (inString) {
-                if (escaped) {
-                    escaped = false
-                } else {
-                    when (ch) {
-                        '\\' -> escaped = true
-                        '"' -> inString = false
-                    }
-                }
-            } else {
-                when (ch) {
-                    '"' -> inString = true
-                    '{' -> depth++
-                    '}' -> {
-                        depth--
-                        if (depth == 0) return index
-                    }
-                }
-            }
-            index++
-        }
-
-        return -1
-    }
-
-    private fun readJsonLikeString(text: String, quoteIndex: Int): Pair<String, Int> {
-        val sb = StringBuilder()
-        var index = quoteIndex + 1
-        var escaped = false
-
-        while (index < text.length) {
-            val ch = text[index]
-            if (escaped) {
-                sb.append(ch)
-                escaped = false
-            } else {
-                when (ch) {
-                    '\\' -> escaped = true
-                    '"' -> return sb.toString() to index
-                    else -> sb.append(ch)
-                }
-            }
-            index++
-        }
-
-        return sb.toString() to text.lastIndex
     }
 
     fun refreshCodexAuthStatus() {
@@ -2054,17 +1965,69 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         if (!configFile.exists()) return
 
         runCatching {
+            val availableCodexModels = resolveCodexModelsFromInstalledBundle()
+            val availableCodexIds = availableCodexModels.map { it.id }
+            val availableCodexModelsByNormalizedId = availableCodexModels.associateBy {
+                normalizeCodexModelIdForComparison(it.id)
+            }
+            val availableScopedCodexIds = availableCodexIds.map { "openai-codex/$it" }.toSet()
+            val availableLegacyScopedCodexIds = availableCodexIds.map { "openai/$it" }.toSet()
+            val preferredPrimary = resolvePreferredCodexPrimaryModelFromInstalledBundle()
             val json = JSONObject(configFile.readText())
             val agents = json.optJSONObject("agents") ?: JSONObject().also { json.put("agents", it) }
             val defaults = agents.optJSONObject("defaults") ?: JSONObject().also { agents.put("defaults", it) }
             val model = defaults.optJSONObject("model") ?: JSONObject().also { defaults.put("model", it) }
-            model.put("primary", "openai-codex/gpt-5.3-codex")
+            val currentPrimary = model.optString("primary").trim()
+            val normalizedCurrentPrimary = when {
+                currentPrimary in availableScopedCodexIds -> currentPrimary
+                currentPrimary in availableLegacyScopedCodexIds -> "openai-codex/${normalizeCodexModelIdForComparison(currentPrimary)}"
+                currentPrimary in availableCodexIds -> "openai-codex/$currentPrimary"
+                else -> ""
+            }
+            val primaryToPersist = normalizedCurrentPrimary.ifBlank { preferredPrimary }
+            model.put("primary", primaryToPersist)
 
             val models = defaults.optJSONObject("models") ?: JSONObject().also { defaults.put("models", it) }
-            if (!models.has("openai-codex/gpt-5.3-codex")) {
-                models.put("openai-codex/gpt-5.3-codex", JSONObject())
+            if (!models.has(primaryToPersist)) {
+                val migratedLegacyModelConfig = if (currentPrimary in availableLegacyScopedCodexIds) {
+                    models.optJSONObject(currentPrimary)?.let { JSONObject(it.toString()) }
+                } else {
+                    null
+                }
+                models.put(primaryToPersist, migratedLegacyModelConfig ?: JSONObject())
             }
             configFile.writeText(json.toString(2))
+
+            val savedPrimary = runBlocking { prefs.getEffectivePrimary("openai-codex") }.orEmpty().trim()
+            if (savedPrimary.isBlank()) {
+                val barePrimaryId = normalizeCodexModelIdForComparison(primaryToPersist)
+                val existingSelectedIds = runBlocking {
+                    prefs.getSelectedModelIdsForProvider("openai-codex")
+                }
+                val selectedModelIds = buildList {
+                    add(barePrimaryId)
+                    addAll(existingSelectedIds)
+                }.distinctBy(::normalizeCodexModelIdForComparison)
+                val metadataById = selectedModelIds.mapNotNull { modelId ->
+                    val installedModel = availableCodexModelsByNormalizedId[normalizeCodexModelIdForComparison(modelId)]
+                        ?: return@mapNotNull null
+                    modelId to SelectedModelConfigEntry(
+                        id = modelId,
+                        supportsReasoning = installedModel.supportsReasoning,
+                        supportsImages = installedModel.supportsImages,
+                        contextLength = installedModel.contextLength,
+                        maxOutputTokens = installedModel.maxOutputTokens,
+                    )
+                }.toMap()
+                runBlocking {
+                    prefs.setSelectedModelIdsWithoutActivatingProvider(
+                        provider = "openai-codex",
+                        modelIds = selectedModelIds,
+                        primary = barePrimaryId,
+                        metadataById = metadataById,
+                    )
+                }
+            }
         }
     }
 

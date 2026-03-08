@@ -1086,7 +1086,7 @@ class ProcessManager(
             }
 
             // OpenRouter 모델 등록:
-            // 내장 모델(models.generated.js에 정의됨)은 compat 설정 포함 정확한 정의를 갖고 있으므로
+            // 내장 모델(레거시 레지스트리에서 식별)은 compat 설정 포함 정확한 정의를 갖고 있으므로
             // 커스텀 등록으로 덮어쓰면 안 된다. 비내장 모델만 models.json에 등록.
             if (apiProvider == "openrouter") {
                 val modelEntriesById = normalizedSelectedEntries.associateBy { it.id }
@@ -1475,46 +1475,16 @@ class ProcessManager(
     }
 
     /**
-     * OpenClaw의 내장 OpenRouter 모델 ID 목록을 models.generated.js에서 추출한다.
+     * OpenClaw의 내장 OpenRouter 모델 ID 목록을 레지스트리 파일에서 추출한다.
      * 내장 모델은 ModelRegistry에서 compat 설정까지 포함된 정확한 정의를 갖고 있으므로
      * 커스텀 등록으로 덮어쓰면 안 된다.
      */
     private fun getBuiltInOpenRouterModelIds(): Set<String> {
-        try {
-            val modelsFile = File(
-                prootManager.rootfsDir,
-                "usr/local/lib/node_modules/openclaw/node_modules/@mariozechner/pi-ai/dist/models.generated.js"
-            )
-            if (!modelsFile.exists()) return emptySet()
-
-            val content = modelsFile.readText()
-            // "openrouter" 섹션에서 모델 ID 추출
-            val startMarker = "\"openrouter\": {"
-            val startIdx = content.indexOf(startMarker)
-            if (startIdx == -1) return emptySet()
-
-            // 섹션 끝 찾기: 같은 들여쓰기 레벨의 닫는 중괄호
-            val sectionStart = startIdx + startMarker.length
-            var braceDepth = 1
-            var endIdx = sectionStart
-            while (endIdx < content.length && braceDepth > 0) {
-                when (content[endIdx]) {
-                    '{' -> braceDepth++
-                    '}' -> braceDepth--
-                }
-                endIdx++
-            }
-            val section = content.substring(sectionStart, endIdx)
-
-            // 모델 ID 추출: "model-id": { 패턴
-            val regex = Regex(""""([a-zA-Z0-9/.:_-]+)":\s*\{""")
-            return regex.findAll(section)
-                .map { it.groupValues[1] }
-                .filter { it.contains("/") || it == "auto" } // provider/model 형식 또는 특수 ID
-                .toSet()
+        return try {
+            OpenClawModelCatalogReader.loadOpenRouterModelIds(prootManager.rootfsDir)
         } catch (e: Exception) {
             addLog("[andClaw] Failed to read built-in models: ${e.message}")
-            return emptySet()
+            emptySet()
         }
     }
 

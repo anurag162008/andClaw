@@ -10,6 +10,8 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.coderred.andclaw.proot.OpenClawModelCatalogReader
+import com.coderred.andclaw.proot.ProotManager
 import java.io.IOException
 import java.net.URI
 import kotlinx.coroutines.flow.Flow
@@ -21,6 +23,74 @@ import kotlinx.coroutines.flow.map
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "andclaw_prefs")
 
 class PreferencesManager(private val context: Context) {
+
+    private fun resolveDefaultModelMetadata(
+        provider: String,
+        modelId: String,
+    ): SelectedModelConfigEntry {
+        val normalizedProvider = normalizeProvider(provider)
+        val canonicalModelId = canonicalizeModelIdForProvider(normalizedProvider, modelId)
+        if (canonicalModelId.isBlank()) return defaultModelMetadata(modelId)
+
+        val installedMetadata = resolveInstalledModelMetadata(normalizedProvider, canonicalModelId)
+        return installedMetadata ?: defaultModelMetadata(canonicalModelId)
+    }
+
+    private fun resolveInstalledModelMetadata(
+        provider: String,
+        modelId: String,
+    ): SelectedModelConfigEntry? {
+        val normalizedProvider = normalizeProvider(provider)
+        val rootfsDir = runCatching { ProotManager(context).rootfsDir }.getOrNull() ?: return null
+        if (!rootfsDir.exists()) return null
+
+        val bundleEntry = when (normalizedProvider) {
+            "openai-codex" -> resolveInstalledCodexEntries(rootfsDir)
+                .firstOrNull { normalizeCodexModelIdForComparison(it.id) == normalizeCodexModelIdForComparison(modelId) }
+
+            else -> OpenClawModelCatalogReader.loadProviderModels(rootfsDir, normalizedProvider)
+                .firstOrNull { canonicalizeModelIdForProvider(normalizedProvider, it.id) == modelId }
+        } ?: return null
+
+        return SelectedModelConfigEntry(
+            id = modelId,
+            supportsReasoning = bundleEntry.supportsReasoning,
+            supportsImages = bundleEntry.supportsImages,
+            contextLength = bundleEntry.contextWindow,
+            maxOutputTokens = bundleEntry.maxTokens,
+        )
+    }
+
+    private fun resolveInstalledCodexEntries(rootfsDir: java.io.File): List<OpenClawModelCatalogReader.ModelEntry> {
+        val directCodexEntries = OpenClawModelCatalogReader.loadProviderModels(rootfsDir, "openai-codex")
+        if (directCodexEntries.isNotEmpty()) return directCodexEntries.distinctBy { it.id.lowercase() }
+
+        val legacyCodexEntries = OpenClawModelCatalogReader.loadProviderModels(rootfsDir, "openai")
+            .asSequence()
+            .filter { isLegacyOpenAiCodexModelId(it.id) }
+            .map { it.copy(provider = "openai-codex") }
+            .distinctBy { it.id.lowercase() }
+            .toList()
+        val syntheticCodexEntries = OpenClawModelCatalogReader.loadSyntheticFallbackEntries(
+            rootfsDir = rootfsDir,
+            provider = "openai-codex",
+            baseEntries = legacyCodexEntries,
+        )
+        return (legacyCodexEntries + syntheticCodexEntries)
+            .distinctBy { it.id.lowercase() }
+    }
+
+    private fun normalizeCodexModelIdForComparison(modelId: String): String {
+        return modelId.trim()
+            .removePrefix("openai-codex/")
+            .removePrefix("openai/")
+            .lowercase()
+    }
+
+    private fun isLegacyOpenAiCodexModelId(modelId: String): Boolean {
+        val normalizedModelId = normalizeCodexModelIdForComparison(modelId)
+        return normalizedModelId.contains("codex") || normalizedModelId in BARE_CODEX_MODEL_IDS
+    }
 
     companion object {
         private val KEY_SETUP_COMPLETE = booleanPreferencesKey("setup_complete")
@@ -127,6 +197,11 @@ class PreferencesManager(private val context: Context) {
             "openai-codex",
             "openai-compatible",
             "google",
+        )
+        private val BARE_CODEX_MODEL_IDS = setOf(
+            "gpt-5.1",
+            "gpt-5.2",
+            "gpt-5.4",
         )
 
         private fun defaultModelIdForProvider(provider: String): String {
@@ -282,6 +357,10 @@ class PreferencesManager(private val context: Context) {
             val specificMatches = compatibleProviders.filter { it != "openai-compatible" }
             if (specificMatches.isEmpty()) return ""
 
+            if (specificMatches.contains("openai") && specificMatches.contains("openai-codex")) {
+                return "openai"
+            }
+
             return when {
                 specificMatches.contains("openai-codex") -> "openai-codex"
                 specificMatches.contains("anthropic") -> "anthropic"
@@ -310,7 +389,9 @@ class PreferencesManager(private val context: Context) {
                             lowerModelId.matches(Regex("""o\d+.*"""))
                         looksLikeOpenAiFamily && !lowerModelId.contains("codex")
                     }
-                    "openai-codex" -> lowerModelId.contains("codex")
+                    "openai-codex" -> {
+                        lowerModelId.contains("codex") || lowerModelId in BARE_CODEX_MODEL_IDS
+                    }
                     "openai-compatible" -> true
                     "google" -> lowerModelId.startsWith("gemini")
                     else -> false
@@ -1181,13 +1262,7 @@ class PreferencesManager(private val context: Context) {
             clearSelectedModels(provider)
             return
         }
-        val fallbackMetadata = SelectedModelConfigEntry(
-            id = normalizedModelId,
-            supportsReasoning = false,
-            supportsImages = false,
-            contextLength = 200000,
-            maxOutputTokens = 4096,
-        )
+        val fallbackMetadata = resolveDefaultModelMetadata(provider, normalizedModelId)
         setSelectedModelIds(
             provider = provider,
             modelIds = listOf(normalizedModelId),
@@ -1253,6 +1328,21 @@ class PreferencesManager(private val context: Context) {
             primary = primary,
             metadataById = metadataById,
             activateProvider = true,
+        )
+    }
+
+    suspend fun setSelectedModelIdsWithoutActivatingProvider(
+        provider: String,
+        modelIds: List<String>,
+        primary: String? = null,
+        metadataById: Map<String, SelectedModelConfigEntry> = emptyMap(),
+    ) {
+        setSelectedModelIdsInternal(
+            provider = provider,
+            modelIds = modelIds,
+            primary = primary,
+            metadataById = metadataById,
+            activateProvider = false,
         )
     }
 
@@ -1372,7 +1462,7 @@ class PreferencesManager(private val context: Context) {
 
                 if (explicitPrimary.isNotBlank()) {
                     val metadataForLegacy = providerMetadata[explicitPrimary]
-                        ?: defaultModelMetadata(explicitPrimary)
+                        ?: resolveDefaultModelMetadata(normalizedProvider, explicitPrimary)
                     if (activateProvider || globalPrimaryProvider == normalizedProvider) {
                         prefs[KEY_SELECTED_MODEL] = explicitPrimary
                         prefs[KEY_SELECTED_MODEL_PROVIDER] = normalizedProvider
@@ -1447,7 +1537,7 @@ class PreferencesManager(private val context: Context) {
             val metadata = canonicalizeMetadataByIdForProvider(
                 normalizedProvider,
                 metadataByProvider[normalizedProvider].orEmpty(),
-            )[normalizedModelId] ?: defaultModelMetadata(normalizedModelId)
+            )[normalizedModelId] ?: resolveDefaultModelMetadata(normalizedProvider, normalizedModelId)
 
             prefs[KEY_SELECTED_MODEL] = normalizedModelId
             prefs[KEY_SELECTED_MODEL_PROVIDER] = normalizedProvider
@@ -1689,7 +1779,7 @@ class PreferencesManager(private val context: Context) {
         val selectedEntries = selectedModelIds.map { modelId ->
             providerMetadataById[modelId]
                 ?: legacyEntry?.takeIf { it.id == modelId }
-                ?: defaultModelMetadata(modelId)
+                ?: resolveDefaultModelMetadata(provider, modelId)
         }
 
         val selectedModelForRuntime = when {
@@ -1819,6 +1909,25 @@ class PreferencesManager(private val context: Context) {
             requestedPrimary.isNotBlank() && selectedIds.contains(requestedPrimary) -> requestedPrimary
             else -> selectedIds.firstOrNull()
         }
+    }
+
+    suspend fun getSelectedModelIdsForProvider(provider: String): List<String> {
+        val normalizedProvider = normalizeProvider(provider)
+        if (normalizedProvider.isBlank()) return emptyList()
+
+        val snapshot = context.dataStore.data.first()
+        val selectedByProvider = decodeStringListMap(snapshot[KEY_SELECTED_MODELS_BY_PROVIDER_JSON])
+        val profiles = decodeOpenAiCompatibleProfiles(snapshot[KEY_OPENAI_COMPATIBLE_PROFILES_JSON])
+        val activeProfileId = snapshot[KEY_ACTIVE_OPENAI_COMPATIBLE_PROFILE_ID].orEmpty().trim()
+        val activeProfile = profiles.firstOrNull { it.id == activeProfileId } ?: profiles.firstOrNull()
+
+        return resolveStoredSelectedIdsForProvider(
+            snapshot = snapshot,
+            provider = normalizedProvider,
+            selectedByProviderInput = selectedByProvider,
+            activeProfileInput = activeProfile,
+            includeLegacyGlobalFallback = true,
+        )
     }
 
     suspend fun upsertOpenAiCompatibleProfile(profile: OpenAiCompatibleProfile, activate: Boolean = false) {
