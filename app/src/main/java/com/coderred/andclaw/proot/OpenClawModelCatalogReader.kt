@@ -14,11 +14,6 @@ object OpenClawModelCatalogReader {
         """(?:import|export)\s+(?:[^"']*?from\s+)?["'](\./[^"']+\.js)["']|import\(\s*["'](\./[^"']+\.js)["']\s*\)""",
     )
     private val stringConstRegex = Regex("""const\s+([A-Z0-9_]+)\s*=\s*"((?:\\.|[^"])*)";""")
-    private val syntheticFallbackRegex = Regex(
-        """\{\s*provider:\s*([^,]+),\s*id:\s*([^,]+),\s*templateIds:\s*\[([^]]*)]\s*}""",
-        setOf(RegexOption.DOT_MATCHES_ALL),
-    )
-
     data class ModelEntry(
         val id: String,
         val name: String,
@@ -112,10 +107,10 @@ object OpenClawModelCatalogReader {
                 val fallbackSection = extractSyntheticFallbackSection(runtimeContent) ?: return@flatMap emptySequence()
                 if (fallbackSection.isBlank()) return@flatMap emptySequence()
 
-                syntheticFallbackRegex.findAll(fallbackSection).mapNotNull { match ->
-                    val resolvedProvider = resolveToken(match.groupValues[1], constants) ?: return@mapNotNull null
+                parseSyntheticFallbackSpecs(fallbackSection).asSequence().mapNotNull { spec ->
+                    val resolvedProvider = resolveToken(spec.providerToken, constants) ?: return@mapNotNull null
                     if (!resolvedProvider.equals(normalizedProvider, ignoreCase = true)) return@mapNotNull null
-                    resolveToken(match.groupValues[2], constants)
+                    resolveToken(spec.idToken, constants)
                 }
             }
             .toSet()
@@ -152,14 +147,14 @@ object OpenClawModelCatalogReader {
                 val fallbackSection = extractSyntheticFallbackSection(runtimeContent) ?: return@flatMap emptySequence()
                 if (fallbackSection.isBlank()) return@flatMap emptySequence()
 
-                syntheticFallbackRegex.findAll(fallbackSection).mapNotNull { match ->
-                    val resolvedProvider = resolveToken(match.groupValues[1], constants) ?: return@mapNotNull null
+                parseSyntheticFallbackSpecs(fallbackSection).asSequence().mapNotNull { spec ->
+                    val resolvedProvider = resolveToken(spec.providerToken, constants) ?: return@mapNotNull null
                     if (!resolvedProvider.equals(provider, ignoreCase = true)) return@mapNotNull null
 
-                    val resolvedId = resolveToken(match.groupValues[2], constants) ?: return@mapNotNull null
+                    val resolvedId = resolveToken(spec.idToken, constants) ?: return@mapNotNull null
                     if (baseEntries.any { it.id.equals(resolvedId, ignoreCase = true) }) return@mapNotNull null
 
-                    val templateIds = match.groupValues[3]
+                    val templateIds = spec.templateIdTokens
                         .split(',')
                         .mapNotNull { resolveToken(it, constants) }
                     val template = templateIds
@@ -175,6 +170,53 @@ object OpenClawModelCatalogReader {
             }
             .distinctBy { it.id.lowercase() }
             .toList()
+    }
+
+    private data class SyntheticFallbackSpec(
+        val providerToken: String,
+        val idToken: String,
+        val templateIdTokens: String,
+    )
+
+    private fun parseSyntheticFallbackSpecs(section: String): List<SyntheticFallbackSpec> {
+        val specs = mutableListOf<SyntheticFallbackSpec>()
+        var index = 0
+        while (index < section.length) {
+            if (section[index] != '{') {
+                index++
+                continue
+            }
+
+            val objectEnd = findMatchingBraceIndex(section, index)
+            if (objectEnd <= index) break
+            val body = section.substring(index, objectEnd + 1)
+
+            val providerToken = parseObjectTokenField(body, "provider")
+            val idToken = parseObjectTokenField(body, "id")
+            val templateIds = parseArrayFieldBody(body, "templateIds")
+            if (providerToken != null && idToken != null && templateIds != null) {
+                specs += SyntheticFallbackSpec(
+                    providerToken = providerToken,
+                    idToken = idToken,
+                    templateIdTokens = templateIds,
+                )
+            }
+
+            index = objectEnd + 1
+        }
+        return specs
+    }
+
+    private fun parseObjectTokenField(body: String, field: String): String? {
+        val escapedField = Regex.escape(field)
+        val regex = Regex("""\b$escapedField\s*:\s*([^,\n}]+)""")
+        return regex.find(body)?.groupValues?.get(1)?.trim()?.trimEnd(',')
+    }
+
+    private fun parseArrayFieldBody(body: String, field: String): String? {
+        val escapedField = Regex.escape(field)
+        val regex = Regex("""\b$escapedField\s*:\s*\[(.*?)]""", setOf(RegexOption.DOT_MATCHES_ALL))
+        return regex.find(body)?.groupValues?.get(1)?.trim()
     }
 
     private fun parseStringConstants(content: String): Map<String, String> {
