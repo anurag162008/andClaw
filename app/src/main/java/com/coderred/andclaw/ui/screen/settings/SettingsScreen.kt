@@ -146,19 +146,29 @@ fun SettingsScreen(
     val channelDisconnectError by viewModel.channelDisconnectError.collectAsState()
     val isCodexAuthInProgress by viewModel.isCodexAuthInProgress.collectAsState()
     val isCodexAuthenticated by viewModel.isCodexAuthenticated.collectAsState()
+    val isGitHubCopilotAuthInProgress by viewModel.isGitHubCopilotAuthInProgress.collectAsState()
+    val isGitHubCopilotAuthenticated by viewModel.isGitHubCopilotAuthenticated.collectAsState()
     KeepScreenOnEffect(enabled = isRecoveryInstallRunning || isOpenClawUpdateRunning)
     val codexAuthUrl by viewModel.codexAuthUrl.collectAsState()
     val codexAuthDebugLine by viewModel.codexAuthDebugLine.collectAsState()
+    val gitHubCopilotAuthUrl by viewModel.gitHubCopilotAuthUrl.collectAsState()
+    val gitHubCopilotVerificationUrl by viewModel.gitHubCopilotVerificationUrl.collectAsState()
+    val gitHubCopilotAuthCode by viewModel.gitHubCopilotAuthCode.collectAsState()
+    val gitHubCopilotAuthDebugLine by viewModel.gitHubCopilotAuthDebugLine.collectAsState()
+    val gitHubCopilotAuthRestartHintNonce by viewModel.gitHubCopilotAuthRestartHintNonce.collectAsState()
     val bugReportUiState by viewModel.bugReportUiState.collectAsState()
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val openAiProviderLabel = stringResource(R.string.onboarding_provider_openai)
     val providerLabelFor: (String) -> String = { provider ->
         when (provider) {
             "openrouter" -> context.getString(R.string.onboarding_provider_openrouter)
             "anthropic" -> context.getString(R.string.onboarding_provider_anthropic)
-            "openai" -> context.getString(R.string.settings_provider_openai_api, openAiProviderLabel)
-            "openai-codex" -> context.getString(R.string.settings_provider_openai_codex, openAiProviderLabel)
+            "openai" -> context.getString(R.string.settings_provider_openai_api)
+            "openai-codex" -> context.getString(R.string.settings_provider_openai_codex)
+            "github-copilot" -> context.getString(R.string.onboarding_provider_github_copilot)
+            "zai" -> context.getString(R.string.onboarding_provider_zai)
+            "kimi-coding" -> context.getString(R.string.onboarding_provider_kimi_coding)
+            "minimax" -> context.getString(R.string.onboarding_provider_minimax)
             "openai-compatible" -> context.getString(R.string.onboarding_provider_openai_compatible)
             "google" -> context.getString(R.string.onboarding_provider_google)
             else -> provider
@@ -251,6 +261,25 @@ fun SettingsScreen(
         }
     }
 
+    LaunchedEffect(gitHubCopilotAuthUrl) {
+        val url = gitHubCopilotAuthUrl
+        if (!url.isNullOrBlank()) {
+            try {
+                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+            } catch (_: Exception) {
+                Toast.makeText(context, context.getString(R.string.settings_cannot_open), Toast.LENGTH_SHORT).show()
+            } finally {
+                viewModel.consumeGitHubCopilotAuthUrl()
+            }
+        }
+    }
+
+    LaunchedEffect(gitHubCopilotAuthRestartHintNonce) {
+        if (gitHubCopilotAuthRestartHintNonce > 0L) {
+            showRestartHint = true
+        }
+    }
+
     LaunchedEffect(lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (isActive) {
@@ -270,6 +299,11 @@ fun SettingsScreen(
         val targetProvider = pendingApiKeyProvider ?: return@LaunchedEffect
         selectedSettingsTabIndex = 0
         viewModel.setApiProvider(targetProvider) { appliedProvider, _ ->
+            if (appliedProvider == "github-copilot") {
+                pendingApiKeyProvider = null
+                viewModel.loginGitHubCopilot()
+                return@setApiProvider
+            }
             viewModel.getApiKeyForProvider(appliedProvider) { currentKey ->
                 apiKeyDialogProviderOverride = appliedProvider
                 apiKeyDialogCurrentKeyOverride = currentKey
@@ -436,11 +470,12 @@ fun SettingsScreen(
                             value = when (apiProvider) {
                                 "openrouter" -> stringResource(R.string.onboarding_provider_openrouter)
                                 "anthropic" -> stringResource(R.string.onboarding_provider_anthropic)
-                                "openai" -> stringResource(R.string.settings_provider_openai_api, openAiProviderLabel)
-                                "openai-codex" -> stringResource(
-                                    R.string.settings_provider_openai_codex,
-                                    openAiProviderLabel,
-                                )
+                                "openai" -> stringResource(R.string.settings_provider_openai_api)
+                                "openai-codex" -> stringResource(R.string.settings_provider_openai_codex)
+                                "github-copilot" -> stringResource(R.string.onboarding_provider_github_copilot)
+                                "zai" -> stringResource(R.string.onboarding_provider_zai)
+                                "kimi-coding" -> stringResource(R.string.onboarding_provider_kimi_coding)
+                                "minimax" -> stringResource(R.string.onboarding_provider_minimax)
                                 "openai-compatible" -> stringResource(R.string.onboarding_provider_openai_compatible)
                                 "google" -> stringResource(R.string.onboarding_provider_google)
                                 else -> apiProvider.replaceFirstChar { it.uppercase() }
@@ -453,7 +488,7 @@ fun SettingsScreen(
                             color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
                         )
 
-                        if (apiProvider != "openai-codex") {
+                        if (shouldUseApiKeyDialog(apiProvider)) {
                             val apiKeyRowState = resolveApiKeyRowState(
                                 provider = apiProvider,
                                 apiKey = apiKey,
@@ -468,7 +503,7 @@ fun SettingsScreen(
                                 valueColor = if (apiKeyRowState.isError) MaterialTheme.colorScheme.error else null,
                                 onClick = { showApiKeyDialog = true },
                             )
-                        } else {
+                        } else if (apiProvider == "openai-codex") {
                             SettingClickableRow(
                                 title = stringResource(R.string.settings_codex_oauth_title),
                                 value = when {
@@ -482,6 +517,58 @@ fun SettingsScreen(
                             if (codexAuthDebugLine != null) {
                                 Text(
                                     text = codexAuthDebugLine ?: "",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 12.dp),
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        } else {
+                            SettingClickableRow(
+                                title = stringResource(R.string.settings_github_copilot_login_title),
+                                value = when {
+                                    isGitHubCopilotAuthInProgress -> stringResource(R.string.settings_github_copilot_login_signing_in)
+                                    isGitHubCopilotAuthenticated -> stringResource(R.string.settings_api_key_configured)
+                                    else -> stringResource(R.string.settings_api_key_not_configured)
+                                },
+                                valueColor = if (!isGitHubCopilotAuthenticated && !isGitHubCopilotAuthInProgress) MaterialTheme.colorScheme.error else null,
+                                onClick = {
+                                    val existingUrl = gitHubCopilotVerificationUrl
+                                    if (isGitHubCopilotAuthInProgress && !existingUrl.isNullOrBlank()) {
+                                        try {
+                                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(existingUrl)))
+                                        } catch (_: Exception) {
+                                            Toast.makeText(context, context.getString(R.string.settings_cannot_open), Toast.LENGTH_SHORT).show()
+                                        }
+                                    } else {
+                                        viewModel.loginGitHubCopilot()
+                                    }
+                                },
+                            )
+                            if (!gitHubCopilotAuthCode.isNullOrBlank()) {
+                                Text(
+                                    text = stringResource(R.string.settings_github_copilot_login_code, gitHubCopilotAuthCode.orEmpty()),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 12.dp),
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            if (!gitHubCopilotVerificationUrl.isNullOrBlank()) {
+                                Text(
+                                    text = gitHubCopilotVerificationUrl.orEmpty(),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 12.dp),
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            if (gitHubCopilotAuthDebugLine != null) {
+                                Text(
+                                    text = gitHubCopilotAuthDebugLine ?: "",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 12.dp),
@@ -1700,7 +1787,11 @@ internal fun formatSelectedModelLabel(
         "anthropic" -> canonicalModelId.removePrefix("anthropic/")
         "openai" -> canonicalModelId.removePrefix("openai/")
         "openai-codex" -> canonicalModelId.removePrefix("openai-codex/")
+        "github-copilot" -> canonicalModelId.removePrefix("github-copilot/")
         "google" -> canonicalModelId.removePrefix("google/")
+        "zai" -> canonicalModelId.removePrefix("zai/")
+        "kimi-coding" -> canonicalModelId.removePrefix("kimi-coding/")
+        "minimax" -> canonicalModelId.removePrefix("minimax/")
         else -> canonicalModelId
     }
 }
@@ -1830,14 +1921,17 @@ private fun ProviderSelectionDialog(
     onSelectProvider: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val openAiLabel = stringResource(R.string.onboarding_provider_openai)
     val providers = listOf(
         "openrouter" to stringResource(R.string.onboarding_provider_openrouter),
         "anthropic" to stringResource(R.string.onboarding_provider_anthropic),
-        "openai" to stringResource(R.string.settings_provider_openai_api, openAiLabel),
-        "openai-codex" to stringResource(R.string.settings_provider_openai_codex, openAiLabel),
-        "openai-compatible" to stringResource(R.string.onboarding_provider_openai_compatible),
+        "openai" to stringResource(R.string.settings_provider_openai_api),
+        "openai-codex" to stringResource(R.string.settings_provider_openai_codex),
+        "github-copilot" to stringResource(R.string.onboarding_provider_github_copilot),
         "google" to stringResource(R.string.onboarding_provider_google),
+        "zai" to stringResource(R.string.onboarding_provider_zai),
+        "kimi-coding" to stringResource(R.string.onboarding_provider_kimi_coding),
+        "minimax" to stringResource(R.string.onboarding_provider_minimax),
+        "openai-compatible" to stringResource(R.string.onboarding_provider_openai_compatible),
     )
 
     AlertDialog(
@@ -1924,6 +2018,10 @@ private fun MemorySearchProviderDialog(
     )
 }
 
+internal fun shouldUseApiKeyDialog(provider: String): Boolean {
+    return provider != "openai-codex" && provider != "github-copilot"
+}
+
 @Composable
 private fun ApiKeyInputDialog(
     currentKey: String,
@@ -1940,12 +2038,29 @@ private fun ApiKeyInputDialog(
     var passwordVisible by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val isOpenAiCompatible = provider == "openai-compatible"
+    val providerDisplayName = when (provider) {
+        "openrouter" -> stringResource(R.string.onboarding_provider_openrouter)
+        "anthropic" -> stringResource(R.string.onboarding_provider_anthropic)
+        "openai" -> stringResource(R.string.settings_provider_openai_api)
+        "openai-codex" -> stringResource(R.string.settings_provider_openai_codex)
+        "github-copilot" -> stringResource(R.string.onboarding_provider_github_copilot)
+        "google" -> stringResource(R.string.onboarding_provider_google)
+        "zai" -> stringResource(R.string.onboarding_provider_zai)
+        "kimi-coding" -> stringResource(R.string.onboarding_provider_kimi_coding)
+        "minimax" -> stringResource(R.string.onboarding_provider_minimax)
+        "openai-compatible" -> stringResource(R.string.onboarding_provider_openai_compatible)
+        else -> provider.replaceFirstChar { it.uppercase() }
+    }
 
     val settingsUrl = when (provider) {
         "openrouter" -> "https://openrouter.ai/keys"
         "anthropic" -> "https://console.anthropic.com/settings/keys"
         "openai" -> "https://platform.openai.com/api-keys"
+        "github-copilot" -> "https://github.com/settings/copilot"
         "google" -> "https://aistudio.google.com/apikey"
+        "zai" -> "https://docs.z.ai/guides/overview/quick-start"
+        "kimi-coding" -> "https://www.kimi.com/coding/docs/en/"
+        "minimax" -> "https://platform.minimax.io/document/Quickstart"
         else -> null
     }
 
@@ -1994,7 +2109,7 @@ private fun ApiKeyInputDialog(
                 }
                 if (settingsUrl != null) {
                     Text(
-                        text = stringResource(R.string.settings_api_key_get_link, provider.replaceFirstChar { it.uppercase() }),
+                        text = stringResource(R.string.settings_api_key_get_link, providerDisplayName),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.clickable {

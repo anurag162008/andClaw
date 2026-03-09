@@ -20,7 +20,7 @@
 #
 #   install_time_assets/src/main/assets/
 #     rootfs.tar.gz.bin                     (~30MB)   Ubuntu 24.04 arm64 base
-#     node-arm64.tar.gz.bin                 (~25MB)   Node.js 22 arm64 linux
+#     node-arm64.tar.gz.bin                 (~25MB)   Node.js 24 arm64 linux
 #     system-tools-arm64.tar.gz.bin         (~80-100MB) git, curl, python3, 시스템 libs
 #     openclaw/                             OpenClaw 파일 트리 (증분 업데이트 최적화)
 #     playwright-chromium-arm64.tar.gz.bin  (~150-180MB) Chromium headless_shell
@@ -39,11 +39,12 @@ ASSETS_DIR="$PROJECT_DIR/install_time_assets/src/main/assets"
 PROOT_DEB_URL="https://packages.termux.dev/apt/termux-main/pool/main/p/proot/proot_5.1.107-70_aarch64.deb"
 TALLOC_DEB_URL="https://packages.termux.dev/apt/termux-main/pool/main/libt/libtalloc/libtalloc_2.4.3_aarch64.deb"
 ROOTFS_URL="https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/ubuntu-base-24.04.3-base-arm64.tar.gz"
-NODEJS_VERSION="v22.12.0"
+NODEJS_VERSION="v24.2.0"
 NODEJS_URL="https://nodejs.org/dist/$NODEJS_VERSION/node-$NODEJS_VERSION-linux-arm64.tar.gz"
 PLAYWRIGHT_VERSION="1.49.1"
 TERMUX_PROOT_COMMIT="${TERMUX_PROOT_COMMIT:-4dba3afbf3a63af89b4d9c1a59bf2bda10f4d10f}"
 CUSTOM_LOADER32_SCRIPT="$SCRIPT_DIR/build-proot-loader32-16kb.sh"
+BUNDLE_FINGERPRINT_NEEDS_UPDATE="false"
 
 require_readelf() {
     if ! command -v readelf >/dev/null 2>&1; then
@@ -262,14 +263,23 @@ fi
 
 # ── 3. Node.js 다운로드 ──
 NODEJS_FILE="$ASSETS_DIR/node-arm64.tar.gz.bin"
-if [ -f "$NODEJS_FILE" ]; then
+NODEJS_ASSET_VERSION="$(tar -tzf "$NODEJS_FILE" 2>/dev/null | head -n 1 | sed -n 's#^node-\(v[0-9][^/]*\)-linux-arm64/$#\1#p' || true)"
+if [ -f "$NODEJS_FILE" ] && [ "$NODEJS_ASSET_VERSION" = "$NODEJS_VERSION" ]; then
     echo "[3/7] node-arm64.tar.gz.bin 이미 존재, 건너뜀"
+    echo "   버전: $NODEJS_ASSET_VERSION"
     echo "   크기: $(du -h "$NODEJS_FILE" | cut -f1)"
 else
+    if [ -f "$NODEJS_FILE" ]; then
+        echo "[3/7] Node.js 버전 불일치 감지, 재다운로드"
+        echo "   현재: ${NODEJS_ASSET_VERSION:-unknown}"
+        echo "   목표: $NODEJS_VERSION"
+        rm -f "$NODEJS_FILE"
+    fi
     echo "[3/7] Node.js $NODEJS_VERSION arm64 다운로드 중..."
     echo "   URL: $NODEJS_URL"
     curl -fSL "$NODEJS_URL" -o "$NODEJS_FILE"
     echo "   완료: $(du -h "$NODEJS_FILE" | cut -f1)"
+    BUNDLE_FINGERPRINT_NEEDS_UPDATE="true"
 fi
 
 # ── Docker 필수 확인 ──
@@ -277,6 +287,21 @@ check_docker() {
     if ! command -v docker &>/dev/null; then
         echo "   ERROR: Docker가 필요합니다"
         exit 1
+    fi
+
+    if ! docker info >/dev/null 2>&1; then
+        echo "   ERROR: Docker 데몬에 연결할 수 없습니다"
+        exit 1
+    fi
+
+    if ! docker run --rm --platform linux/arm64 ubuntu:24.04 true >/dev/null 2>&1; then
+        echo "   arm64 Docker 에뮬레이션이 없어 binfmt 설치를 시도합니다..."
+        docker run --privileged --rm tonistiigi/binfmt --install arm64 >/dev/null
+
+        if ! docker run --rm --platform linux/arm64 ubuntu:24.04 true >/dev/null 2>&1; then
+            echo "   ERROR: linux/arm64 Docker 실행에 실패했습니다 (binfmt/QEMU 확인 필요)"
+            exit 1
+        fi
     fi
 }
 
@@ -305,6 +330,7 @@ else
         echo '--- Installing core tools ---'
         apt-get install -y -qq --no-install-recommends \\
             curl wget git ca-certificates \\
+            sqlite3 \\
             python3 python3-pip python3-venv \\
             openssh-client rsync \\
             jq zip unzip \\
@@ -337,6 +363,7 @@ else
         for bin in \\
             curl wget \\
             git git-receive-pack git-upload-archive git-upload-pack \\
+            sqlite3 \\
             python3 pip3 python3-config \\
             ssh scp sftp ssh-keygen ssh-keyscan \\
             rsync \\
@@ -362,23 +389,78 @@ else
                 fi
             done
         done
+        sort -u -o /tmp/bin-list.txt /tmp/bin-list.txt
+
+        # 심볼릭 링크 바이너리의 실제 타겟도 함께 포함한다.
+        # 예: usr/bin/python3 -> python3.12 인 경우 usr/bin/python3.12 누락 방지
+        > /tmp/bin-symlink-targets.txt
+        while IFS= read -r rel_path; do
+            [ -n \"\$rel_path\" ] || continue
+            abs_path=\"/\$rel_path\"
+            if [ ! -L \"\$abs_path\" ]; then
+                continue
+            fi
+
+            link_target=\$(readlink \"\$abs_path\" 2>/dev/null || true)
+            if [ -n \"\$link_target\" ]; then
+                case \"\$link_target\" in
+                    /*) target_path=\"\$link_target\" ;;
+                    *) target_path=\"\$(dirname \"\$abs_path\")/\$link_target\" ;;
+                esac
+                if [ -e \"\$target_path\" ]; then
+                    echo \"\${target_path#/}\" >> /tmp/bin-symlink-targets.txt
+                fi
+            fi
+
+            resolved_path=\$(readlink -f \"\$abs_path\" 2>/dev/null || true)
+            if [ -n \"\$resolved_path\" ] && [ -e \"\$resolved_path\" ]; then
+                echo \"\${resolved_path#/}\" >> /tmp/bin-symlink-targets.txt
+            fi
+        done < /tmp/bin-list.txt
+
+        if [ -s /tmp/bin-symlink-targets.txt ]; then
+            sort -u -o /tmp/bin-symlink-targets.txt /tmp/bin-symlink-targets.txt
+            cat /tmp/bin-symlink-targets.txt >> /tmp/bin-list.txt
+            sort -u -o /tmp/bin-list.txt /tmp/bin-list.txt
+        fi
+
         echo \"Binaries to bundle: \$(wc -l < /tmp/bin-list.txt)\"
 
         echo '--- Creating system-tools bundle ---'
-        cd /
-        tar czf /tmp/system-tools.tar.gz \\
+        > /tmp/system-tools-include.raw
+        for pattern in \\
             usr/lib/git-core \\
             usr/share/git-core \\
             usr/share/perl \\
             usr/lib/python3* \\
             usr/lib/python3 \\
             usr/share/python3 \\
-            \$(cat /tmp/bin-list.txt) \\
-            \$(cat /tmp/new-libs.txt | sed 's|^/||') \\
             usr/share/fonts/truetype/liberation \\
             etc/ssl/certs \\
-            usr/share/ca-certificates \\
-            2>/dev/null || true
+            usr/share/ca-certificates
+        do
+            for abs_path in /\$pattern; do
+                [ -e "\$abs_path" ] || continue
+                echo "\${abs_path#/}" >> /tmp/system-tools-include.raw
+            done
+        done
+        cat /tmp/bin-list.txt >> /tmp/system-tools-include.raw
+        sed 's|^/||' /tmp/new-libs.txt >> /tmp/system-tools-include.raw
+
+        > /tmp/system-tools-include.txt
+        while IFS= read -r rel_path; do
+            [ -n \"\$rel_path\" ] || continue
+            rel_path=\"\${rel_path#./}\"
+            rel_path=\"\${rel_path#/}\"
+            [ -n \"\$rel_path\" ] || continue
+            [ -e \"/\$rel_path\" ] || continue
+            echo \"\$rel_path\" >> /tmp/system-tools-include.txt
+        done < /tmp/system-tools-include.raw
+        sort -u -o /tmp/system-tools-include.txt /tmp/system-tools-include.txt
+
+        echo \"system-tools include entries: \$(wc -l < /tmp/system-tools-include.txt)\"
+        cd /
+        tar --hard-dereference -czf /tmp/system-tools.tar.gz -T /tmp/system-tools-include.txt
         ls -lh /tmp/system-tools.tar.gz
         echo '--- DONE ---'
     "
@@ -387,6 +469,7 @@ else
     docker rm andclaw-tools-builder
 
     echo "   완료: $(du -h "$TOOLS_FILE" | cut -f1)"
+    BUNDLE_FINGERPRINT_NEEDS_UPDATE="true"
 fi
 
 # ── 5. OpenClaw 파일 자산 (Docker Build 2) ──
@@ -394,6 +477,62 @@ OPENCLAW_ASSET_DIR="$ASSETS_DIR/openclaw"
 OPENCLAW_MAIN="$OPENCLAW_ASSET_DIR/usr/local/lib/node_modules/openclaw/openclaw.mjs"
 OPENCLAW_BIN="$OPENCLAW_ASSET_DIR/usr/local/bin/openclaw"
 OPENCLAW_ANTHROPIC_PARSER="$OPENCLAW_ASSET_DIR/usr/local/lib/node_modules/openclaw/node_modules/@anthropic-ai/sdk/andclaw_us__vendor/partial-json-parser/parser.js"
+OPENCLAW_PACKAGE_JSON="$OPENCLAW_ASSET_DIR/usr/local/lib/node_modules/openclaw/package.json"
+OPENCLAW_CACHE_DIR="$PROJECT_DIR/install_time_assets/cache"
+OPENCLAW_CACHE_ARCHIVE="$OPENCLAW_CACHE_DIR/openclaw-assets.tar.gz"
+
+extract_json_version() {
+    local json_path="$1"
+    if [ ! -f "$json_path" ]; then
+        return 1
+    fi
+    sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$json_path" | head -1
+}
+
+get_openclaw_latest_version() {
+    curl -fsSL "https://registry.npmjs.org/openclaw/latest" | sed -n 's/.*"version":"\([^"]*\)".*/\1/p' | head -1
+}
+
+version_lt() {
+    local current="$1"
+    local target="$2"
+    [ "$current" != "$target" ] && [ "$(printf '%s\n%s\n' "$current" "$target" | sort -V | head -1)" = "$current" ]
+}
+
+restore_openclaw_from_cache() {
+    if [ ! -f "$OPENCLAW_CACHE_ARCHIVE" ]; then
+        return 1
+    fi
+
+    echo "   OpenClaw 캐시 복원 시도: $OPENCLAW_CACHE_ARCHIVE"
+    rm -rf "$OPENCLAW_ASSET_DIR"
+    mkdir -p "$ASSETS_DIR"
+
+    if ! tar -xzf "$OPENCLAW_CACHE_ARCHIVE" -C "$ASSETS_DIR"; then
+        echo "   WARNING: OpenClaw 캐시 복원 실패"
+        return 1
+    fi
+
+    [ -d "$OPENCLAW_ASSET_DIR" ]
+}
+
+save_openclaw_to_cache() {
+    if [ ! -d "$OPENCLAW_ASSET_DIR" ]; then
+        return 1
+    fi
+
+    mkdir -p "$OPENCLAW_CACHE_DIR"
+    tar -czf "$OPENCLAW_CACHE_ARCHIVE.tmp" -C "$ASSETS_DIR" openclaw
+    if ! mv -f "$OPENCLAW_CACHE_ARCHIVE.tmp" "$OPENCLAW_CACHE_ARCHIVE" 2>/dev/null; then
+        cp -f "$OPENCLAW_CACHE_ARCHIVE.tmp" "$OPENCLAW_CACHE_ARCHIVE" 2>/dev/null || true
+        rm -f "$OPENCLAW_CACHE_ARCHIVE.tmp" 2>/dev/null || true
+    fi
+
+    if [ ! -f "$OPENCLAW_CACHE_ARCHIVE" ]; then
+        return 1
+    fi
+    echo "   OpenClaw 캐시 저장: $OPENCLAW_CACHE_ARCHIVE"
+}
 
 ensure_openclaw_json_parser_shim() {
     for sdk_root in \
@@ -420,29 +559,74 @@ encode_openclaw_underscore_paths() {
         return
     fi
     # Android assets 패키징에서 '_*' 파일/디렉토리가 누락될 수 있어 안전한 이름으로 인코딩
-    find "$openclaw_root" -depth \( -type d -o -type f \) | while read -r path; do
-        name="$(basename "$path")"
-        parent="$(dirname "$path")"
-        case "$name" in
-            _*)
-                encoded="$parent/andclaw_us__${name#_}"
-                if [ -e "$encoded" ]; then
-                    rm -rf "$encoded"
-                fi
-                mv "$path" "$encoded"
-                ;;
-        esac
-    done
+    # files first, then directories (depth-first) for safe renaming
+    find "$openclaw_root" -depth -name '_*' -type f -exec bash -c '
+        for f; do
+            dir="$(dirname "$f")"
+            name="$(basename "$f")"
+            mv "$f" "$dir/andclaw_us__${name#_}"
+        done
+    ' _ {} +
+    find "$openclaw_root" -depth -name '_*' -type d -exec bash -c '
+        for d; do
+            parent="$(dirname "$d")"
+            name="$(basename "$d")"
+            mv "$d" "$parent/andclaw_us__${name#_}"
+        done
+    ' _ {} +
 }
 
 
-if [ -f "$OPENCLAW_MAIN" ] && [ -f "$OPENCLAW_BIN" ] && [ -f "$OPENCLAW_ANTHROPIC_PARSER" ]; then
+OPENCLAW_ASSET_VERSION="$(extract_json_version "$OPENCLAW_PACKAGE_JSON" 2>/dev/null || true)"
+OPENCLAW_LATEST_VERSION="$(get_openclaw_latest_version 2>/dev/null || true)"
+OPENCLAW_BUILD_REASON=""
+OPENCLAW_WAS_REBUILT="false"
+
+if [ ! -f "$OPENCLAW_MAIN" ] || [ ! -f "$OPENCLAW_BIN" ] || [ ! -f "$OPENCLAW_ANTHROPIC_PARSER" ]; then
+    OPENCLAW_BUILD_REASON="필수 파일 누락"
+elif [ -n "$OPENCLAW_ASSET_VERSION" ] && [ -n "$OPENCLAW_LATEST_VERSION" ] && version_lt "$OPENCLAW_ASSET_VERSION" "$OPENCLAW_LATEST_VERSION"; then
+    OPENCLAW_BUILD_REASON="버전 업그레이드 필요 ($OPENCLAW_ASSET_VERSION -> $OPENCLAW_LATEST_VERSION)"
+elif [ -z "$OPENCLAW_LATEST_VERSION" ]; then
+    echo "[5/7] WARNING: openclaw 최신 버전 조회 실패, 기존 자산 버전을 유지합니다"
+fi
+
+if [ -n "$OPENCLAW_BUILD_REASON" ] && [ -f "$OPENCLAW_CACHE_ARCHIVE" ]; then
+    if restore_openclaw_from_cache; then
+        OPENCLAW_ASSET_VERSION="$(extract_json_version "$OPENCLAW_PACKAGE_JSON" 2>/dev/null || true)"
+        OPENCLAW_BUILD_REASON=""
+        # 캐시 복원으로 openclaw 디렉토리가 실제 변경될 수 있으므로
+        # fingerprint는 반드시 재생성한다.
+        BUNDLE_FINGERPRINT_NEEDS_UPDATE="true"
+
+        if [ ! -f "$OPENCLAW_MAIN" ] || [ ! -f "$OPENCLAW_BIN" ] || [ ! -f "$OPENCLAW_ANTHROPIC_PARSER" ]; then
+            OPENCLAW_BUILD_REASON="캐시 복원 결과 필수 파일 누락"
+        elif [ -n "$OPENCLAW_ASSET_VERSION" ] && [ -n "$OPENCLAW_LATEST_VERSION" ] && version_lt "$OPENCLAW_ASSET_VERSION" "$OPENCLAW_LATEST_VERSION"; then
+            OPENCLAW_BUILD_REASON="캐시 버전 업그레이드 필요 ($OPENCLAW_ASSET_VERSION -> $OPENCLAW_LATEST_VERSION)"
+        else
+            echo "   OpenClaw 캐시 복원 성공"
+        fi
+    fi
+fi
+
+if [ -z "$OPENCLAW_BUILD_REASON" ]; then
     echo "[5/7] openclaw 디렉토리 자산 이미 존재, 건너뜀"
+    if [ -n "$OPENCLAW_ASSET_VERSION" ]; then
+        echo "   버전: $OPENCLAW_ASSET_VERSION"
+    fi
+    if [ -n "$OPENCLAW_LATEST_VERSION" ]; then
+        echo "   최신: $OPENCLAW_LATEST_VERSION"
+    fi
     echo "   크기: $(du -sh "$OPENCLAW_ASSET_DIR" | cut -f1)"
 else
     echo "[5/7] OpenClaw 디렉토리 자산 빌드 중 (Docker)..."
-    echo "   npm install -g openclaw (latest)"
+    echo "   사유: $OPENCLAW_BUILD_REASON"
     check_docker
+
+    OPENCLAW_INSTALL_SPEC="openclaw"
+    if [ -n "$OPENCLAW_LATEST_VERSION" ]; then
+        OPENCLAW_INSTALL_SPEC="openclaw@$OPENCLAW_LATEST_VERSION"
+    fi
+    echo "   npm install -g $OPENCLAW_INSTALL_SPEC"
 
     docker rm -f andclaw-openclaw-builder 2>/dev/null || true
     rm -rf "$OPENCLAW_ASSET_DIR"
@@ -452,14 +636,37 @@ else
         set -e
         export DEBIAN_FRONTEND=noninteractive
         apt-get update -qq
-        apt-get install -y -qq --no-install-recommends curl ca-certificates git
+        # node-gyp fallback 빌드를 위해 Python/컴파일러를 함께 설치한다.
+        apt-get install -y -qq --no-install-recommends \
+            curl ca-certificates git \
+            python3 python-is-python3 \
+            make g++ pkg-config
 
         echo '--- Installing Node.js ---'
         curl -fsSL https://nodejs.org/dist/$NODEJS_VERSION/node-$NODEJS_VERSION-linux-arm64.tar.gz | tar xz -C /usr/local --strip-components=1
         node --version
+        python3 --version
+        npm --version
 
         echo '--- Installing OpenClaw ---'
-        npm install -g openclaw 2>&1
+        # 일부 환경에서 node-gyp가 python 경로를 자동 감지하지 못해 명시적으로 지정한다.
+        PYTHON=/usr/bin/python3 npm_config_python=/usr/bin/python3 npm install -g $OPENCLAW_INSTALL_SPEC 2>&1
+
+        echo '--- Verifying node:sqlite + FTS5 + sqlite-vec ---'
+        cat > /tmp/verify-node-sqlite.cjs <<'NODE'
+const { DatabaseSync } = require('node:sqlite');
+
+const db = new DatabaseSync(':memory:', { allowExtension: true });
+db.prepare(\"SELECT fts5('test') AS ok\").get();
+db.exec('CREATE VIRTUAL TABLE IF NOT EXISTS andclaw_fts_probe USING fts5(text)');
+
+const sqliteVec = require('/usr/local/lib/node_modules/openclaw/node_modules/sqlite-vec');
+sqliteVec.load(db);
+db.exec('CREATE VIRTUAL TABLE IF NOT EXISTS andclaw_vec_probe USING vec0(embedding float[3])');
+
+console.log('node:sqlite/fts5/sqlite-vec probe: ok');
+NODE
+        node /tmp/verify-node-sqlite.cjs
 
         # 호환성: 일부 번들/의존성은 구 경로(_vendor/json-parser/json-parser.js)를 참조할 수 있다.
         # 최신 SDK는 _vendor/partial-json-parser/parser.js를 사용하므로 shim을 생성해 둘 다 동작하게 한다.
@@ -489,14 +696,25 @@ else
     docker cp andclaw-openclaw-builder:/usr/local/lib/node_modules/openclaw "$OPENCLAW_ASSET_DIR/usr/local/lib/node_modules/openclaw"
     docker cp andclaw-openclaw-builder:/usr/local/bin/openclaw "$OPENCLAW_ASSET_DIR/usr/local/bin/openclaw"
     docker rm andclaw-openclaw-builder
+    OPENCLAW_WAS_REBUILT="true"
+    BUNDLE_FINGERPRINT_NEEDS_UPDATE="true"
 
     echo "   완료: $(du -sh "$OPENCLAW_ASSET_DIR" | cut -f1)"
 fi
 
-# 일부 npm 조합에서 _vendor/json-parser 경로를 요구하므로, 에셋 복사 후 호스트에서 shim을 다시 보장한다.
-ensure_openclaw_json_parser_shim
-# assets 패키징 전 _* 경로 인코딩
-encode_openclaw_underscore_paths
+# 버전이 이미 최신과 동일하면 OpenClaw 후처리는 건너뜀
+if [ -z "$OPENCLAW_BUILD_REASON" ] && [ -n "$OPENCLAW_ASSET_VERSION" ] && [ -n "$OPENCLAW_LATEST_VERSION" ] && [ "$OPENCLAW_ASSET_VERSION" = "$OPENCLAW_LATEST_VERSION" ]; then
+    echo "   OpenClaw 버전 동일($OPENCLAW_ASSET_VERSION), shim/underscore 인코딩 스킵"
+else
+    # 일부 npm 조합에서 _vendor/json-parser 경로를 요구하므로, 에셋 복사 후 호스트에서 shim을 다시 보장한다.
+    ensure_openclaw_json_parser_shim
+    # assets 패키징 전 _* 경로 인코딩
+    encode_openclaw_underscore_paths
+fi
+
+if [ "$OPENCLAW_WAS_REBUILT" = "true" ] || [ ! -f "$OPENCLAW_CACHE_ARCHIVE" ]; then
+    save_openclaw_to_cache || echo "   WARNING: OpenClaw 캐시 저장 실패"
+fi
 
 # ── 6. Playwright Chromium 번들 (Docker Build 3) ──
 PLAYWRIGHT_FILE="$ASSETS_DIR/playwright-chromium-arm64.tar.gz.bin"
@@ -560,6 +778,7 @@ else
     docker rm andclaw-playwright-builder
 
     echo "   완료: $(du -h "$PLAYWRIGHT_FILE" | cut -f1)"
+    BUNDLE_FINGERPRINT_NEEDS_UPDATE="true"
 fi
 
 # ── 7. 정리 ──
@@ -584,17 +803,69 @@ EXEC_MANIFEST="$ASSETS_DIR/executable-manifest.json"
 cat > "$EXEC_MANIFEST" <<'JSON'
 {
   "assets": {
+    "node-arm64.tar.gz.bin": [
+      "usr/local/bin/node",
+      "usr/local/bin/npm",
+      "usr/local/bin/npx"
+    ],
+    "system-tools-arm64.tar.gz.bin": [
+      "usr/bin/git",
+      "usr/lib/git-core/*"
+    ],
     "openclaw": [
       "usr/local/bin/openclaw"
     ],
-    "rootfs.tar.gz.bin": [],
-    "node-arm64.tar.gz.bin": [],
-    "system-tools-arm64.tar.gz.bin": [],
-    "playwright-chromium-arm64.tar.gz.bin": []
+    "playwright-chromium-arm64.tar.gz.bin": [
+      "root/.cache/ms-playwright/**/chrome",
+      "root/.cache/ms-playwright/**/headless_shell",
+      "root/.cache/ms-playwright/**/*.so"
+    ]
   }
 }
 JSON
 echo "   executable-manifest.json 생성 완료"
+
+# 번들 변경 감지를 위한 fingerprint 매니페스트 생성
+BUNDLE_FINGERPRINT="$ASSETS_DIR/bundle-fingerprint.json"
+if [ "$BUNDLE_FINGERPRINT_NEEDS_UPDATE" = "true" ] || [ ! -f "$BUNDLE_FINGERPRINT" ]; then
+    NODE_SHA256="$(sha256sum "$ASSETS_DIR/node-arm64.tar.gz.bin" | awk '{print $1}')"
+    TOOLS_SHA256="$(sha256sum "$ASSETS_DIR/system-tools-arm64.tar.gz.bin" | awk '{print $1}')"
+    if tar --help 2>/dev/null | grep -q -- '--sort='; then
+        OPENCLAW_SHA256="$(
+            tar -C "$ASSETS_DIR" \
+                --sort=name \
+                --mtime='UTC 1970-01-01' \
+                --owner=0 \
+                --group=0 \
+                --numeric-owner \
+                -cf - openclaw \
+                | sha256sum \
+                | awk '{print $1}'
+        )"
+    else
+        OPENCLAW_SHA256="$(
+            tar -C "$ASSETS_DIR" -cf - openclaw \
+                | sha256sum \
+                | awk '{print $1}'
+        )"
+    fi
+    PLAYWRIGHT_SHA256="$(sha256sum "$ASSETS_DIR/playwright-chromium-arm64.tar.gz.bin" | awk '{print $1}')"
+
+    cat > "$BUNDLE_FINGERPRINT" <<JSON
+{
+  "version": 1,
+  "assets": {
+    "node-arm64.tar.gz.bin": { "sha256": "$NODE_SHA256" },
+    "system-tools-arm64.tar.gz.bin": { "sha256": "$TOOLS_SHA256" },
+    "openclaw": { "sha256": "$OPENCLAW_SHA256" },
+    "playwright-chromium-arm64.tar.gz.bin": { "sha256": "$PLAYWRIGHT_SHA256" }
+  }
+}
+JSON
+    echo "   bundle-fingerprint.json 생성 완료"
+else
+    echo "   bundle-fingerprint.json 유지 (번들 변경 없음)"
+fi
 
 echo ""
 echo "============================================"

@@ -22,6 +22,23 @@ import kotlinx.coroutines.flow.map
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "andclaw_prefs")
 
+internal var gitHubCopilotEnvProvider: () -> Map<String, String> = { System.getenv() }
+
+internal fun hasGitHubCopilotEnvAuth(env: Map<String, String> = gitHubCopilotEnvProvider()): Boolean =
+    listOf("COPILOT_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN").any { !env[it].isNullOrBlank() }
+
+internal fun hasOpenClawSecretRef(profile: org.json.JSONObject, key: String): Boolean {
+    return when (val rawValue = profile.opt(key)) {
+        is String -> rawValue.trim().isNotBlank()
+        is org.json.JSONObject -> {
+            val source = rawValue.optString("source").trim()
+            val id = rawValue.optString("id").trim()
+            source.isNotBlank() && id.isNotBlank()
+        }
+        else -> false
+    }
+}
+
 class PreferencesManager(private val context: Context) {
 
     private fun resolveDefaultModelMetadata(
@@ -92,6 +109,41 @@ class PreferencesManager(private val context: Context) {
         return normalizedModelId.contains("codex") || normalizedModelId in BARE_CODEX_MODEL_IDS
     }
 
+    private fun hasGitHubCopilotAuthProfile(): Boolean {
+        if (hasGitHubCopilotEnvAuth()) return true
+
+        val prootManager = runCatching { ProotManager(context) }.getOrNull() ?: return false
+        val rootfsDir = prootManager.rootfsDir
+        if (!rootfsDir.exists()) return false
+
+        val authFile = java.io.File(rootfsDir, "root/.openclaw/agents/main/agent/auth-profiles.json")
+        val hasStoredProfile = if (authFile.exists()) {
+            runCatching {
+                val root = org.json.JSONObject(authFile.readText())
+                val profiles = root.optJSONObject("profiles") ?: return@runCatching false
+                val keys = profiles.keys()
+                while (keys.hasNext()) {
+                    val profile = profiles.optJSONObject(keys.next()) ?: continue
+                    if (profile.optString("provider").trim().lowercase() != "github-copilot") continue
+                    val hasInlineToken = profile.optString("token").trim().isNotBlank()
+                    val hasTokenRef = hasOpenClawSecretRef(profile, "tokenRef")
+                    if (hasInlineToken || hasTokenRef) return@runCatching true
+                }
+                false
+            }.getOrDefault(false)
+        } else {
+            false
+        }
+        if (hasStoredProfile) return true
+
+        return runCatching {
+            val authListCommand = "export NODE_OPTIONS='--require /root/.openclaw-patch.js' && " +
+                "openclaw models auth list --provider github-copilot 2>&1"
+            val authListOutput = prootManager.executeAndCapture(authListCommand)
+            !authListOutput.isNullOrBlank() && authListOutput.lowercase().contains("github-copilot:")
+        }.getOrDefault(false)
+    }
+
     companion object {
         private val KEY_SETUP_COMPLETE = booleanPreferencesKey("setup_complete")
         private val KEY_ONBOARDING_COMPLETE = booleanPreferencesKey("onboarding_complete")
@@ -101,6 +153,10 @@ class PreferencesManager(private val context: Context) {
         private val KEY_API_KEY_ANTHROPIC = stringPreferencesKey("api_key_anthropic")
         private val KEY_API_KEY_OPENAI = stringPreferencesKey("api_key_openai")
         private val KEY_API_KEY_GOOGLE = stringPreferencesKey("api_key_google")
+        private val KEY_API_KEY_ZAI = stringPreferencesKey("api_key_zai")
+        private val KEY_API_KEY_KIMI_CODING = stringPreferencesKey("api_key_kimi_coding")
+        private val KEY_API_KEY_MINIMAX = stringPreferencesKey("api_key_minimax")
+        private val KEY_GITHUB_COPILOT_AUTHENTICATED = booleanPreferencesKey("github_copilot_authenticated")
         private val KEY_API_KEY_OPENAI_COMPATIBLE = stringPreferencesKey("api_key_openai_compatible")
         private val KEY_OPENAI_COMPATIBLE_BASE_URL = stringPreferencesKey("openai_compatible_base_url")
         private val KEY_OPENAI_COMPATIBLE_MODEL_ID = stringPreferencesKey("openai_compatible_model_id")
@@ -195,8 +251,12 @@ class PreferencesManager(private val context: Context) {
             "anthropic",
             "openai",
             "openai-codex",
-            "openai-compatible",
+            "github-copilot",
             "google",
+            "zai",
+            "kimi-coding",
+            "minimax",
+            "openai-compatible",
         )
         private val BARE_CODEX_MODEL_IDS = setOf(
             "gpt-5.1",
@@ -210,6 +270,10 @@ class PreferencesManager(private val context: Context) {
                 "anthropic" -> "claude-sonnet-4-5"
                 "openai" -> "gpt-5-mini"
                 "openai-codex" -> "gpt-5.3-codex"
+                "github-copilot" -> "gpt-4o"
+                "zai" -> "glm-5"
+                "kimi-coding" -> "k2p5"
+                "minimax" -> "MiniMax-M2.5"
                 "openai-compatible" -> "gpt-4o-mini"
                 "google" -> "gemini-2.5-flash"
                 else -> "openrouter/free"
@@ -233,8 +297,12 @@ class PreferencesManager(private val context: Context) {
                 "anthropic",
                 "openai",
                 "openai-codex",
+                "github-copilot",
                 "openai-compatible",
                 "google",
+                "zai",
+                "kimi-coding",
+                "minimax",
             )
             return candidates.firstOrNull { normalized.startsWith("$it/") }
         }
@@ -342,6 +410,9 @@ class PreferencesManager(private val context: Context) {
                 "openai-codex",
                 "anthropic",
                 "google",
+                "zai",
+                "kimi-coding",
+                "minimax",
                 "openrouter",
                 "openai",
                 "openai-compatible",
@@ -365,6 +436,9 @@ class PreferencesManager(private val context: Context) {
                 specificMatches.contains("openai-codex") -> "openai-codex"
                 specificMatches.contains("anthropic") -> "anthropic"
                 specificMatches.contains("google") -> "google"
+                specificMatches.contains("zai") -> "zai"
+                specificMatches.contains("kimi-coding") -> "kimi-coding"
+                specificMatches.contains("minimax") -> "minimax"
                 specificMatches.contains("openrouter") -> "openrouter"
                 specificMatches.contains("openai") -> "openai"
                 else -> specificMatches.first()
@@ -392,6 +466,10 @@ class PreferencesManager(private val context: Context) {
                     "openai-codex" -> {
                         lowerModelId.contains("codex") || lowerModelId in BARE_CODEX_MODEL_IDS
                     }
+                    "github-copilot" -> true
+                    "zai" -> lowerModelId.startsWith("glm-")
+                    "kimi-coding" -> lowerModelId == "k2p5" || lowerModelId.startsWith("kimi-")
+                    "minimax" -> lowerModelId.startsWith("minimax-")
                     "openai-compatible" -> true
                     "google" -> lowerModelId.startsWith("gemini")
                     else -> false
@@ -622,7 +700,11 @@ class PreferencesManager(private val context: Context) {
         when (provider) {
             "openrouter" -> prefs[KEY_API_KEY_OPENROUTER] ?: legacy
             "anthropic" -> prefs[KEY_API_KEY_ANTHROPIC] ?: ""
-            "openai" -> prefs[KEY_API_KEY_OPENAI] ?: ""
+            "openai", "openai-codex" -> prefs[KEY_API_KEY_OPENAI] ?: ""
+            "github-copilot" -> ""
+            "zai" -> prefs[KEY_API_KEY_ZAI] ?: ""
+            "kimi-coding" -> prefs[KEY_API_KEY_KIMI_CODING] ?: ""
+            "minimax" -> prefs[KEY_API_KEY_MINIMAX] ?: ""
             "openai-compatible" -> activeProfile?.apiKey?.trim().orEmpty()
                 .ifBlank { prefs[KEY_API_KEY_OPENAI_COMPATIBLE].orEmpty() }
             "google" -> prefs[KEY_API_KEY_GOOGLE] ?: ""
@@ -1060,6 +1142,9 @@ class PreferencesManager(private val context: Context) {
                 }
                 "anthropic" -> it[KEY_API_KEY_ANTHROPIC] = key
                 "openai", "openai-codex" -> it[KEY_API_KEY_OPENAI] = key
+                "zai" -> it[KEY_API_KEY_ZAI] = key
+                "kimi-coding" -> it[KEY_API_KEY_KIMI_CODING] = key
+                "minimax" -> it[KEY_API_KEY_MINIMAX] = key
                 "openai-compatible" -> {
                     it[KEY_API_KEY_OPENAI_COMPATIBLE] = key
                     val profiles = decodeOpenAiCompatibleProfiles(it[KEY_OPENAI_COMPATIBLE_PROFILES_JSON])
@@ -1115,6 +1200,10 @@ class PreferencesManager(private val context: Context) {
             "openrouter" -> snapshot[KEY_API_KEY_OPENROUTER] ?: legacy
             "anthropic" -> snapshot[KEY_API_KEY_ANTHROPIC].orEmpty()
             "openai", "openai-codex" -> snapshot[KEY_API_KEY_OPENAI].orEmpty()
+            "github-copilot" -> if (hasGitHubCopilotAuthProfile()) "__github_copilot_auth__" else ""
+            "zai" -> snapshot[KEY_API_KEY_ZAI].orEmpty()
+            "kimi-coding" -> snapshot[KEY_API_KEY_KIMI_CODING].orEmpty()
+            "minimax" -> snapshot[KEY_API_KEY_MINIMAX].orEmpty()
             "openai-compatible" -> {
                 val profiles = decodeOpenAiCompatibleProfiles(snapshot[KEY_OPENAI_COMPATIBLE_PROFILES_JSON])
                 val activeProfileId = snapshot[KEY_ACTIVE_OPENAI_COMPATIBLE_PROFILE_ID].orEmpty().trim()
@@ -1130,10 +1219,14 @@ class PreferencesManager(private val context: Context) {
     suspend fun hasApiKeyForProvider(provider: String): Boolean {
         val snapshot = context.dataStore.data.first()
         val legacy = snapshot[KEY_API_KEY].orEmpty()
-        val key = when (provider) {
+        val key = when (normalizeProvider(provider)) {
             "openrouter" -> snapshot[KEY_API_KEY_OPENROUTER] ?: legacy
             "anthropic" -> snapshot[KEY_API_KEY_ANTHROPIC].orEmpty()
-            "openai" -> snapshot[KEY_API_KEY_OPENAI].orEmpty()
+            "openai", "openai-codex" -> snapshot[KEY_API_KEY_OPENAI].orEmpty()
+            "github-copilot" -> if (hasGitHubCopilotAuthProfile()) "__github_copilot_auth__" else ""
+            "zai" -> snapshot[KEY_API_KEY_ZAI].orEmpty()
+            "kimi-coding" -> snapshot[KEY_API_KEY_KIMI_CODING].orEmpty()
+            "minimax" -> snapshot[KEY_API_KEY_MINIMAX].orEmpty()
             "openai-compatible" -> {
                 val profiles = decodeOpenAiCompatibleProfiles(snapshot[KEY_OPENAI_COMPATIBLE_PROFILES_JSON])
                 val activeProfileId = snapshot[KEY_ACTIVE_OPENAI_COMPATIBLE_PROFILE_ID].orEmpty().trim()
@@ -1145,6 +1238,16 @@ class PreferencesManager(private val context: Context) {
             else -> legacy
         }
         return key.isNotBlank()
+    }
+
+    suspend fun setGitHubCopilotAuthenticated(authenticated: Boolean) {
+        context.dataStore.edit { prefs ->
+            if (authenticated) {
+                prefs[KEY_GITHUB_COPILOT_AUTHENTICATED] = true
+            } else {
+                prefs.remove(KEY_GITHUB_COPILOT_AUTHENTICATED)
+            }
+        }
     }
 
     suspend fun getLaunchApiKeyWarning(): LaunchApiKeyWarning {
@@ -1720,6 +1823,10 @@ class PreferencesManager(private val context: Context) {
             "openrouter" -> snapshot[KEY_API_KEY_OPENROUTER] ?: legacyApiKey
             "anthropic" -> snapshot[KEY_API_KEY_ANTHROPIC].orEmpty()
             "openai", "openai-codex" -> snapshot[KEY_API_KEY_OPENAI].orEmpty()
+            "github-copilot" -> if (hasGitHubCopilotAuthProfile()) "__github_copilot_auth__" else ""
+            "zai" -> snapshot[KEY_API_KEY_ZAI].orEmpty()
+            "kimi-coding" -> snapshot[KEY_API_KEY_KIMI_CODING].orEmpty()
+            "minimax" -> snapshot[KEY_API_KEY_MINIMAX].orEmpty()
             "openai-compatible" -> activeProfile?.apiKey?.trim().orEmpty()
                 .ifBlank { snapshot[KEY_API_KEY_OPENAI_COMPATIBLE].orEmpty() }
             "google" -> snapshot[KEY_API_KEY_GOOGLE].orEmpty()

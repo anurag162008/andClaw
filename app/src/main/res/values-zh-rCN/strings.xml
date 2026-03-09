@@ -49,12 +49,12 @@
     <string name="onboarding_btn_next">下一步</string>
     <string name="onboarding_btn_done">完成</string>
     <string name="onboarding_btn_skip">稍后设置</string>
-    <string name="onboarding_provider_title">选择 AI 提供商</string>
-    <string name="onboarding_provider_subtitle">为 OpenClaw 选择 AI 模型提供商</string>
-    <string name="onboarding_provider_anthropic">使用 Claude 模型</string>
-    <string name="onboarding_provider_openai">使用 GPT 模型</string>
-    <string name="onboarding_provider_google">使用 Gemini 模型</string>
-    <string name="onboarding_provider_openrouter">OpenRouter (多模型统一网关)</string>
+    <string name="onboarding_provider_title">选择 AI</string>
+    <string name="onboarding_provider_subtitle">选择要与 OpenClaw 一起使用的 AI</string>
+    <string name="onboarding_provider_anthropic">Claude</string>
+    <string name="onboarding_provider_openai">ChatGPT</string>
+    <string name="onboarding_provider_google">Gemini</string>
+    <string name="onboarding_provider_openrouter">OpenRouter</string>
     <string name="welcome_manual_input">手动输入 API 密钥</string>
     <string name="welcome_manual_collapse">收起</string>
     <string name="onboarding_apikey_title">输入 API 密钥</string>
@@ -101,8 +101,8 @@
     <string name="settings_battery_not_exempted">点击配置 — 提高后台稳定性</string>
     <string name="settings_cannot_open">无法打开设置</string>
     <string name="settings_section_ai">AI 模型</string>
-    <string name="settings_current_provider">当前提供商</string>
-    <string name="settings_change_provider">更换提供商</string>
+    <string name="settings_current_provider">当前 AI</string>
+    <string name="settings_change_provider">更换 AI</string>
     <string name="settings_api_key">API 密钥</string>
     <string name="settings_api_key_configured">已配置</string>
     <string name="settings_api_key_not_configured">未配置</string>
@@ -195,8 +195,11 @@
     <string name="pairing_notification_channel">配对请求</string>
     <string name="pairing_notification_title">新配对请求</string>
     <string name="pairing_notification_text">%1$s: %2$s</string>
-    <string name="settings_codex_oauth_title">OpenAI Codex OAuth</string>
-    <string name="settings_codex_oauth_signing_in">Signing in…</string>
+    <string name="settings_codex_oauth_title">登录 Codex</string>
+    <string name="settings_codex_oauth_signing_in">登录中…</string>
+    <string name="settings_github_copilot_login_title">登录 GitHub</string>
+    <string name="settings_github_copilot_login_signing_in">等待登录…</string>
+    <string name="settings_github_copilot_login_code">代码：%1$s</string>
     <string name="settings_channel_whatsapp">WhatsApp</string>
     <string name="settings_channel_disconnect_action">断开连接</string>
     <string name="settings_channel_disconnect_in_progress">正在断开连接…</string>
@@ -211,8 +214,8 @@
     <string name="settings_discord_require_mention_desc">对白名单 Guild 频道启用提及门槛。</string>
     <string name="settings_about_version">andClaw v%1$s</string>
     <string name="settings_about_powered_by">Powered by OpenClaw</string>
-    <string name="settings_provider_openai_api">%1$s (API)</string>
-    <string name="settings_provider_openai_codex">%1$s (Codex OAuth)</string>
+    <string name="settings_provider_openai_api">ChatGPT</string>
+    <string name="settings_provider_openai_codex">Codex</string>
     <string name="settings_api_type">API 类型</string>
     <string name="settings_bot_token_dialog_title">%1$s Bot Token</string>
     <string name="settings_bot_restart_notice_message">The gateway will restart.</string>
@@ -252,7 +255,11 @@
     <string name="settings_recovery_install_confirm_message">⚠️ 恢复重装会重新安装应用的完整核心运行环境。\n\n你的用户数据（聊天/会话）不会被删除，但恢复可能需要几分钟。\n\n恢复进行期间，请不要关闭或强行停止应用。</string>
     <string name="settings_api_key_get_link">获取 %1$s API 密钥 →</string>
     <string name="bug_report_included_gateway_logs">- 网关 UI 日志（已脱敏）：%1$d 行</string>
-    <string name="onboarding_provider_openai_compatible">OpenAI 兼容（自定义端点）</string>
+    <string name="onboarding_provider_openai_compatible">自定义 OpenAI API</string>
+    <string name="onboarding_provider_zai">Z.ai</string>
+    <string name="onboarding_provider_kimi_coding">Kimi Code</string>
+    <string name="onboarding_provider_minimax">MiniMax</string>
+    <string name="onboarding_provider_github_copilot">GitHub Copilot</string>
 
     <string name="onboarding_provider_nvidia">NVIDIA</string>
     <string name="settings_openai_compatible_base_url">基础 URL（OpenAI 兼容）</string>

@@ -49,12 +49,12 @@
     <string name="onboarding_btn_next">次へ</string>
     <string name="onboarding_btn_done">完了</string>
     <string name="onboarding_btn_skip">後で設定</string>
-    <string name="onboarding_provider_title">AIプロバイダーを選択</string>
-    <string name="onboarding_provider_subtitle">OpenClaw で使用する AI モデルプロバイダーを選択してください</string>
-    <string name="onboarding_provider_anthropic">Claude モデルを使用</string>
-    <string name="onboarding_provider_openai">GPT モデルを使用</string>
-    <string name="onboarding_provider_google">Gemini モデルを使用</string>
-    <string name="onboarding_provider_openrouter">OpenRouter (マルチモデル統合ゲートウェイ)</string>
+    <string name="onboarding_provider_title">AIを選択</string>
+    <string name="onboarding_provider_subtitle">OpenClawで使用するAIを選択してください</string>
+    <string name="onboarding_provider_anthropic">Claude</string>
+    <string name="onboarding_provider_openai">ChatGPT</string>
+    <string name="onboarding_provider_google">Gemini</string>
+    <string name="onboarding_provider_openrouter">OpenRouter</string>
     <string name="welcome_manual_input">APIキーを手動入力</string>
     <string name="welcome_manual_collapse">閉じる</string>
     <string name="onboarding_apikey_title">APIキーを入力</string>
@@ -101,8 +101,8 @@
     <string name="settings_battery_not_exempted">タップして設定 — バックグラウンドの安定性が向上</string>
     <string name="settings_cannot_open">設定を開けません</string>
     <string name="settings_section_ai">AIモデル</string>
-    <string name="settings_current_provider">現在のプロバイダー</string>
-    <string name="settings_change_provider">プロバイダーを変更</string>
+    <string name="settings_current_provider">現在のAI</string>
+    <string name="settings_change_provider">AIを変更</string>
     <string name="settings_api_key">APIキー</string>
     <string name="settings_api_key_configured">設定済み</string>
     <string name="settings_api_key_not_configured">未設定</string>
@@ -195,8 +195,11 @@
     <string name="pairing_notification_channel">ペアリングリクエスト</string>
     <string name="pairing_notification_title">新しいペアリングリクエスト</string>
     <string name="pairing_notification_text">%1$s: %2$s</string>
-    <string name="settings_codex_oauth_title">OpenAI Codex OAuth</string>
-    <string name="settings_codex_oauth_signing_in">Signing in…</string>
+    <string name="settings_codex_oauth_title">Codex にログイン</string>
+    <string name="settings_codex_oauth_signing_in">ログイン中…</string>
+    <string name="settings_github_copilot_login_title">GitHub にログイン</string>
+    <string name="settings_github_copilot_login_signing_in">ログイン待機中…</string>
+    <string name="settings_github_copilot_login_code">コード: %1$s</string>
     <string name="settings_channel_whatsapp">WhatsApp</string>
     <string name="settings_channel_disconnect_action">接続を解除</string>
     <string name="settings_channel_disconnect_in_progress">接続を解除中…</string>
@@ -211,8 +214,8 @@
     <string name="settings_discord_require_mention_desc">許可済みギルドのチャンネルでメンション必須を適用します。</string>
     <string name="settings_about_version">andClaw v%1$s</string>
     <string name="settings_about_powered_by">Powered by OpenClaw</string>
-    <string name="settings_provider_openai_api">%1$s (API)</string>
-    <string name="settings_provider_openai_codex">%1$s (Codex OAuth)</string>
+    <string name="settings_provider_openai_api">ChatGPT</string>
+    <string name="settings_provider_openai_codex">Codex</string>
     <string name="settings_api_type">APIタイプ</string>
     <string name="settings_bot_token_dialog_title">%1$s Bot Token</string>
     <string name="settings_bot_restart_notice_message">The gateway will restart.</string>
@@ -252,7 +255,11 @@
     <string name="settings_recovery_install_confirm_message">⚠️ 復旧インストールを実行すると、アプリのコア実行環境全体を再インストールします。\n\nユーザーデータ（チャット/セッション）は削除されませんが、復旧には数分以上かかる場合があります。\n\n復旧中は、アプリを閉じたり強制終了したりしないでください。</string>
     <string name="settings_api_key_get_link">%1$s APIキーを取得 →</string>
     <string name="bug_report_included_gateway_logs">- Gateway UIログ（サニタイズ済み）: %1$d 行</string>
-    <string name="onboarding_provider_openai_compatible">OpenAI互換（カスタムエンドポイント）</string>
+    <string name="onboarding_provider_openai_compatible">カスタムOpenAI API</string>
+    <string name="onboarding_provider_zai">Z.ai</string>
+    <string name="onboarding_provider_kimi_coding">Kimi Code</string>
+    <string name="onboarding_provider_minimax">MiniMax</string>
+    <string name="onboarding_provider_github_copilot">GitHub Copilot</string>
 
     <string name="onboarding_provider_nvidia">NVIDIA</string>
     <string name="settings_openai_compatible_base_url">ベースURL（OpenAI互換）</string>

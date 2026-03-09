@@ -288,14 +288,12 @@ fun DashboardScreen(
             when (provider) {
                 "openrouter" -> stringResource(R.string.onboarding_provider_openrouter)
                 "anthropic" -> stringResource(R.string.onboarding_provider_anthropic)
-                "openai" -> stringResource(
-                    R.string.settings_provider_openai_api,
-                    stringResource(R.string.onboarding_provider_openai),
-                )
-                "openai-codex" -> stringResource(
-                    R.string.settings_provider_openai_codex,
-                    stringResource(R.string.onboarding_provider_openai),
-                )
+                "openai" -> stringResource(R.string.settings_provider_openai_api)
+                "openai-codex" -> stringResource(R.string.settings_provider_openai_codex)
+                "github-copilot" -> stringResource(R.string.onboarding_provider_github_copilot)
+                "zai" -> stringResource(R.string.onboarding_provider_zai)
+                "kimi-coding" -> stringResource(R.string.onboarding_provider_kimi_coding)
+                "minimax" -> stringResource(R.string.onboarding_provider_minimax)
                 "openai-compatible" -> stringResource(R.string.onboarding_provider_openai_compatible)
                 "google" -> stringResource(R.string.onboarding_provider_google)
                 else -> provider

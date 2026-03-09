@@ -57,12 +57,12 @@
     <string name="onboarding_btn_next">Next</string>
     <string name="onboarding_btn_done">Done</string>
     <string name="onboarding_btn_skip">Skip for now</string>
-    <string name="onboarding_provider_title">Select AI Provider</string>
-    <string name="onboarding_provider_subtitle">Choose the AI model provider for OpenClaw</string>
-    <string name="onboarding_provider_anthropic">Use Claude models</string>
-    <string name="onboarding_provider_openai">Use GPT models</string>
-    <string name="onboarding_provider_google">Use Gemini models</string>
-    <string name="onboarding_provider_openrouter">OpenRouter (Multi-model unified gateway)</string>
+    <string name="onboarding_provider_title">Select AI</string>
+    <string name="onboarding_provider_subtitle">Choose the AI you want to use with OpenClaw</string>
+    <string name="onboarding_provider_anthropic">Claude</string>
+    <string name="onboarding_provider_openai">ChatGPT</string>
+    <string name="onboarding_provider_google">Gemini</string>
+    <string name="onboarding_provider_openrouter">OpenRouter</string>
     <string name="onboarding_apikey_title">Enter API Key</string>
     <string name="welcome_manual_input">Enter API key manually</string>
     <string name="welcome_manual_collapse">Collapse</string>
@@ -126,8 +126,8 @@
     <string name="settings_battery_not_exempted">Tap to configure — improves background stability</string>
     <string name="settings_cannot_open">Cannot open settings</string>
     <string name="settings_section_ai">AI Model</string>
-    <string name="settings_current_provider">Current provider</string>
-    <string name="settings_change_provider">Change provider</string>
+    <string name="settings_current_provider">Current AI</string>
+    <string name="settings_change_provider">Change AI</string>
     <string name="settings_api_key">API Key</string>
     <string name="settings_api_key_configured">Configured</string>
     <string name="settings_api_key_not_configured">Not configured</string>
@@ -227,8 +227,11 @@
     <string name="pairing_notification_channel">Pairing Requests</string>
     <string name="pairing_notification_title">New Pairing Request</string>
     <string name="pairing_notification_text">%1$s: %2$s</string>
-    <string name="settings_codex_oauth_title">OpenAI Codex OAuth</string>
+    <string name="settings_codex_oauth_title">Codex sign-in</string>
     <string name="settings_codex_oauth_signing_in">Signing in…</string>
+    <string name="settings_github_copilot_login_title">GitHub sign-in</string>
+    <string name="settings_github_copilot_login_signing_in">Waiting for sign-in…</string>
+    <string name="settings_github_copilot_login_code">Code: %1$s</string>
     <string name="settings_channel_whatsapp">WhatsApp</string>
     <string name="settings_channel_disconnect_action">Disconnect</string>
     <string name="settings_channel_disconnect_in_progress">Disconnecting…</string>
@@ -243,8 +246,8 @@
     <string name="settings_discord_require_mention_desc">Apply mention gate for allowlisted guild channels.</string>
     <string name="settings_about_version">andClaw v%1$s</string>
     <string name="settings_about_powered_by">Powered by OpenClaw</string>
-    <string name="settings_provider_openai_api">%1$s (API)</string>
-    <string name="settings_provider_openai_codex">%1$s (Codex OAuth)</string>
+    <string name="settings_provider_openai_api">ChatGPT</string>
+    <string name="settings_provider_openai_codex">Codex</string>
     <string name="settings_api_type">API Type</string>
     <string name="settings_bot_token_dialog_title">%1$s Bot Token</string>
     <string name="settings_bot_restart_notice_message">The gateway will restart.</string>
@@ -269,7 +272,11 @@
     <string name="bug_report_close">Close</string>
     <string name="bug_report_presence_present">present</string>
     <string name="bug_report_presence_none">none</string>
-    <string name="onboarding_provider_openai_compatible">OpenAI-compatible (Custom endpoint)</string>
+    <string name="onboarding_provider_openai_compatible">Custom OpenAI API</string>
+    <string name="onboarding_provider_zai">Z.ai</string>
+    <string name="onboarding_provider_kimi_coding">Kimi Code</string>
+    <string name="onboarding_provider_minimax">MiniMax</string>
+    <string name="onboarding_provider_github_copilot">GitHub Copilot</string>
 
     <string name="onboarding_provider_nvidia">NVIDIA</string>
     <string name="settings_openai_compatible_base_url">Base URL (OpenAI-compatible)</string>

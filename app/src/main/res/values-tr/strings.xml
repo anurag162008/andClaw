@@ -48,12 +48,12 @@
     <string name="onboarding_btn_next">Sonraki</string>
     <string name="onboarding_btn_done">Bitti</string>
     <string name="onboarding_btn_skip">Şimdilik Geç</string>
-    <string name="onboarding_provider_title">Yapay Zeka Sağlayıcısını Seçin</string>
-    <string name="onboarding_provider_subtitle">OpenClaw için yapay zeka modeli sağlayıcısını seçin</string>
-    <string name="onboarding_provider_anthropic">Claude modellerini kullan</string>
-    <string name="onboarding_provider_openai">GPT modellerini kullan</string>
-    <string name="onboarding_provider_google">Gemini modellerini kullan</string>
-    <string name="onboarding_provider_openrouter">OpenRouter (Çok modelli birleşik ağ geçidi)</string>
+    <string name="onboarding_provider_title">Yapay zekâyı seçin</string>
+    <string name="onboarding_provider_subtitle">OpenClaw ile kullanmak istediğiniz yapay zekâyı seçin</string>
+    <string name="onboarding_provider_anthropic">Claude</string>
+    <string name="onboarding_provider_openai">ChatGPT</string>
+    <string name="onboarding_provider_google">Gemini</string>
+    <string name="onboarding_provider_openrouter">OpenRouter</string>
     <string name="welcome_manual_input">API anahtarını manuel girin</string>
     <string name="welcome_manual_collapse">Kapat</string>
     <string name="onboarding_apikey_title">API Anahtarını Girin</string>
@@ -100,8 +100,8 @@
     <string name="settings_battery_not_exempted">Yapılandırmak için dokunun — arka plan istikrarını artırır</string>
     <string name="settings_cannot_open">Ayarlar açılamıyor</string>
     <string name="settings_section_ai">Yapay Zeka Modeli</string>
-    <string name="settings_current_provider">Mevcut sağlayıcı</string>
-    <string name="settings_change_provider">Sağlayıcıyı değiştir</string>
+    <string name="settings_current_provider">Geçerli yapay zekâ</string>
+    <string name="settings_change_provider">Yapay zekâyı değiştir</string>
     <string name="settings_api_key">API Anahtarı</string>
     <string name="settings_api_key_configured">Yapılandırıldı</string>
     <string name="settings_api_key_not_configured">Yapılandırılmadı</string>
@@ -194,8 +194,11 @@
     <string name="pairing_notification_channel">Eşleştirme İstekleri</string>
     <string name="pairing_notification_title">Yeni Eşleştirme İsteği</string>
     <string name="pairing_notification_text">%1$s: %2$s</string>
-    <string name="settings_codex_oauth_title">OpenAI Codex OAuth</string>
-    <string name="settings_codex_oauth_signing_in">Signing in…</string>
+    <string name="settings_codex_oauth_title">Codex’e giriş yap</string>
+    <string name="settings_codex_oauth_signing_in">Giriş yapılıyor…</string>
+    <string name="settings_github_copilot_login_title">GitHub’a giriş yap</string>
+    <string name="settings_github_copilot_login_signing_in">Giriş bekleniyor…</string>
+    <string name="settings_github_copilot_login_code">Kod: %1$s</string>
     <string name="settings_channel_whatsapp">WhatsApp</string>
     <string name="settings_channel_disconnect_action">Bağlantıyı kes</string>
     <string name="settings_channel_disconnect_in_progress">Bağlantı kesiliyor…</string>
@@ -210,8 +213,8 @@
     <string name="settings_discord_require_mention_desc">İzin verilen guild kanalları için etiket zorunluluğunu uygula.</string>
     <string name="settings_about_version">andClaw v%1$s</string>
     <string name="settings_about_powered_by">Powered by OpenClaw</string>
-    <string name="settings_provider_openai_api">%1$s (API)</string>
-    <string name="settings_provider_openai_codex">%1$s (Codex OAuth)</string>
+    <string name="settings_provider_openai_api">ChatGPT</string>
+    <string name="settings_provider_openai_codex">Codex</string>
     <string name="settings_api_type">API Türü</string>
     <string name="settings_bot_token_dialog_title">%1$s Bot Token</string>
     <string name="settings_bot_restart_notice_message">The gateway will restart.</string>
@@ -251,7 +254,11 @@
     <string name="settings_recovery_install_confirm_message">⚠️ Kurtarma yeniden kurulumu, uygulamanın tüm temel ortamını yeniden yükler.\n\nKullanıcı verileriniz (sohbetler/oturumlar) silinmez, ancak kurtarma birkaç dakika sürebilir.\n\nKurtarma sürerken uygulamayı kapatmayın veya zorla durdurmayın.</string>
     <string name="settings_api_key_get_link">%1$s API anahtarı al →</string>
     <string name="bug_report_included_gateway_logs">- Gateway UI günlükleri (temizlendi): %1$d satır</string>
-    <string name="onboarding_provider_openai_compatible">OpenAI uyumlu (Özel uç nokta)</string>
+    <string name="onboarding_provider_openai_compatible">Özel OpenAI API</string>
+    <string name="onboarding_provider_zai">Z.ai</string>
+    <string name="onboarding_provider_kimi_coding">Kimi Code</string>
+    <string name="onboarding_provider_minimax">MiniMax</string>
+    <string name="onboarding_provider_github_copilot">GitHub Copilot</string>
 
     <string name="onboarding_provider_nvidia">NVIDIA</string>
     <string name="settings_openai_compatible_base_url">Temel URL (OpenAI uyumlu)</string>

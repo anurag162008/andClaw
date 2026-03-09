@@ -27,6 +27,13 @@ import java.io.File
 import java.io.InputStreamReader
 import java.util.concurrent.TimeUnit
 
+internal fun githubCopilotAuthEnv(env: Map<String, String> = System.getenv()): Map<String, String> =
+    buildMap {
+        listOf("COPILOT_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN").forEach { key ->
+            env[key]?.takeIf { it.isNotBlank() }?.let { put(key, it) }
+        }
+    }
+
 internal fun parseListeningSocketInodes(procNetContent: String, port: Int): Set<String> {
     if (port !in 1..65535) return emptySet()
 
@@ -428,19 +435,33 @@ class ProcessManager(
                     put("UV_USE_IO_URING", "0")
                     put("PLAYWRIGHT_BROWSERS_PATH", "/root/.cache/ms-playwright")
 
+                    if (apiProvider == "github-copilot") {
+                        putAll(githubCopilotAuthEnv())
+                    }
+
                     // API 키를 환경변수로 전달
                     if (apiKey.isNotBlank()) {
                         when (apiProvider) {
                             "anthropic" -> put("ANTHROPIC_API_KEY", apiKey)
                             "openai" -> put("OPENAI_API_KEY", apiKey)
                             "openai-codex" -> { /* OAuth provider: no API key env needed */ }
+                            "github-copilot" -> { /* OAuth/env provider: env already resolved above */ }
+                            "zai" -> {
+                                put("ZAI_API_KEY", apiKey)
+                                put("Z_AI_API_KEY", apiKey)
+                            }
+                            "kimi-coding" -> {
+                                put("KIMI_API_KEY", apiKey)
+                                put("KIMICODE_API_KEY", apiKey)
+                            }
+                            "minimax" -> put("MINIMAX_API_KEY", apiKey)
                             "openai-compatible" -> put("OPENAI_COMPAT_API_KEY", apiKey)
                             "openrouter" -> put("OPENROUTER_API_KEY", apiKey)
                             "google" -> {
                                 put("GEMINI_API_KEY", apiKey)
                                 put("GOOGLE_API_KEY", apiKey)
                             }
-                            else -> put("OPENROUTER_API_KEY", apiKey) // 기본
+                            else -> put("OPENAI_API_KEY", apiKey)
                         }
                     }
 
@@ -828,6 +849,10 @@ class ProcessManager(
                     "anthropic" -> "claude-sonnet-4-5"
                     "openai" -> "gpt-5-mini"
                     "openai-codex" -> "gpt-5.3-codex"
+                    "github-copilot" -> "gpt-4o"
+                    "zai" -> "glm-5"
+                    "kimi-coding" -> "k2p5"
+                    "minimax" -> "MiniMax-M2.5"
                     "openai-compatible" -> "gpt-4o-mini"
                     "google" -> "gemini-2.5-flash"
                     else -> "openrouter/free"
@@ -870,6 +895,38 @@ class ProcessManager(
                         }
                         "openai-codex/$id"
                     }
+                    "github-copilot" -> {
+                        val id = when {
+                            modelId.startsWith("github-copilot/") -> modelId.removePrefix("github-copilot/")
+                            modelId.contains("/") -> "gpt-4o"
+                            else -> modelId
+                        }
+                        "github-copilot/$id"
+                    }
+                    "zai" -> {
+                        val id = when {
+                            modelId.startsWith("zai/") -> modelId.removePrefix("zai/")
+                            modelId.contains("/") -> "glm-5"
+                            else -> modelId
+                        }
+                        "zai/$id"
+                    }
+                    "kimi-coding" -> {
+                        val id = when {
+                            modelId.startsWith("kimi-coding/") -> modelId.removePrefix("kimi-coding/")
+                            modelId.contains("/") -> "k2p5"
+                            else -> modelId
+                        }
+                        "kimi-coding/$id"
+                    }
+                    "minimax" -> {
+                        val id = when {
+                            modelId.startsWith("minimax/") -> modelId.removePrefix("minimax/")
+                            modelId.contains("/") -> "MiniMax-M2.5"
+                            else -> modelId
+                        }
+                        "minimax/$id"
+                    }
                     "openai-compatible" -> {
                         val id = modelId.removePrefix("openai-compatible/")
                         "openai-compatible/$id"
@@ -901,6 +958,10 @@ class ProcessManager(
                 "anthropic" -> setOf("anthropic/")
                 "openai" -> setOf("openai/")
                 "openai-codex" -> setOf("openai-codex/")
+                "github-copilot" -> setOf("github-copilot/")
+                "zai" -> setOf("zai/")
+                "kimi-coding" -> setOf("kimi-coding/")
+                "minimax" -> setOf("minimax/")
                 "openai-compatible" -> setOf("openai-compatible/")
                 "google" -> setOf("google/")
                 else -> setOf("${provider.trim().lowercase()}/")
@@ -1921,6 +1982,15 @@ class ProcessManager(
             put("ANTHROPIC_API_KEY", "__andclaw_env_placeholder__")
             put("GOOGLE_API_KEY", "__andclaw_env_placeholder__")
             put("GEMINI_API_KEY", "__andclaw_env_placeholder__")
+            githubCopilotAuthEnv().forEach { (key, value) -> put(key, value) }
+            if (!containsKey("COPILOT_GITHUB_TOKEN")) put("COPILOT_GITHUB_TOKEN", "__andclaw_env_placeholder__")
+            if (!containsKey("GH_TOKEN")) put("GH_TOKEN", "__andclaw_env_placeholder__")
+            if (!containsKey("GITHUB_TOKEN")) put("GITHUB_TOKEN", "__andclaw_env_placeholder__")
+            put("ZAI_API_KEY", "__andclaw_env_placeholder__")
+            put("Z_AI_API_KEY", "__andclaw_env_placeholder__")
+            put("KIMI_API_KEY", "__andclaw_env_placeholder__")
+            put("KIMICODE_API_KEY", "__andclaw_env_placeholder__")
+            put("MINIMAX_API_KEY", "__andclaw_env_placeholder__")
             put("BRAVE_API_KEY", resolved(lastBraveSearchApiKey))
             put("BRAVE_SEARCH_API_KEY", resolved(lastBraveSearchApiKey))
             if (lastMemorySearchEnabled &&
@@ -1936,6 +2006,15 @@ class ProcessManager(
                 when (lastApiProvider) {
                     "anthropic" -> put("ANTHROPIC_API_KEY", lastApiKey)
                     "openai" -> put("OPENAI_API_KEY", lastApiKey)
+                    "zai" -> {
+                        put("ZAI_API_KEY", lastApiKey)
+                        put("Z_AI_API_KEY", lastApiKey)
+                    }
+                    "kimi-coding" -> {
+                        put("KIMI_API_KEY", lastApiKey)
+                        put("KIMICODE_API_KEY", lastApiKey)
+                    }
+                    "minimax" -> put("MINIMAX_API_KEY", lastApiKey)
                     "openai-compatible" -> put("OPENAI_COMPAT_API_KEY", lastApiKey)
                     "openrouter" -> put("OPENROUTER_API_KEY", lastApiKey)
                     "google" -> {

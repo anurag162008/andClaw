@@ -48,12 +48,12 @@
     <string name="onboarding_btn_next">Далее</string>
     <string name="onboarding_btn_done">Готово</string>
     <string name="onboarding_btn_skip">Пропустить пока</string>
-    <string name="onboarding_provider_title">Выберите провайдера AI</string>
-    <string name="onboarding_provider_subtitle">Выберите провайдера модели AI для OpenClaw</string>
-    <string name="onboarding_provider_anthropic">Использовать модели Claude</string>
-    <string name="onboarding_provider_openai">Использовать модели GPT</string>
-    <string name="onboarding_provider_google">Использовать модели Gemini</string>
-    <string name="onboarding_provider_openrouter">OpenRouter (Единый шлюз для нескольких моделей)</string>
+    <string name="onboarding_provider_title">Выбрать ИИ</string>
+    <string name="onboarding_provider_subtitle">Выберите ИИ, который хотите использовать с OpenClaw</string>
+    <string name="onboarding_provider_anthropic">Claude</string>
+    <string name="onboarding_provider_openai">ChatGPT</string>
+    <string name="onboarding_provider_google">Gemini</string>
+    <string name="onboarding_provider_openrouter">OpenRouter</string>
     <string name="welcome_manual_input">Ввести API ключ вручную</string>
     <string name="welcome_manual_collapse">Свернуть</string>
     <string name="onboarding_apikey_title">Введите API ключ</string>
@@ -100,8 +100,8 @@
     <string name="settings_battery_not_exempted">Нажмите для настройки — улучшает стабильность фоновой работы</string>
     <string name="settings_cannot_open">Не удаётся открыть настройки</string>
     <string name="settings_section_ai">AI модель</string>
-    <string name="settings_current_provider">Текущий провайдер</string>
-    <string name="settings_change_provider">Изменить провайдера</string>
+    <string name="settings_current_provider">Текущий ИИ</string>
+    <string name="settings_change_provider">Сменить ИИ</string>
     <string name="settings_api_key">API ключ</string>
     <string name="settings_api_key_configured">Настроен</string>
     <string name="settings_api_key_not_configured">Не настроен</string>
@@ -194,8 +194,11 @@
     <string name="pairing_notification_channel">Запросы сопряжения</string>
     <string name="pairing_notification_title">Новый запрос сопряжения</string>
     <string name="pairing_notification_text">%1$s: %2$s</string>
-    <string name="settings_codex_oauth_title">OpenAI Codex OAuth</string>
-    <string name="settings_codex_oauth_signing_in">Signing in…</string>
+    <string name="settings_codex_oauth_title">Войти в Codex</string>
+    <string name="settings_codex_oauth_signing_in">Выполняется вход…</string>
+    <string name="settings_github_copilot_login_title">Войти в GitHub</string>
+    <string name="settings_github_copilot_login_signing_in">Ожидание входа…</string>
+    <string name="settings_github_copilot_login_code">Код: %1$s</string>
     <string name="settings_channel_whatsapp">WhatsApp</string>
     <string name="settings_channel_disconnect_action">Отключить</string>
     <string name="settings_channel_disconnect_in_progress">Отключение…</string>
@@ -210,8 +213,8 @@
     <string name="settings_discord_require_mention_desc">Применять требование упоминания для разрешённых каналов гильдий.</string>
     <string name="settings_about_version">andClaw v%1$s</string>
     <string name="settings_about_powered_by">Powered by OpenClaw</string>
-    <string name="settings_provider_openai_api">%1$s (API)</string>
-    <string name="settings_provider_openai_codex">%1$s (Codex OAuth)</string>
+    <string name="settings_provider_openai_api">ChatGPT</string>
+    <string name="settings_provider_openai_codex">Codex</string>
     <string name="settings_api_type">Тип API</string>
     <string name="settings_bot_token_dialog_title">%1$s Bot Token</string>
     <string name="settings_bot_restart_notice_message">The gateway will restart.</string>
@@ -251,7 +254,11 @@
     <string name="settings_recovery_install_confirm_message">⚠️ Восстановительная переустановка заново установит всю основную среду приложения.\n\nВаши пользовательские данные (чаты/сессии) не будут удалены, но восстановление может занять несколько минут.\n\nНе закрывайте приложение и не выполняйте принудительную остановку, пока идет восстановление.</string>
     <string name="settings_api_key_get_link">Получить API-ключ %1$s →</string>
     <string name="bug_report_included_gateway_logs">- Логи UI шлюза (очищенные): %1$d строк</string>
-    <string name="onboarding_provider_openai_compatible">Совместимый с OpenAI (Пользовательская конечная точка)</string>
+    <string name="onboarding_provider_openai_compatible">Пользовательский API OpenAI</string>
+    <string name="onboarding_provider_zai">Z.ai</string>
+    <string name="onboarding_provider_kimi_coding">Kimi Code</string>
+    <string name="onboarding_provider_minimax">MiniMax</string>
+    <string name="onboarding_provider_github_copilot">GitHub Copilot</string>
 
     <string name="onboarding_provider_nvidia">NVIDIA</string>
     <string name="settings_openai_compatible_base_url">Базовый URL (совместимо с OpenAI)</string>

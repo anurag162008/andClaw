@@ -56,12 +56,12 @@
     <string name="onboarding_btn_next">Siguiente</string>
     <string name="onboarding_btn_done">Listo</string>
     <string name="onboarding_btn_skip">Configurar luego</string>
-    <string name="onboarding_provider_title">Seleccionar proveedor de IA</string>
-    <string name="onboarding_provider_subtitle">Elige el proveedor del modelo de IA para OpenClaw</string>
-    <string name="onboarding_provider_anthropic">Usar modelos Claude</string>
-    <string name="onboarding_provider_openai">Usar modelos GPT</string>
-    <string name="onboarding_provider_google">Usar modelos Gemini</string>
-    <string name="onboarding_provider_openrouter">OpenRouter (Gateway unificado multi-modelo)</string>
+    <string name="onboarding_provider_title">Seleccionar IA</string>
+    <string name="onboarding_provider_subtitle">Elige la IA que quieres usar con OpenClaw</string>
+    <string name="onboarding_provider_anthropic">Claude</string>
+    <string name="onboarding_provider_openai">ChatGPT</string>
+    <string name="onboarding_provider_google">Gemini</string>
+    <string name="onboarding_provider_openrouter">OpenRouter</string>
     <string name="welcome_manual_input">Ingresar clave de API manualmente</string>
     <string name="welcome_manual_collapse">Cerrar</string>
     <string name="onboarding_apikey_title">Ingresa tu clave de API</string>
@@ -112,8 +112,8 @@
     <string name="settings_battery_not_exempted">Toca para configurar — mejora la estabilidad en segundo plano</string>
     <string name="settings_cannot_open">No se puede abrir la configuración</string>
     <string name="settings_section_ai">Modelo de IA</string>
-    <string name="settings_current_provider">Proveedor actual</string>
-    <string name="settings_change_provider">Cambiar proveedor</string>
+    <string name="settings_current_provider">IA actual</string>
+    <string name="settings_change_provider">Cambiar IA</string>
     <string name="settings_api_key">Clave de API</string>
     <string name="settings_api_key_configured">Configurada</string>
     <string name="settings_api_key_not_configured">No configurada</string>
@@ -206,8 +206,11 @@
     <string name="pairing_notification_channel">Solicitudes de emparejamiento</string>
     <string name="pairing_notification_title">Nueva solicitud de emparejamiento</string>
     <string name="pairing_notification_text">%1$s: %2$s</string>
-    <string name="settings_codex_oauth_title">OpenAI Codex OAuth</string>
-    <string name="settings_codex_oauth_signing_in">Signing in…</string>
+    <string name="settings_codex_oauth_title">Iniciar sesión en Codex</string>
+    <string name="settings_codex_oauth_signing_in">Iniciando sesión…</string>
+    <string name="settings_github_copilot_login_title">Iniciar sesión en GitHub</string>
+    <string name="settings_github_copilot_login_signing_in">Esperando inicio de sesión…</string>
+    <string name="settings_github_copilot_login_code">Código: %1$s</string>
     <string name="settings_channel_whatsapp">WhatsApp</string>
     <string name="settings_channel_disconnect_action">Desconectar</string>
     <string name="settings_channel_disconnect_in_progress">Desconectando…</string>
@@ -222,8 +225,8 @@
     <string name="settings_discord_require_mention_desc">Aplicar requisito de mención en canales de guild permitidos.</string>
     <string name="settings_about_version">andClaw v%1$s</string>
     <string name="settings_about_powered_by">Powered by OpenClaw</string>
-    <string name="settings_provider_openai_api">%1$s (API)</string>
-    <string name="settings_provider_openai_codex">%1$s (Codex OAuth)</string>
+    <string name="settings_provider_openai_api">ChatGPT</string>
+    <string name="settings_provider_openai_codex">Codex</string>
     <string name="settings_api_type">Tipo de API</string>
     <string name="settings_bot_token_dialog_title">%1$s Bot Token</string>
     <string name="settings_bot_restart_notice_message">The gateway will restart.</string>
@@ -263,7 +266,11 @@
     <string name="settings_recovery_install_confirm_message">⚠️ La reinstalación de recuperación volverá a instalar todo el entorno principal de la app.\n\nTus datos de usuario (chats/sesiones) no se eliminarán, pero la recuperación puede tardar varios minutos.\n\nNo cierres ni fuerces la detención de la app mientras la recuperación esté en curso.</string>
     <string name="settings_api_key_get_link">Obtener clave API de %1$s →</string>
     <string name="bug_report_included_gateway_logs">- Registros de UI del gateway (depurados): %1$d líneas</string>
-    <string name="onboarding_provider_openai_compatible">Compatible con OpenAI (Endpoint personalizado)</string>
+    <string name="onboarding_provider_openai_compatible">API personalizada de OpenAI</string>
+    <string name="onboarding_provider_zai">Z.ai</string>
+    <string name="onboarding_provider_kimi_coding">Kimi Code</string>
+    <string name="onboarding_provider_minimax">MiniMax</string>
+    <string name="onboarding_provider_github_copilot">GitHub Copilot</string>
 
     <string name="onboarding_provider_nvidia">NVIDIA</string>
     <string name="settings_openai_compatible_base_url">URL base (compatible con OpenAI)</string>

@@ -48,12 +48,12 @@
     <string name="onboarding_btn_next">Berikutnya</string>
     <string name="onboarding_btn_done">Selesai</string>
     <string name="onboarding_btn_skip">Lewati untuk saat ini</string>
-    <string name="onboarding_provider_title">Pilih Penyedia AI</string>
-    <string name="onboarding_provider_subtitle">Pilih penyedia model AI untuk OpenClaw</string>
-    <string name="onboarding_provider_anthropic">Gunakan model Claude</string>
-    <string name="onboarding_provider_openai">Gunakan model GPT</string>
-    <string name="onboarding_provider_google">Gunakan model Gemini</string>
-    <string name="onboarding_provider_openrouter">OpenRouter (Gateway gateway multi-model terpadu)</string>
+    <string name="onboarding_provider_title">Pilih AI</string>
+    <string name="onboarding_provider_subtitle">Pilih AI yang ingin Anda gunakan dengan OpenClaw</string>
+    <string name="onboarding_provider_anthropic">Claude</string>
+    <string name="onboarding_provider_openai">ChatGPT</string>
+    <string name="onboarding_provider_google">Gemini</string>
+    <string name="onboarding_provider_openrouter">OpenRouter</string>
     <string name="welcome_manual_input">Masukkan kunci API secara manual</string>
     <string name="welcome_manual_collapse">Tutup</string>
     <string name="onboarding_apikey_title">Masukkan Kunci API</string>
@@ -100,8 +100,8 @@
     <string name="settings_battery_not_exempted">Ketuk untuk konfigurasi — meningkatkan stabilitas latar belakang</string>
     <string name="settings_cannot_open">Tidak dapat membuka pengaturan</string>
     <string name="settings_section_ai">Model AI</string>
-    <string name="settings_current_provider">Penyedia saat ini</string>
-    <string name="settings_change_provider">Ubah penyedia</string>
+    <string name="settings_current_provider">AI saat ini</string>
+    <string name="settings_change_provider">Ubah AI</string>
     <string name="settings_api_key">Kunci API</string>
     <string name="settings_api_key_configured">Dikonfigurasi</string>
     <string name="settings_api_key_not_configured">Tidak dikonfigurasi</string>
@@ -194,8 +194,11 @@
     <string name="pairing_notification_channel">Permintaan Pemasangan</string>
     <string name="pairing_notification_title">Permintaan Pemasangan Baru</string>
     <string name="pairing_notification_text">%1$s: %2$s</string>
-    <string name="settings_codex_oauth_title">OpenAI Codex OAuth</string>
-    <string name="settings_codex_oauth_signing_in">Signing in…</string>
+    <string name="settings_codex_oauth_title">Masuk ke Codex</string>
+    <string name="settings_codex_oauth_signing_in">Sedang masuk…</string>
+    <string name="settings_github_copilot_login_title">Masuk ke GitHub</string>
+    <string name="settings_github_copilot_login_signing_in">Menunggu login…</string>
+    <string name="settings_github_copilot_login_code">Kode: %1$s</string>
     <string name="settings_channel_whatsapp">WhatsApp</string>
     <string name="settings_channel_disconnect_action">Putuskan koneksi</string>
     <string name="settings_channel_disconnect_in_progress">Memutuskan koneksi…</string>
@@ -210,8 +213,8 @@
     <string name="settings_discord_require_mention_desc">Terapkan syarat mention untuk saluran guild yang diizinkan.</string>
     <string name="settings_about_version">andClaw v%1$s</string>
     <string name="settings_about_powered_by">Powered by OpenClaw</string>
-    <string name="settings_provider_openai_api">%1$s (API)</string>
-    <string name="settings_provider_openai_codex">%1$s (Codex OAuth)</string>
+    <string name="settings_provider_openai_api">ChatGPT</string>
+    <string name="settings_provider_openai_codex">Codex</string>
     <string name="settings_api_type">Jenis API</string>
     <string name="settings_bot_token_dialog_title">%1$s Bot Token</string>
     <string name="settings_bot_restart_notice_message">The gateway will restart.</string>
@@ -251,7 +254,11 @@
     <string name="settings_recovery_install_confirm_message">⚠️ Instal ulang pemulihan akan memasang ulang seluruh lingkungan inti aplikasi.\n\nData pengguna Anda (chat/sesi) tidak akan dihapus, tetapi pemulihan dapat memakan beberapa menit.\n\nJangan tutup atau paksa hentikan aplikasi selama pemulihan masih berlangsung.</string>
     <string name="settings_api_key_get_link">Dapatkan kunci API %1$s →</string>
     <string name="bug_report_included_gateway_logs">- Log UI gateway (disanitasi): %1$d baris</string>
-    <string name="onboarding_provider_openai_compatible">Kompatibel OpenAI (Endpoint kustom)</string>
+    <string name="onboarding_provider_openai_compatible">API OpenAI kustom</string>
+    <string name="onboarding_provider_zai">Z.ai</string>
+    <string name="onboarding_provider_kimi_coding">Kimi Code</string>
+    <string name="onboarding_provider_minimax">MiniMax</string>
+    <string name="onboarding_provider_github_copilot">GitHub Copilot</string>
 
     <string name="onboarding_provider_nvidia">NVIDIA</string>
     <string name="settings_openai_compatible_base_url">URL dasar (kompatibel OpenAI)</string>

@@ -27,6 +27,8 @@ import com.coderred.andclaw.data.SessionLogEntry
 import com.coderred.andclaw.data.SetupState
 import com.coderred.andclaw.data.GlobalDefaultModelOption
 import com.coderred.andclaw.data.isSessionError
+import com.coderred.andclaw.data.hasGitHubCopilotEnvAuth
+import com.coderred.andclaw.data.hasOpenClawSecretRef
 import com.coderred.andclaw.data.parseOpenRouterModels
 import com.coderred.andclaw.proot.BundleUpdateOutcome
 import com.coderred.andclaw.proot.GatewayWsClient
@@ -105,6 +107,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     companion object {
         private const val TAG = "AndClawCodexAuth"
+        private const val GITHUB_COPILOT_CLIENT_ID = "Iv1.b507a08c87ecfe98"
+        private const val GITHUB_COPILOT_DEVICE_CODE_URL = "https://github.com/login/device/code"
+        private const val GITHUB_COPILOT_ACCESS_TOKEN_URL = "https://github.com/login/oauth/access_token"
         private const val WHATSAPP_LOG_TAG = "AndClawWhatsAppLogin"
         private const val OAUTH_CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann"
         private const val OAUTH_AUTHORIZE_URL = "https://auth.openai.com/oauth/authorize"
@@ -236,6 +241,25 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     private val _codexAuthDebugLine = MutableStateFlow<String?>(null)
     val codexAuthDebugLine: StateFlow<String?> = _codexAuthDebugLine.asStateFlow()
+
+    private val _isGitHubCopilotAuthInProgress = MutableStateFlow(false)
+    val isGitHubCopilotAuthInProgress: StateFlow<Boolean> = _isGitHubCopilotAuthInProgress.asStateFlow()
+
+    private val _isGitHubCopilotAuthenticated = MutableStateFlow(false)
+    val isGitHubCopilotAuthenticated: StateFlow<Boolean> = _isGitHubCopilotAuthenticated.asStateFlow()
+
+    private val _gitHubCopilotAuthUrl = MutableStateFlow<String?>(null)
+    val gitHubCopilotAuthUrl: StateFlow<String?> = _gitHubCopilotAuthUrl.asStateFlow()
+    private val _gitHubCopilotVerificationUrl = MutableStateFlow<String?>(null)
+    val gitHubCopilotVerificationUrl: StateFlow<String?> = _gitHubCopilotVerificationUrl.asStateFlow()
+
+    private val _gitHubCopilotAuthCode = MutableStateFlow<String?>(null)
+    val gitHubCopilotAuthCode: StateFlow<String?> = _gitHubCopilotAuthCode.asStateFlow()
+
+    private val _gitHubCopilotAuthDebugLine = MutableStateFlow<String?>(null)
+    val gitHubCopilotAuthDebugLine: StateFlow<String?> = _gitHubCopilotAuthDebugLine.asStateFlow()
+    private val _gitHubCopilotAuthRestartHintNonce = MutableStateFlow(0L)
+    val gitHubCopilotAuthRestartHintNonce: StateFlow<Long> = _gitHubCopilotAuthRestartHintNonce.asStateFlow()
     private val _isDoctorFixRunning = MutableStateFlow(false)
     val isDoctorFixRunning: StateFlow<Boolean> = _isDoctorFixRunning.asStateFlow()
     private val _doctorFixResult = MutableStateFlow<DoctorFixResult?>(null)
@@ -257,6 +281,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val _bugReportUiState = MutableStateFlow(BugReportUiState())
     val bugReportUiState: StateFlow<BugReportUiState> = _bugReportUiState.asStateFlow()
     private val codexAuthRunning = AtomicBoolean(false)
+    private val gitHubCopilotAuthRunning = AtomicBoolean(false)
+    private var gitHubCopilotAuthJob: Job? = null
     private val oauthServerLock = Any()
     private var oauthServerSocket: ServerSocket? = null
 
@@ -277,6 +303,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             val provider = prefs.apiProvider.first()
             if (provider == "openai-codex") {
                 _isCodexAuthenticated.value = detectCodexAuth()
+            } else if (provider == "github-copilot") {
+                refreshGitHubCopilotAuthStatusInternal()
             }
         }
         viewModelScope.launch(Dispatchers.IO) {
@@ -331,6 +359,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             )
             if (appliedProvider == "openai-codex") {
                 refreshCodexAuthStatus()
+            } else if (appliedProvider == "github-copilot") {
+                refreshGitHubCopilotAuthStatus()
             }
             if (onApplied != null) {
                 withContext(Dispatchers.Main) {
@@ -730,6 +760,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 !isGatewayActive -> false
                 provider == "openai-compatible" -> true
                 provider == "openai-codex" -> detectCodexAuth()
+                provider == "github-copilot" -> detectGitHubCopilotAuth()
                 else -> prefs.hasApiKeyForProvider(provider)
             }
             withContext(Dispatchers.Main) {
@@ -821,6 +852,15 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                         when (provider) {
                             "anthropic" -> put("ANTHROPIC_API_KEY", apiKey)
                             "openai" -> put("OPENAI_API_KEY", apiKey)
+                            "zai" -> {
+                                put("ZAI_API_KEY", apiKey)
+                                put("Z_AI_API_KEY", apiKey)
+                            }
+                            "kimi-coding" -> {
+                                put("KIMI_API_KEY", apiKey)
+                                put("KIMICODE_API_KEY", apiKey)
+                            }
+                            "minimax" -> put("MINIMAX_API_KEY", apiKey)
                             "openai-compatible" -> put("OPENAI_COMPAT_API_KEY", apiKey)
                             "openrouter" -> put("OPENROUTER_API_KEY", apiKey)
                             "google" -> {
@@ -1457,6 +1497,23 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             "openai-codex" -> listOf(
                 builtInModel("gpt-5.3-codex", contextWindow = 272_000, maxTokens = 128_000, supportsReasoning = true, supportsImages = true),
             )
+            "github-copilot" -> listOf(
+                builtInModel("gpt-4o", contextWindow = 64_000, maxTokens = 16_384, supportsImages = true),
+                builtInModel("gpt-4.1", contextWindow = 64_000, maxTokens = 16_384, supportsImages = true),
+                builtInModel("claude-sonnet-4.5", contextWindow = 128_000, maxTokens = 32_000, supportsReasoning = true, supportsImages = true),
+            )
+            "zai" -> listOf(
+                builtInModel("glm-5", contextWindow = 204_800, maxTokens = 131_072, supportsReasoning = true),
+                builtInModel("glm-4.6v", contextWindow = 128_000, maxTokens = 32_768, supportsReasoning = true, supportsImages = true),
+            )
+            "kimi-coding" -> listOf(
+                builtInModel("k2p5", contextWindow = 262_144, maxTokens = 32_768, supportsReasoning = true, supportsImages = true),
+                builtInModel("kimi-k2-thinking", contextWindow = 262_144, maxTokens = 32_768, supportsReasoning = true),
+            )
+            "minimax" -> listOf(
+                builtInModel("MiniMax-M2.5", contextWindow = 204_800, maxTokens = 131_072, supportsReasoning = true),
+                builtInModel("MiniMax-M2.5-highspeed", contextWindow = 204_800, maxTokens = 131_072, supportsReasoning = true),
+            )
             "openai-compatible" -> listOf(
                 builtInModel("gpt-4o-mini", contextWindow = 128_000, maxTokens = 16_384),
                 builtInModel("gpt-4o", contextWindow = 128_000, maxTokens = 16_384),
@@ -1547,6 +1604,15 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         val access: String,
         val refresh: String,
         val expires: Long,
+    )
+
+    private data class GitHubCopilotDeviceCode(
+        val deviceCode: String,
+        val userCode: String,
+        val verificationUri: String,
+        val verificationUriComplete: String?,
+        val expiresInSec: Long,
+        val intervalSec: Long,
     )
 
     private suspend fun runCodexDirectPkceLogin() {
@@ -1745,6 +1811,307 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         _codexAuthUrl.value = null
     }
 
+    fun refreshGitHubCopilotAuthStatus() {
+        viewModelScope.launch(Dispatchers.IO) {
+            refreshGitHubCopilotAuthStatusInternal()
+        }
+    }
+
+    fun loginGitHubCopilot() {
+        if (!gitHubCopilotAuthRunning.compareAndSet(false, true)) return
+
+        gitHubCopilotAuthJob = viewModelScope.launch(Dispatchers.IO) {
+            _isGitHubCopilotAuthInProgress.value = true
+            try {
+                clearGitHubCopilotAuthTransientUi(clearDebugLine = true)
+                runGitHubCopilotDeviceLogin()
+                _gitHubCopilotAuthDebugLine.value = null
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                _gitHubCopilotAuthDebugLine.value = e.message ?: "GitHub Copilot login failed"
+                Log.e(TAG, "GitHub Copilot login failed: ${e.message}", e)
+            } finally {
+                clearGitHubCopilotAuthTransientUi(clearDebugLine = false)
+                refreshGitHubCopilotAuthStatusInternal()
+                _isGitHubCopilotAuthInProgress.value = false
+                gitHubCopilotAuthRunning.set(false)
+                gitHubCopilotAuthJob = null
+            }
+        }
+    }
+
+    fun cancelGitHubCopilotLogin() {
+        gitHubCopilotAuthJob?.cancel()
+        gitHubCopilotAuthJob = null
+        gitHubCopilotAuthRunning.set(false)
+        clearGitHubCopilotAuthTransientUi(clearDebugLine = false)
+        _isGitHubCopilotAuthInProgress.value = false
+    }
+
+    fun consumeGitHubCopilotAuthUrl() {
+        _gitHubCopilotAuthUrl.value = null
+    }
+
+    private fun clearGitHubCopilotAuthTransientUi(clearDebugLine: Boolean) {
+        _gitHubCopilotAuthUrl.value = null
+        _gitHubCopilotVerificationUrl.value = null
+        _gitHubCopilotAuthCode.value = null
+        if (clearDebugLine) {
+            _gitHubCopilotAuthDebugLine.value = null
+        }
+    }
+
+    private suspend fun refreshGitHubCopilotAuthStatusInternal() {
+        val authenticated = detectGitHubCopilotAuth()
+        prefs.setGitHubCopilotAuthenticated(authenticated)
+        _isGitHubCopilotAuthenticated.value = authenticated
+    }
+
+    private suspend fun runGitHubCopilotDeviceLogin() {
+        val previousLaunchConfig = prefs.getGatewayLaunchConfigSnapshot()
+        val device = requestGitHubCopilotDeviceCode()
+        _gitHubCopilotAuthCode.value = device.userCode
+        val verificationUrl = device.verificationUriComplete ?: device.verificationUri
+        _gitHubCopilotVerificationUrl.value = verificationUrl
+        _gitHubCopilotAuthUrl.value = verificationUrl
+
+        val accessToken = pollGitHubCopilotAccessToken(device)
+        writeGitHubCopilotCredentials(accessToken)
+        bootstrapGitHubCopilotSelectionIfNeeded()
+        val appliedLaunchConfig = prefs.getGatewayLaunchConfigSnapshot()
+        persistLaunchConfigIfRunnable(appliedLaunchConfig)
+        notifyGitHubCopilotAuthApplied(previousLaunchConfig, appliedLaunchConfig)
+    }
+
+    private fun notifyGitHubCopilotAuthApplied(
+        previousLaunchConfig: com.coderred.andclaw.data.GatewayLaunchConfigSnapshot,
+        appliedLaunchConfig: com.coderred.andclaw.data.GatewayLaunchConfigSnapshot,
+    ) {
+        val status = processManager.gatewayState.value.status
+        val isGatewayActive = status == GatewayStatus.RUNNING ||
+            status == GatewayStatus.STARTING ||
+            status == GatewayStatus.ERROR
+        if (!isGatewayActive) return
+        if (appliedLaunchConfig.apiProvider != "github-copilot") return
+
+        val runtimeChanged = hasRuntimeLaunchConfigChanged(previousLaunchConfig, appliedLaunchConfig) ||
+            previousLaunchConfig.apiProvider == "github-copilot"
+        if (!runtimeChanged) return
+
+        if (shouldPromptForRuntimeLaunchConfigChange(appliedLaunchConfig, detectCodexAuth())) {
+            _gitHubCopilotAuthRestartHintNonce.value += 1
+        }
+    }
+
+    private fun requestGitHubCopilotDeviceCode(): GitHubCopilotDeviceCode {
+        val conn = URL(GITHUB_COPILOT_DEVICE_CODE_URL).openConnection() as HttpURLConnection
+        return try {
+            conn.requestMethod = "POST"
+            conn.connectTimeout = 15_000
+            conn.readTimeout = 15_000
+            conn.doOutput = true
+            conn.setRequestProperty("Accept", "application/json")
+            conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
+
+            val body = "client_id=${urlEncode(GITHUB_COPILOT_CLIENT_ID)}&scope=${urlEncode("read:user")}"
+            conn.outputStream.use { it.write(body.toByteArray()) }
+
+            val status = conn.responseCode
+            val raw = (if (status in 200..299) conn.inputStream else conn.errorStream)
+                ?.bufferedReader()
+                ?.use { it.readText() }
+                .orEmpty()
+            if (status !in 200..299) {
+                throw IllegalStateException("GitHub device code failed: HTTP $status")
+            }
+
+            val json = JSONObject(raw)
+            val deviceCode = json.optString("device_code").trim()
+            val userCode = json.optString("user_code").trim()
+            val verificationUri = json.optString("verification_uri").trim()
+            val expiresInSec = json.optLong("expires_in", -1L)
+            val intervalSec = json.optLong("interval", 5L)
+            if (deviceCode.isBlank() || userCode.isBlank() || verificationUri.isBlank() || expiresInSec <= 0L) {
+                throw IllegalStateException("GitHub device code response missing fields")
+            }
+
+            GitHubCopilotDeviceCode(
+                deviceCode = deviceCode,
+                userCode = userCode,
+                verificationUri = verificationUri,
+                verificationUriComplete = json.optString("verification_uri_complete").trim().ifBlank { null },
+                expiresInSec = expiresInSec,
+                intervalSec = intervalSec.coerceAtLeast(1L),
+            )
+        } finally {
+            conn.disconnect()
+        }
+    }
+
+    private suspend fun pollGitHubCopilotAccessToken(device: GitHubCopilotDeviceCode): String {
+        val expiresAt = System.currentTimeMillis() + (device.expiresInSec * 1000L)
+        while (System.currentTimeMillis() < expiresAt) {
+            val conn = URL(GITHUB_COPILOT_ACCESS_TOKEN_URL).openConnection() as HttpURLConnection
+            try {
+                conn.requestMethod = "POST"
+                conn.connectTimeout = 15_000
+                conn.readTimeout = 15_000
+                conn.doOutput = true
+                conn.setRequestProperty("Accept", "application/json")
+                conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
+
+                val body = buildString {
+                    append("client_id=").append(urlEncode(GITHUB_COPILOT_CLIENT_ID))
+                    append("&device_code=").append(urlEncode(device.deviceCode))
+                    append("&grant_type=").append(urlEncode("urn:ietf:params:oauth:grant-type:device_code"))
+                }
+                conn.outputStream.use { it.write(body.toByteArray()) }
+
+                val status = conn.responseCode
+                val raw = (if (status in 200..299) conn.inputStream else conn.errorStream)
+                    ?.bufferedReader()
+                    ?.use { it.readText() }
+                    .orEmpty()
+                if (status !in 200..299) {
+                    throw IllegalStateException("GitHub device token failed: HTTP $status")
+                }
+
+                val json = JSONObject(raw)
+                val accessToken = json.optString("access_token").trim()
+                if (accessToken.isNotBlank()) {
+                    return accessToken
+                }
+
+                when (json.optString("error").trim()) {
+                    "authorization_pending" -> delay(device.intervalSec * 1000L)
+                    "slow_down" -> delay((device.intervalSec * 1000L) + 2_000L)
+                    "expired_token" -> throw IllegalStateException("GitHub 인증 코드가 만료됐어. 다시 로그인해줘.")
+                    "access_denied" -> throw IllegalStateException("GitHub 로그인이 취소됐어.")
+                    else -> throw IllegalStateException(
+                        "GitHub device flow error: ${json.optString("error").ifBlank { "unknown" }}",
+                    )
+                }
+            } finally {
+                conn.disconnect()
+            }
+        }
+        throw IllegalStateException("GitHub 인증 코드가 만료됐어. 다시 로그인해줘.")
+    }
+
+    private fun writeGitHubCopilotCredentials(accessToken: String, profileId: String = "github-copilot:github") {
+        val authFile = File(prootManager.rootfsDir, "root/.openclaw/agents/main/agent/auth-profiles.json")
+        authFile.parentFile?.mkdirs()
+
+        val root = if (authFile.exists()) {
+            runCatching { JSONObject(authFile.readText()) }.getOrElse { JSONObject() }
+        } else JSONObject()
+
+        if (!root.has("version")) {
+            root.put("version", 1)
+        }
+        val profiles = root.optJSONObject("profiles") ?: JSONObject().also { root.put("profiles", it) }
+        profiles.put(
+            profileId,
+            JSONObject().apply {
+                put("type", "token")
+                put("provider", "github-copilot")
+                put("token", accessToken)
+            },
+        )
+
+        val lastGood = root.optJSONObject("lastGood") ?: JSONObject().also { root.put("lastGood", it) }
+        lastGood.put("github-copilot", profileId)
+
+        authFile.writeText(root.toString(2))
+        updateGitHubCopilotProfilePreference(profileId)
+    }
+
+    private fun updateGitHubCopilotProfilePreference(profileId: String) {
+        val configFile = File(prootManager.rootfsDir, "root/.openclaw/openclaw.json")
+        configFile.parentFile?.mkdirs()
+
+        val root = if (configFile.exists()) {
+            runCatching { JSONObject(configFile.readText()) }.getOrElse { JSONObject() }
+        } else {
+            JSONObject()
+        }
+
+        val auth = root.optJSONObject("auth") ?: JSONObject().also { root.put("auth", it) }
+        val profiles = auth.optJSONObject("profiles") ?: JSONObject().also { auth.put("profiles", it) }
+        val existingProfile = profiles.optJSONObject(profileId)
+        profiles.put(
+            profileId,
+            JSONObject(existingProfile?.toString() ?: "{}").apply {
+                put("provider", "github-copilot")
+                put("mode", "token")
+            },
+        )
+
+        val order = auth.optJSONObject("order") ?: JSONObject().also { auth.put("order", it) }
+        val existingOrder = mutableListOf<String>()
+        val rawOrder = order.optJSONArray("github-copilot")
+        if (rawOrder != null) {
+            for (index in 0 until rawOrder.length()) {
+                rawOrder.optString(index).trim().takeIf { it.isNotBlank() }?.let(existingOrder::add)
+            }
+        }
+        val nextOrder = listOf(profileId) + existingOrder.filter { it != profileId }
+        order.put("github-copilot", org.json.JSONArray(nextOrder))
+
+        configFile.writeText(root.toString(2))
+    }
+
+    private suspend fun bootstrapGitHubCopilotSelectionIfNeeded() {
+        val provider = "github-copilot"
+        val existingSelectedIds = prefs.currentProviderSelectedModelIds.first()
+        if (existingSelectedIds.isNotEmpty()) return
+
+        val preferredModel = loadBuiltInModels(provider).firstOrNull { it.id == "gpt-4o" }
+            ?: loadBuiltInModels(provider).firstOrNull()
+            ?: return
+
+        prefs.setSelectedModels(
+            provider = provider,
+            models = listOf(preferredModel),
+            primary = preferredModel.id,
+        )
+    }
+
+    private fun detectGitHubCopilotAuth(): Boolean {
+        if (hasGitHubCopilotEnvAuth()) return true
+        return try {
+            val openClawAuthFile = File(prootManager.rootfsDir, "root/.openclaw/agents/main/agent/auth-profiles.json")
+            if (openClawAuthFile.exists()) {
+                val hasStoredProfile = runCatching {
+                    val root = JSONObject(openClawAuthFile.readText())
+                    val profiles = root.optJSONObject("profiles") ?: return@runCatching false
+                    val keys = profiles.keys()
+                    while (keys.hasNext()) {
+                        val profileId = keys.next()
+                        val profile = profiles.optJSONObject(profileId) ?: continue
+                        if (profile.optString("provider").trim().lowercase() != "github-copilot") continue
+                        val token = profile.optString("token").trim()
+                        val tokenRef = hasOpenClawSecretRef(profile, "tokenRef")
+                        if (token.isNotBlank() || tokenRef) return@runCatching true
+                    }
+                    false
+                }.getOrElse { false }
+                if (hasStoredProfile) return true
+            }
+
+            val authListCommand = "export NODE_OPTIONS='--require /root/.openclaw-patch.js' && " +
+                "openclaw models auth list --provider github-copilot 2>&1"
+            val authListOutput = prootManager.executeAndCapture(authListCommand)
+            if (!authListOutput.isNullOrBlank()) {
+                val normalized = authListOutput.lowercase()
+                if (normalized.contains("github-copilot:")) return true
+            }
+            false
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     private fun detectCodexAuth(): Boolean {
         return try {
             // OpenClaw auth profiles
@@ -1913,7 +2280,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             "openai-codex" -> "openai"
             else -> provider.lowercase()
         }
-        if (normalizedProvider !in setOf("google", "openai", "anthropic", "openrouter", "openai-compatible")) return
+        if (normalizedProvider !in setOf("google", "openai", "anthropic", "openrouter", "openai-compatible", "zai", "kimi-coding", "minimax")) return
 
         runCatching {
             val profileId = "$normalizedProvider:default"

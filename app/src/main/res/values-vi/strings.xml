@@ -48,12 +48,12 @@
     <string name="onboarding_btn_next">Tiếp theo</string>
     <string name="onboarding_btn_done">Hoàn tất</string>
     <string name="onboarding_btn_skip">Bỏ qua bây giờ</string>
-    <string name="onboarding_provider_title">Chọn Nhà cung cấp AI</string>
-    <string name="onboarding_provider_subtitle">Chọn nhà cung cấp mô hình AI cho OpenClaw</string>
-    <string name="onboarding_provider_anthropic">Sử dụng các mô hình Claude</string>
-    <string name="onboarding_provider_openai">Sử dụng các mô hình GPT</string>
-    <string name="onboarding_provider_google">Sử dụng các mô hình Gemini</string>
-    <string name="onboarding_provider_openrouter">OpenRouter (Cổng thống nhất đa mô hình)</string>
+    <string name="onboarding_provider_title">Chọn AI</string>
+    <string name="onboarding_provider_subtitle">Chọn AI bạn muốn dùng với OpenClaw</string>
+    <string name="onboarding_provider_anthropic">Claude</string>
+    <string name="onboarding_provider_openai">ChatGPT</string>
+    <string name="onboarding_provider_google">Gemini</string>
+    <string name="onboarding_provider_openrouter">OpenRouter</string>
     <string name="welcome_manual_input">Nhập khóa API thủ công</string>
     <string name="welcome_manual_collapse">Thu gọn</string>
     <string name="onboarding_apikey_title">Nhập khóa API</string>
@@ -100,8 +100,8 @@
     <string name="settings_battery_not_exempted">Nhấn để cấu hình — cải thiện ổn định nền</string>
     <string name="settings_cannot_open">Không thể mở cài đặt</string>
     <string name="settings_section_ai">Mô hình AI</string>
-    <string name="settings_current_provider">Nhà cung cấp hiện tại</string>
-    <string name="settings_change_provider">Thay đổi nhà cung cấp</string>
+    <string name="settings_current_provider">AI hiện tại</string>
+    <string name="settings_change_provider">Đổi AI</string>
     <string name="settings_api_key">Khóa API</string>
     <string name="settings_api_key_configured">Đã cấu hình</string>
     <string name="settings_api_key_not_configured">Chưa cấu hình</string>
@@ -194,8 +194,11 @@
     <string name="pairing_notification_channel">Yêu cầu ghép nối</string>
     <string name="pairing_notification_title">Yêu cầu ghép nối mới</string>
     <string name="pairing_notification_text">%1$s: %2$s</string>
-    <string name="settings_codex_oauth_title">OpenAI Codex OAuth</string>
-    <string name="settings_codex_oauth_signing_in">Signing in…</string>
+    <string name="settings_codex_oauth_title">Đăng nhập Codex</string>
+    <string name="settings_codex_oauth_signing_in">Đang đăng nhập…</string>
+    <string name="settings_github_copilot_login_title">Đăng nhập GitHub</string>
+    <string name="settings_github_copilot_login_signing_in">Đang chờ đăng nhập…</string>
+    <string name="settings_github_copilot_login_code">Mã: %1$s</string>
     <string name="settings_channel_whatsapp">WhatsApp</string>
     <string name="settings_channel_disconnect_action">Ngắt kết nối</string>
     <string name="settings_channel_disconnect_in_progress">Đang ngắt kết nối…</string>
@@ -210,8 +213,8 @@
     <string name="settings_discord_require_mention_desc">Áp dụng yêu cầu đề cập cho các kênh guild được cho phép.</string>
     <string name="settings_about_version">andClaw v%1$s</string>
     <string name="settings_about_powered_by">Powered by OpenClaw</string>
-    <string name="settings_provider_openai_api">%1$s (API)</string>
-    <string name="settings_provider_openai_codex">%1$s (Codex OAuth)</string>
+    <string name="settings_provider_openai_api">ChatGPT</string>
+    <string name="settings_provider_openai_codex">Codex</string>
     <string name="settings_api_type">Loại API</string>
     <string name="settings_bot_token_dialog_title">%1$s Bot Token</string>
     <string name="settings_bot_restart_notice_message">The gateway will restart.</string>
@@ -251,7 +254,11 @@
     <string name="settings_recovery_install_confirm_message">⚠️ Cài đặt khôi phục sẽ cài đặt lại toàn bộ môi trường chạy cốt lõi của ứng dụng.\n\nDữ liệu người dùng của bạn (chat/phiên) sẽ không bị xóa, nhưng quá trình khôi phục có thể mất vài phút.\n\nTrong khi khôi phục đang chạy, đừng đóng hoặc buộc dừng ứng dụng.</string>
     <string name="settings_api_key_get_link">Lấy khóa API %1$s →</string>
     <string name="bug_report_included_gateway_logs">- Nhật ký UI gateway (đã làm sạch): %1$d dòng</string>
-    <string name="onboarding_provider_openai_compatible">Tương thích OpenAI (Điểm cuối tùy chỉnh)</string>
+    <string name="onboarding_provider_openai_compatible">API OpenAI tùy chỉnh</string>
+    <string name="onboarding_provider_zai">Z.ai</string>
+    <string name="onboarding_provider_kimi_coding">Kimi Code</string>
+    <string name="onboarding_provider_minimax">MiniMax</string>
+    <string name="onboarding_provider_github_copilot">GitHub Copilot</string>
 
     <string name="onboarding_provider_nvidia">NVIDIA</string>
     <string name="settings_openai_compatible_base_url">URL cơ sở (tương thích OpenAI)</string>

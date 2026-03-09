@@ -48,12 +48,12 @@
     <string name="onboarding_btn_next">ต่อไป</string>
     <string name="onboarding_btn_done">เสร็จสิ้น</string>
     <string name="onboarding_btn_skip">ข้ามไปแรกสุด</string>
-    <string name="onboarding_provider_title">เลือกผู้ให้บริการ AI</string>
-    <string name="onboarding_provider_subtitle">เลือกผู้ให้บริการโมเดล AI สำหรับ OpenClaw</string>
-    <string name="onboarding_provider_anthropic">ใช้โมเดล Claude</string>
-    <string name="onboarding_provider_openai">ใช้โมเดล GPT</string>
-    <string name="onboarding_provider_google">ใช้โมเดล Gemini</string>
-    <string name="onboarding_provider_openrouter">OpenRouter (เกตเวย์รวมหลายโมเดล)</string>
+    <string name="onboarding_provider_title">เลือก AI</string>
+    <string name="onboarding_provider_subtitle">เลือก AI ที่คุณต้องการใช้กับ OpenClaw</string>
+    <string name="onboarding_provider_anthropic">Claude</string>
+    <string name="onboarding_provider_openai">ChatGPT</string>
+    <string name="onboarding_provider_google">Gemini</string>
+    <string name="onboarding_provider_openrouter">OpenRouter</string>
     <string name="welcome_manual_input">ป้อน API key ด้วยตนเอง</string>
     <string name="welcome_manual_collapse">ย่อ</string>
     <string name="onboarding_apikey_title">ป้อน API Key</string>
@@ -100,8 +100,8 @@
     <string name="settings_battery_not_exempted">แตะเพื่อตั้งค่า — ปรับปรุงความเสถียรในพื้นหลัง</string>
     <string name="settings_cannot_open">ไม่สามารถเปิดการตั้งค่า</string>
     <string name="settings_section_ai">โมเดล AI</string>
-    <string name="settings_current_provider">ผู้ให้บริการปัจจุบัน</string>
-    <string name="settings_change_provider">เปลี่ยนผู้ให้บริการ</string>
+    <string name="settings_current_provider">AI ปัจจุบัน</string>
+    <string name="settings_change_provider">เปลี่ยน AI</string>
     <string name="settings_api_key">API Key</string>
     <string name="settings_api_key_configured">ตั้งค่าแล้ว</string>
     <string name="settings_api_key_not_configured">ยังไม่ได้ตั้งค่า</string>
@@ -194,8 +194,11 @@
     <string name="pairing_notification_channel">คำขอจับคู่</string>
     <string name="pairing_notification_title">คำขอจับคู่ใหม่</string>
     <string name="pairing_notification_text">%1$s: %2$s</string>
-    <string name="settings_codex_oauth_title">OpenAI Codex OAuth</string>
-    <string name="settings_codex_oauth_signing_in">Signing in…</string>
+    <string name="settings_codex_oauth_title">ลงชื่อเข้าใช้ Codex</string>
+    <string name="settings_codex_oauth_signing_in">กำลังลงชื่อเข้าใช้…</string>
+    <string name="settings_github_copilot_login_title">ลงชื่อเข้าใช้ GitHub</string>
+    <string name="settings_github_copilot_login_signing_in">กำลังรอการลงชื่อเข้าใช้…</string>
+    <string name="settings_github_copilot_login_code">โค้ด: %1$s</string>
     <string name="settings_channel_whatsapp">WhatsApp</string>
     <string name="settings_channel_disconnect_action">ตัดการเชื่อมต่อ</string>
     <string name="settings_channel_disconnect_in_progress">กำลังตัดการเชื่อมต่อ…</string>
@@ -210,8 +213,8 @@
     <string name="settings_discord_require_mention_desc">ใช้เงื่อนไขการเมนชันกับช่องของกิลด์ที่อนุญาต</string>
     <string name="settings_about_version">andClaw v%1$s</string>
     <string name="settings_about_powered_by">Powered by OpenClaw</string>
-    <string name="settings_provider_openai_api">%1$s (API)</string>
-    <string name="settings_provider_openai_codex">%1$s (Codex OAuth)</string>
+    <string name="settings_provider_openai_api">ChatGPT</string>
+    <string name="settings_provider_openai_codex">Codex</string>
     <string name="settings_api_type">ประเภท API</string>
     <string name="settings_bot_token_dialog_title">%1$s Bot Token</string>
     <string name="settings_bot_restart_notice_message">The gateway will restart.</string>
@@ -251,7 +254,11 @@
     <string name="settings_recovery_install_confirm_message">⚠️ การติดตั้งกู้คืนจะติดตั้งรันไทม์หลักทั้งหมดของแอปใหม่อีกครั้ง\n\nข้อมูลผู้ใช้ของคุณ (แชต/เซสชัน) จะไม่ถูกลบ แต่การกู้คืนอาจใช้เวลาหลายนาที\n\nระหว่างที่กำลังกู้คืน อย่าปิดแอปหรือบังคับหยุดแอป</string>
     <string name="settings_api_key_get_link">รับคีย์ API ของ %1$s →</string>
     <string name="bug_report_included_gateway_logs">- บันทึก UI ของเกตเวย์ (ลบข้อมูลสำคัญแล้ว): %1$d บรรทัด</string>
-    <string name="onboarding_provider_openai_compatible">รองรับ OpenAI (เอนด์พอยต์กำหนดเอง)</string>
+    <string name="onboarding_provider_openai_compatible">OpenAI API แบบกำหนดเอง</string>
+    <string name="onboarding_provider_zai">Z.ai</string>
+    <string name="onboarding_provider_kimi_coding">Kimi Code</string>
+    <string name="onboarding_provider_minimax">MiniMax</string>
+    <string name="onboarding_provider_github_copilot">GitHub Copilot</string>
 
     <string name="onboarding_provider_nvidia">NVIDIA</string>
     <string name="settings_openai_compatible_base_url">URL พื้นฐาน (รองรับ OpenAI)</string>

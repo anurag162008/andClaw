@@ -57,12 +57,12 @@
     <string name="onboarding_btn_skip">나중에 설정</string>
     <string name="welcome_manual_input">API 키 직접 입력</string>
     <string name="welcome_manual_collapse">접기</string>
-    <string name="onboarding_provider_title">AI 모델 공급자 선택</string>
-    <string name="onboarding_provider_subtitle">OpenClaw에서 사용할 AI 모델 공급자를 선택하세요</string>
-    <string name="onboarding_provider_anthropic">Claude 모델 사용</string>
-    <string name="onboarding_provider_openai">GPT 모델 사용</string>
-    <string name="onboarding_provider_google">Gemini 모델 사용</string>
-    <string name="onboarding_provider_openrouter">OpenRouter (다양한 모델 통합 게이트웨이)</string>
+    <string name="onboarding_provider_title">AI 선택</string>
+    <string name="onboarding_provider_subtitle">OpenClaw에서 사용할 AI를 선택하세요</string>
+    <string name="onboarding_provider_anthropic">Claude</string>
+    <string name="onboarding_provider_openai">ChatGPT</string>
+    <string name="onboarding_provider_google">Gemini</string>
+    <string name="onboarding_provider_openrouter">OpenRouter</string>
     <string name="onboarding_apikey_title">API 키 입력</string>
     <string name="onboarding_get_key">OpenRouter API 키 발급받기</string>
     <string name="onboarding_apikey_subtitle">%1$s API 키를 입력하세요</string>
@@ -111,8 +111,8 @@
     <string name="settings_battery_not_exempted">탭하여 설정 — 백그라운드 실행 안정성이 향상됩니다</string>
     <string name="settings_cannot_open">설정을 열 수 없습니다</string>
     <string name="settings_section_ai">AI 모델</string>
-    <string name="settings_current_provider">현재 공급자</string>
-    <string name="settings_change_provider">공급자 변경</string>
+    <string name="settings_current_provider">현재 AI</string>
+    <string name="settings_change_provider">AI 변경</string>
     <string name="settings_api_key">API 키</string>
     <string name="settings_api_key_configured">설정됨</string>
     <string name="settings_api_key_not_configured">미설정</string>
@@ -205,8 +205,11 @@
     <string name="pairing_notification_channel">페어링 요청</string>
     <string name="pairing_notification_title">새 페어링 요청</string>
     <string name="pairing_notification_text">%1$s: %2$s</string>
-    <string name="settings_codex_oauth_title">OpenAI Codex OAuth</string>
-    <string name="settings_codex_oauth_signing_in">Signing in…</string>
+    <string name="settings_codex_oauth_title">Codex 로그인</string>
+    <string name="settings_codex_oauth_signing_in">로그인 중…</string>
+    <string name="settings_github_copilot_login_title">GitHub 로그인</string>
+    <string name="settings_github_copilot_login_signing_in">로그인 대기 중…</string>
+    <string name="settings_github_copilot_login_code">코드: %1$s</string>
     <string name="settings_channel_whatsapp">WhatsApp</string>
     <string name="settings_channel_disconnect_action">연결 끊기</string>
     <string name="settings_channel_disconnect_in_progress">연결 끊는 중…</string>
@@ -221,8 +224,8 @@
     <string name="settings_discord_require_mention_desc">허용된 길드 채널에 멘션 게이트를 적용합니다.</string>
     <string name="settings_about_version">andClaw v%1$s</string>
     <string name="settings_about_powered_by">Powered by OpenClaw</string>
-    <string name="settings_provider_openai_api">%1$s (API)</string>
-    <string name="settings_provider_openai_codex">%1$s (Codex OAuth)</string>
+    <string name="settings_provider_openai_api">ChatGPT</string>
+    <string name="settings_provider_openai_codex">Codex</string>
     <string name="settings_api_type">API 유형</string>
     <string name="settings_bot_token_dialog_title">%1$s Bot Token</string>
     <string name="settings_bot_restart_notice_message">게이트웨이를 재시작합니다.</string>
@@ -261,7 +264,11 @@
     <string name="settings_recovery_install_confirm_message">⚠️ 복구 설치를 시작하면 앱의 핵심 구성요소를 모두 다시 설치합니다.\n\n사용자 데이터(채팅/세션)는 삭제되지 않지만, 복구에는 몇 분 이상 걸릴 수 있습니다.\n\n복구가 완료될 때까지 앱을 종료하거나 강제 종료하지 마세요.</string>
     <string name="settings_api_key_get_link">%1$s API 키 발급 →</string>
     <string name="bug_report_included_gateway_logs">- 게이트웨이 UI 로그(정리됨): %1$d줄</string>
-    <string name="onboarding_provider_openai_compatible">OpenAI 호환 (커스텀 엔드포인트)</string>
+    <string name="onboarding_provider_openai_compatible">커스텀 OpenAI API</string>
+    <string name="onboarding_provider_zai">Z.ai</string>
+    <string name="onboarding_provider_kimi_coding">Kimi Code</string>
+    <string name="onboarding_provider_minimax">MiniMax</string>
+    <string name="onboarding_provider_github_copilot">GitHub Copilot</string>
 
     <string name="onboarding_provider_nvidia">NVIDIA</string>
     <string name="settings_openai_compatible_base_url">기본 URL (OpenAI 호환)</string>
