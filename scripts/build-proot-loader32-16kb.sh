@@ -17,15 +17,13 @@ fi
 mkdir -p "$(dirname "$OUTPUT_PATH")"
 
 TMP_DIR="$(mktemp -d)"
-trap 'chmod -R u+w "$TMP_DIR" 2>/dev/null || true; rm -rf "$TMP_DIR" 2>/dev/null || true' EXIT
+trap 'docker rm -f "andclaw-loader32-$$" 2>/dev/null || true; chmod -R u+w "$TMP_DIR" 2>/dev/null || true; rm -rf "$TMP_DIR" 2>/dev/null || true' EXIT
+mkdir -p "$TMP_DIR/out"
 
 echo "[loader32] Building 16KB-compatible loader32 from termux/proot commit: $PROOT_COMMIT"
 
-docker run --rm --platform linux/arm64 \
+docker run --platform linux/arm64 --name "andclaw-loader32-$$" \
     -e "PROOT_COMMIT=$PROOT_COMMIT" \
-    -e "HOST_UID=$(id -u)" \
-    -e "HOST_GID=$(id -g)" \
-    -v "$TMP_DIR/out:/out" \
     ubuntu:24.04 \
     bash -c '
         set -euo pipefail
@@ -86,9 +84,11 @@ docker run --rm --platform linux/arm64 \
             exit 1
         fi
 
-        cp /tmp/build-loader32/loader32 /out/libproot-loader32.so
-        chown "${HOST_UID}:${HOST_GID}" /out/libproot-loader32.so
+        cp /tmp/build-loader32/loader32 /tmp/build-loader32/libproot-loader32.so
     '
+
+docker cp "andclaw-loader32-$$":/tmp/build-loader32/libproot-loader32.so "$TMP_DIR/out/libproot-loader32.so"
+docker rm -f "andclaw-loader32-$$" 2>/dev/null || true
 
 if [ ! -f "$TMP_DIR/out/libproot-loader32.so" ]; then
     echo "ERROR: loader32 output was not created"
