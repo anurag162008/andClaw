@@ -1,6 +1,6 @@
 <resources>
     <string name="notification_channel_name">OpenClaw Gateway</string>
-    <string name="notification_channel_description">État d\'exécution du gateway OpenClaw</string>
+    <string name="notification_channel_description">Affiche l’état actuel du gateway pendant son exécution</string>
     <string name="notification_waiting">En attente</string>
     <string name="notification_running">En cours</string>
     <string name="notification_starting">Démarrage…</string>
@@ -9,7 +9,7 @@
     <string name="notification_stopped">Arrêté</string>
     <string name="notification_unknown">Inconnu</string>
     <string name="notification_action_stop">Arrêter</string>
-    <string name="setup_subtitle">Exécuter OpenClaw sur Android</string>
+    <string name="setup_subtitle">Configurez OpenClaw sur Android</string>
     <string name="setup_storage">Stockage</string>
     <string name="setup_storage_mb">%1$d Mo</string>
     <string name="setup_proot_ready">Prêt</string>
@@ -31,17 +31,17 @@
     <string name="step_installing_tools">Installation des outils…</string>
     <string name="step_installing_openclaw">Installation du moteur IA…</string>
     <string name="step_installing_chromium">Installation du navigateur…</string>
-    <string name="step_applying_patches">Optimisation…</string>
+    <string name="step_applying_patches">Préparation des fichiers…</string>
     <string name="step_verifying">Presque terminé…</string>
     <string name="step_onboarding">Initialisation du moteur…</string>
     <string name="step_complete">Installation terminée !</string>
     <string name="step_failed">Échec de l\'installation</string>
 
     <!-- Welcome / OAuth -->
-    <string name="welcome_subtitle">Passerelle d\'agents IA sur votre téléphone</string>
+    <string name="welcome_subtitle">Configurez votre connexion IA sur ce téléphone</string>
     <string name="welcome_openrouter_desc">OpenRouter est une passerelle IA unifiée qui vous donne accès aux modèles d\'OpenAI, Google, Anthropic et plus encore, avec un seul compte.</string>
     <string name="welcome_connect_button">Connecter via OpenRouter en 3 sec</string>
-    <string name="welcome_free_models">Inscrivez-vous avec Google · Ignorez le paiement pour utiliser les modèles gratuits</string>
+    <string name="welcome_free_models">Connectez-vous avec Google pour utiliser les modèles gratuits disponibles</string>
     <string name="welcome_connecting">Connexion en cours…</string>
     <string name="welcome_error">Échec de la connexion : %1$s</string>
 
@@ -61,7 +61,8 @@
     <string name="onboarding_get_key">Obtenir une clé API OpenRouter</string>
     <string name="onboarding_apikey_subtitle">Saisissez votre clé API %1$s</string>
     <string name="onboarding_apikey_invalid">Veuillez saisir une clé API valide</string>
-    <string name="onboarding_apikey_security">Votre clé API est stockée en toute sécurité uniquement sur cet appareil.\nElle n\'est jamais envoyée à des serveurs externes.</string>
+    <string name="onboarding_apikey_security">Votre clé API reste sur cet appareil et sert uniquement à se connecter directement au fournisseur que vous choisissez.
+Elle n’est pas envoyée à nos serveurs.</string>
     <string name="onboarding_channel_title">Intégration des canaux</string>
     <string name="onboarding_channel_subtitle">Vous pouvez connecter des canaux après avoir démarré le gateway</string>
     <string name="onboarding_whatsapp_desc">Associer en scannant le code QR</string>
@@ -91,14 +92,14 @@
     <string name="settings_title">Paramètres</string>
     <string name="settings_cd_back">Retour</string>
     <string name="settings_section_gateway">Gateway</string>
-    <string name="settings_auto_start">Démarrage automatique au démarrage</string>
-    <string name="settings_auto_start_desc">Démarrer automatiquement le gateway au redémarrage de l\'appareil</string>
+    <string name="settings_auto_start">Restaurer après redémarrage</string>
+    <string name="settings_auto_start_desc">Si vous activez cette option, l’application peut restaurer votre gateway après le redémarrage de l’appareil</string>
     <string name="settings_charge_only">Exécuter uniquement en charge</string>
     <string name="settings_charge_only_desc">Garder le gateway actif uniquement pendant la charge</string>
     <string name="settings_section_battery">Batterie</string>
-    <string name="settings_battery_optimization">Exemption d\'optimisation de batterie</string>
-    <string name="settings_battery_exempted">Déjà exempté — fonctionnement en arrière-plan stable</string>
-    <string name="settings_battery_not_exempted">Appuyez pour configurer — améliore la stabilité en arrière-plan</string>
+    <string name="settings_battery_optimization">Paramètres de batterie</string>
+    <string name="settings_battery_exempted">Cette option est actuellement autorisée</string>
+    <string name="settings_battery_not_exempted">Ouvrez les paramètres de batterie si vous souhaitez vérifier cette option</string>
     <string name="settings_cannot_open">Impossible d\'ouvrir les paramètres</string>
     <string name="settings_section_ai">Modèle IA</string>
     <string name="settings_current_provider">IA actuelle</string>
@@ -153,11 +154,11 @@
     <string name="settings_memory_search_api_key">Clé API de recherche mémoire</string>
     <string name="settings_memory_search_api_key_desc">Clé facultative pour les embeddings mémoire. Laisse vide pour utiliser les identifiants par défaut du fournisseur.</string>
     <string name="settings_memory_search_api_key_optional">Non configuré (optionnel)</string>
-    <string name="settings_openclaw_doctor_fix">OpenClaw Doctor (Fix)</string>
-    <string name="settings_openclaw_doctor_fix_run">Exécuter `openclaw doctor --fix`</string>
+    <string name="settings_openclaw_doctor_fix">Réparer la configuration OpenClaw</string>
+    <string name="settings_openclaw_doctor_fix_run">Lancer la réparation OpenClaw</string>
     <string name="settings_openclaw_doctor_fix_running">En cours d’exécution…</string>
-    <string name="settings_openclaw_doctor_fix_success">Correction Doctor terminée</string>
-    <string name="settings_openclaw_doctor_fix_failed">Correction Doctor échouée</string>
+    <string name="settings_openclaw_doctor_fix_success">La réparation OpenClaw est terminée</string>
+    <string name="settings_openclaw_doctor_fix_failed">La réparation OpenClaw a échoué</string>
 
     <!-- Channels -->
     <string name="settings_section_channels">Canaux</string>
@@ -213,7 +214,7 @@
     <string name="settings_discord_require_mention_title">Exiger @mention dans les guildes</string>
     <string name="settings_discord_require_mention_desc">Appliquer l’obligation de mention pour les canaux de guildes autorisées.</string>
     <string name="settings_about_version">andClaw v%1$s</string>
-    <string name="settings_about_powered_by">Powered by OpenClaw</string>
+    <string name="settings_about_powered_by">Utilise des composants OpenClaw</string>
     <string name="settings_provider_openai_api">ChatGPT</string>
     <string name="settings_provider_openai_codex">Codex</string>
     <string name="settings_api_type">Type d\'API</string>
@@ -252,7 +253,11 @@
     <string name="dashboard_update_recovery_failed">Échec de la récupération</string>
     <string name="dashboard_update_action_cooldown">La nouvelle tentative auto est en période de refroidissement</string>
     <string name="dashboard_update_action_manual_exhausted">La nouvelle tentative manuelle a déjà été utilisée pendant la période de refroidissement</string>
-    <string name="settings_recovery_install_confirm_message">⚠️ La réinstallation de récupération réinstallera l’ensemble de l’environnement principal de l’application.\n\nVos données utilisateur (chats/sessions) ne seront pas supprimées, mais la récupération peut prendre plusieurs minutes.\n\nNe fermez pas l’application et ne forcez pas son arrêt tant que la récupération est en cours.</string>
+    <string name="settings_recovery_install_confirm_message">⚠️ La réinstallation de récupération réinstallera les fichiers OpenClaw inclus dans l’application.
+
+Vos données utilisateur (chats/sessions) ne seront pas supprimées, mais la récupération peut prendre plusieurs minutes.
+
+Ne fermez pas l’application et ne forcez pas son arrêt tant que la récupération est en cours.</string>
     <string name="settings_api_key_get_link">Obtenir la clé API %1$s →</string>
     <string name="bug_report_included_gateway_logs">- Journaux UI du gateway (nettoyés) : %1$d lignes</string>
     <string name="onboarding_provider_openai_compatible">API OpenAI personnalisée</string>

@@ -1,7 +1,7 @@
 <resources>
     <!-- Notification -->
     <string name="notification_channel_name">OpenClaw Gateway</string>
-    <string name="notification_channel_description">OpenClaw gateway running status</string>
+    <string name="notification_channel_description">Zeigt den aktuellen Status des Gateways während der Ausführung an</string>
     <string name="notification_waiting">Warten</string>
     <string name="notification_running">Läuft</string>
     <string name="notification_starting">Wird gestartet…</string>
@@ -11,7 +11,7 @@
     <string name="notification_unknown">Unbekannt</string>
     <string name="notification_action_stop">Stopp</string>
     <!-- Setup Screen -->
-    <string name="setup_subtitle">OpenClaw auf Android ausführen</string>
+    <string name="setup_subtitle">OpenClaw auf Android einrichten</string>
     <string name="setup_storage">Speicher</string>
     <string name="setup_storage_mb">%1$d MB</string>
     <string name="setup_proot_ready">Bereit</string>
@@ -34,16 +34,16 @@
     <string name="step_installing_tools">Tools werden installiert…</string>
     <string name="step_installing_openclaw">KI-Engine wird installiert…</string>
     <string name="step_installing_chromium">Browser wird installiert…</string>
-    <string name="step_applying_patches">Optimierung…</string>
+    <string name="step_applying_patches">Dateien werden vorbereitet…</string>
     <string name="step_verifying">Fast fertig…</string>
     <string name="step_onboarding">Engine wird initialisiert…</string>
     <string name="step_complete">Installation abgeschlossen!</string>
     <string name="step_failed">Installation fehlgeschlagen</string>
     <!-- Welcome / OAuth -->
-    <string name="welcome_subtitle">KI-Agenten-Gateway auf deinem Handy</string>
+    <string name="welcome_subtitle">Richten Sie Ihre KI-Verbindung auf diesem Telefon ein</string>
     <string name="welcome_openrouter_desc">OpenRouter ist ein einheitliches AI-Gateway, das Ihnen mit einem einzigen Konto Zugriff auf Modelle von OpenAI, Google, Anthropic und mehr bietet.</string>
     <string name="welcome_connect_button">Mit OpenRouter in 3 Sek. verbinden</string>
-    <string name="welcome_free_models">Mit Google registrieren · Zahlung überspringen für kostenlose Modelle</string>
+    <string name="welcome_free_models">Melden Sie sich mit Google an, um verfügbare kostenlose Modelle zu nutzen</string>
     <string name="welcome_connecting">Verbindung wird hergestellt…</string>
     <string name="welcome_error">Verbindungsfehler: %1$s</string>
 
@@ -64,7 +64,8 @@
     <string name="onboarding_get_key">OpenRouter API-Schlüssel erhalten</string>
     <string name="onboarding_apikey_subtitle">Geben Sie Ihren %1$s API-Schlüssel ein</string>
     <string name="onboarding_apikey_invalid">Bitte geben Sie einen gültigen API-Schlüssel ein</string>
-    <string name="onboarding_apikey_security">Ihr API-Schlüssel wird nur sicher auf diesem Gerät gespeichert.\nEr wird niemals an externe Server gesendet.</string>
+    <string name="onboarding_apikey_security">Ihr API-Schlüssel bleibt auf diesem Gerät und wird nur für die direkte Verbindung mit dem von Ihnen gewählten Anbieter verwendet.
+Er wird nicht an unsere Server gesendet.</string>
     <string name="onboarding_channel_title">Kanalintegration</string>
     <string name="onboarding_channel_subtitle">Sie können Kanäle nach dem Start des Gateways verbinden</string>
     <string name="onboarding_whatsapp_desc">Per QR-Code-Scan koppeln</string>
@@ -96,14 +97,14 @@
     <string name="settings_title">Einstellungen</string>
     <string name="settings_cd_back">Zurück</string>
     <string name="settings_section_gateway">Gateway</string>
-    <string name="settings_auto_start">Autostart beim Booten</string>
-    <string name="settings_auto_start_desc">Gateway automatisch beim Neustart des Geräts starten</string>
+    <string name="settings_auto_start">Nach Neustart wiederherstellen</string>
+    <string name="settings_auto_start_desc">Wenn Sie diese Option aktivieren, kann die App Ihr Gateway nach einem Geräteneustart wiederherstellen</string>
     <string name="settings_charge_only">Nur beim Laden ausführen</string>
     <string name="settings_charge_only_desc">Gateway nur beim Laden aktiv halten</string>
     <string name="settings_section_battery">Akku</string>
-    <string name="settings_battery_optimization">Akku-Optimierung ausgenommen</string>
-    <string name="settings_battery_exempted">Bereits ausgenommen — stabiler Hintergrundbetrieb</string>
-    <string name="settings_battery_not_exempted">Tippen zum Konfigurieren — verbessert die Hintergrundstabilität</string>
+    <string name="settings_battery_optimization">Akku-Einstellungen</string>
+    <string name="settings_battery_exempted">Diese Option ist derzeit erlaubt</string>
+    <string name="settings_battery_not_exempted">Öffnen Sie die Akku-Einstellungen, wenn Sie diese Option prüfen möchten</string>
     <string name="settings_cannot_open">Einstellungen können nicht geöffnet werden</string>
     <string name="settings_section_ai">KI-Modell</string>
     <string name="settings_current_provider">Aktuelle KI</string>
@@ -158,11 +159,11 @@
     <string name="settings_memory_search_api_key">Speichersuche-API-Schlüssel</string>
     <string name="settings_memory_search_api_key_desc">Optionaler Schlüssel für Speicher-Embeddings. Leer lassen, um die Standard-Zugangsdaten des Anbieters zu verwenden.</string>
     <string name="settings_memory_search_api_key_optional">Nicht konfiguriert (optional)</string>
-    <string name="settings_openclaw_doctor_fix">OpenClaw Doctor (Fix)</string>
-    <string name="settings_openclaw_doctor_fix_run">`openclaw doctor --fix` ausführen</string>
+    <string name="settings_openclaw_doctor_fix">OpenClaw-Einrichtung reparieren</string>
+    <string name="settings_openclaw_doctor_fix_run">OpenClaw-Reparatur ausführen</string>
     <string name="settings_openclaw_doctor_fix_running">Wird ausgeführt…</string>
-    <string name="settings_openclaw_doctor_fix_success">Doctor-Fix abgeschlossen</string>
-    <string name="settings_openclaw_doctor_fix_failed">Doctor-Fix fehlgeschlagen</string>
+    <string name="settings_openclaw_doctor_fix_success">Die OpenClaw-Reparatur wurde abgeschlossen</string>
+    <string name="settings_openclaw_doctor_fix_failed">Die OpenClaw-Reparatur ist fehlgeschlagen</string>
 
     <!-- Channels -->
     <string name="settings_section_channels">Kanäle</string>
@@ -218,7 +219,7 @@
     <string name="settings_discord_require_mention_title">@Erwähnung in Guilds erforderlich</string>
     <string name="settings_discord_require_mention_desc">Erwähnungs-Pflicht für zugelassene Guild-Kanäle anwenden.</string>
     <string name="settings_about_version">andClaw v%1$s</string>
-    <string name="settings_about_powered_by">Powered by OpenClaw</string>
+    <string name="settings_about_powered_by">Verwendet OpenClaw-Komponenten</string>
     <string name="settings_provider_openai_api">ChatGPT</string>
     <string name="settings_provider_openai_codex">Codex</string>
     <string name="settings_api_type">API-Typ</string>
@@ -257,7 +258,11 @@
     <string name="dashboard_update_recovery_failed">Wiederherstellung fehlgeschlagen</string>
     <string name="dashboard_update_action_cooldown">Automatische Wiederholung ist im Cooldown</string>
     <string name="dashboard_update_action_manual_exhausted">Manuelle Wiederholung im Cooldown bereits verwendet</string>
-    <string name="settings_recovery_install_confirm_message">⚠️ Die Wiederherstellungsinstallation installiert die gesamte Kernumgebung der App neu.\n\nIhre Benutzerdaten (Chats/Sitzungen) werden nicht gelöscht, aber die Wiederherstellung kann mehrere Minuten dauern.\n\nSchließen Sie die App nicht und erzwingen Sie keinen Stopp, solange die Wiederherstellung läuft.</string>
+    <string name="settings_recovery_install_confirm_message">⚠️ Die Wiederherstellungsinstallation installiert die in der App enthaltenen OpenClaw-Dateien neu.
+
+Ihre Benutzerdaten (Chats/Sitzungen) werden nicht gelöscht, aber die Wiederherstellung kann mehrere Minuten dauern.
+
+Schließen Sie die App nicht und erzwingen Sie keinen Stopp, solange die Wiederherstellung läuft.</string>
     <string name="settings_api_key_get_link">%1$s API-Schlüssel erhalten →</string>
     <string name="bug_report_included_gateway_logs">- Gateway-UI-Protokolle (bereinigt): %1$d Zeilen</string>
     <string name="onboarding_provider_openai_compatible">Benutzerdefinierte OpenAI-API</string>
