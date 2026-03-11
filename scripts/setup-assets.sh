@@ -803,22 +803,13 @@ EXEC_MANIFEST="$ASSETS_DIR/executable-manifest.json"
 cat > "$EXEC_MANIFEST" <<'JSON'
 {
   "assets": {
-    "node-arm64.tar.gz.bin": [
-      "usr/local/bin/node",
-      "usr/local/bin/npm",
-      "usr/local/bin/npx"
-    ],
     "system-tools-arm64.tar.gz.bin": [
       "usr/bin/git",
-      "usr/lib/git-core/*"
+      "usr/lib/git-core/git*",
+      "usr/lib/git-core/scalar"
     ],
     "openclaw": [
       "usr/local/bin/openclaw"
-    ],
-    "playwright-chromium-arm64.tar.gz.bin": [
-      "root/.cache/ms-playwright/**/chrome",
-      "root/.cache/ms-playwright/**/headless_shell",
-      "root/.cache/ms-playwright/**/*.so"
     ]
   }
 }
