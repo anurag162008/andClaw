@@ -1,6 +1,6 @@
 <resources>
     <string name="notification_channel_name">OpenClaw 网关</string>
-    <string name="notification_channel_description">OpenClaw 网关运行状态</string>
+    <string name="notification_channel_description">显示网关运行时的当前状态</string>
     <string name="notification_waiting">等待中</string>
     <string name="notification_running">运行中</string>
     <string name="notification_starting">启动中…</string>
@@ -9,7 +9,7 @@
     <string name="notification_stopped">已停止</string>
     <string name="notification_unknown">未知</string>
     <string name="notification_action_stop">停止</string>
-    <string name="setup_subtitle">在 Android 上运行 OpenClaw</string>
+    <string name="setup_subtitle">在 Android 上设置 OpenClaw</string>
     <string name="setup_storage">存储空间</string>
     <string name="setup_storage_mb">%1$d MB</string>
     <string name="setup_proot_ready">就绪</string>
@@ -31,17 +31,17 @@
     <string name="step_installing_tools">正在安装工具…</string>
     <string name="step_installing_openclaw">正在安装 AI 引擎…</string>
     <string name="step_installing_chromium">正在安装浏览器…</string>
-    <string name="step_applying_patches">正在优化…</string>
+    <string name="step_applying_patches">正在准备文件…</string>
     <string name="step_verifying">即将完成…</string>
     <string name="step_onboarding">正在初始化引擎…</string>
     <string name="step_complete">安装完成！</string>
     <string name="step_failed">安装失败</string>
 
     <!-- Welcome / OAuth -->
-    <string name="welcome_subtitle">在手机上运行 AI 代理网关</string>
+    <string name="welcome_subtitle">在这台手机上设置 AI 连接</string>
     <string name="welcome_openrouter_desc">OpenRouter 是一个统一的 AI 网关，让您通过一个账户即可使用 OpenAI、Google、Anthropic 等多种 AI 模型。</string>
     <string name="welcome_connect_button">通过 OpenRouter 3秒连接</string>
-    <string name="welcome_free_models">使用 Google 账户注册 · 跳过付款即可使用免费模型</string>
+    <string name="welcome_free_models">使用 Google 登录后，您也可以使用可用的免费模型</string>
     <string name="welcome_connecting">连接中…</string>
     <string name="welcome_error">连接失败：%1$s</string>
 
@@ -61,7 +61,8 @@
     <string name="onboarding_get_key">获取 OpenRouter API 密钥</string>
     <string name="onboarding_apikey_subtitle">请输入您的 %1$s API 密钥</string>
     <string name="onboarding_apikey_invalid">请输入有效的 API 密钥</string>
-    <string name="onboarding_apikey_security">您的 API 密钥仅安全存储在此设备上。\n绝不会发送到外部服务器。</string>
+    <string name="onboarding_apikey_security">您的 API 密钥会保存在此设备上，仅在直接连接到您选择的提供方时使用。
+不会发送到我们的服务器。</string>
     <string name="onboarding_channel_title">频道集成</string>
     <string name="onboarding_channel_subtitle">启动网关后即可连接频道</string>
     <string name="onboarding_whatsapp_desc">扫描 QR 码配对</string>
@@ -91,14 +92,14 @@
     <string name="settings_title">设置</string>
     <string name="settings_cd_back">返回</string>
     <string name="settings_section_gateway">网关</string>
-    <string name="settings_auto_start">开机自动启动</string>
-    <string name="settings_auto_start_desc">设备重启时自动启动网关</string>
+    <string name="settings_auto_start">重启后恢复</string>
+    <string name="settings_auto_start_desc">启用后，应用可以在设备重启后恢复您的网关</string>
     <string name="settings_charge_only">仅充电时运行</string>
     <string name="settings_charge_only_desc">仅在充电时保持网关活动</string>
     <string name="settings_section_battery">电池</string>
-    <string name="settings_battery_optimization">电池优化豁免</string>
-    <string name="settings_battery_exempted">已豁免 — 后台运行稳定</string>
-    <string name="settings_battery_not_exempted">点击配置 — 提高后台稳定性</string>
+    <string name="settings_battery_optimization">电池设置</string>
+    <string name="settings_battery_exempted">当前已允许此选项</string>
+    <string name="settings_battery_not_exempted">如果您想查看此选项，可以打开电池设置</string>
     <string name="settings_cannot_open">无法打开设置</string>
     <string name="settings_section_ai">AI 模型</string>
     <string name="settings_current_provider">当前 AI</string>
@@ -153,11 +154,11 @@
     <string name="settings_memory_search_api_key">记忆搜索 API 密钥</string>
     <string name="settings_memory_search_api_key_desc">用于记忆嵌入的可选覆盖密钥。留空则使用提供方默认凭据。</string>
     <string name="settings_memory_search_api_key_optional">未配置（可选）</string>
-    <string name="settings_openclaw_doctor_fix">OpenClaw Doctor (Fix)</string>
-    <string name="settings_openclaw_doctor_fix_run">运行 `openclaw doctor --fix`</string>
+    <string name="settings_openclaw_doctor_fix">修复 OpenClaw 设置</string>
+    <string name="settings_openclaw_doctor_fix_run">运行 OpenClaw 修复</string>
     <string name="settings_openclaw_doctor_fix_running">运行中…</string>
-    <string name="settings_openclaw_doctor_fix_success">Doctor 修复完成</string>
-    <string name="settings_openclaw_doctor_fix_failed">Doctor 修复失败</string>
+    <string name="settings_openclaw_doctor_fix_success">OpenClaw 修复已完成</string>
+    <string name="settings_openclaw_doctor_fix_failed">OpenClaw 修复失败</string>
 
     <!-- Channels -->
     <string name="settings_section_channels">频道</string>
@@ -213,7 +214,7 @@
     <string name="settings_discord_require_mention_title">在 Guild 中要求 @提及</string>
     <string name="settings_discord_require_mention_desc">对白名单 Guild 频道启用提及门槛。</string>
     <string name="settings_about_version">andClaw v%1$s</string>
-    <string name="settings_about_powered_by">Powered by OpenClaw</string>
+    <string name="settings_about_powered_by">使用 OpenClaw 组件</string>
     <string name="settings_provider_openai_api">ChatGPT</string>
     <string name="settings_provider_openai_codex">Codex</string>
     <string name="settings_api_type">API 类型</string>
@@ -252,7 +253,11 @@
     <string name="dashboard_update_recovery_failed">恢复失败</string>
     <string name="dashboard_update_action_cooldown">自动重试处于冷却中</string>
     <string name="dashboard_update_action_manual_exhausted">冷却期间手动重试已用过</string>
-    <string name="settings_recovery_install_confirm_message">⚠️ 恢复重装会重新安装应用的完整核心运行环境。\n\n你的用户数据（聊天/会话）不会被删除，但恢复可能需要几分钟。\n\n恢复进行期间，请不要关闭或强行停止应用。</string>
+    <string name="settings_recovery_install_confirm_message">⚠️ 恢复安装会重新安装应用内附带的 OpenClaw 文件。
+
+您的用户数据（聊天/会话）不会被删除，但恢复可能需要几分钟。
+
+恢复进行期间，请不要关闭或强行停止应用。</string>
     <string name="settings_api_key_get_link">获取 %1$s API 密钥 →</string>
     <string name="bug_report_included_gateway_logs">- 网关 UI 日志（已脱敏）：%1$d 行</string>
     <string name="onboarding_provider_openai_compatible">自定义 OpenAI API</string>
