@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">andClaw</string>
     <string name="notification_channel_name">Gateway OpenClaw</string>
-    <string name="notification_channel_description">Status gateway OpenClaw berjalan</string>
+    <string name="notification_channel_description">Menampilkan status gateway saat sedang berjalan</string>
     <string name="notification_waiting">Menunggu</string>
     <string name="notification_running">Berjalan</string>
     <string name="notification_starting">Memulai…</string>
@@ -11,7 +11,7 @@
     <string name="notification_stopped">Dihentikan</string>
     <string name="notification_unknown">Tidak diketahui</string>
     <string name="notification_action_stop">Hentikan</string>
-    <string name="setup_subtitle">Jalankan OpenClaw di Android</string>
+    <string name="setup_subtitle">Siapkan OpenClaw di Android</string>
     <string name="setup_storage">Penyimpanan</string>
     <string name="setup_storage_mb">%1$d MB</string>
     <string name="setup_proot_ready">Siap</string>
@@ -33,15 +33,15 @@
     <string name="step_installing_tools">Memasang alat…</string>
     <string name="step_installing_openclaw">Memasang mesin AI…</string>
     <string name="step_installing_chromium">Memasang browser…</string>
-    <string name="step_applying_patches">Mengoptimalkan…</string>
+    <string name="step_applying_patches">Menyiapkan file…</string>
     <string name="step_verifying">Hampir selesai…</string>
     <string name="step_onboarding">Menginisialisasi engine…</string>
     <string name="step_complete">Pengaturan selesai!</string>
     <string name="step_failed">Pengaturan gagal</string>
-    <string name="welcome_subtitle">Gateway agen AI di ponsel Anda</string>
+    <string name="welcome_subtitle">Siapkan koneksi AI Anda di ponsel ini</string>
     <string name="welcome_openrouter_desc">OpenRouter adalah gateway AI terpadu yang memberi Anda akses ke model dari OpenAI, Google, Anthropic, dan lainnya dengan satu akun.</string>
     <string name="welcome_connect_button">Hubungkan dengan OpenRouter dalam 3 detik</string>
-    <string name="welcome_free_models">Daftar dengan Google · Lewati pembayaran untuk menggunakan model gratis</string>
+    <string name="welcome_free_models">Masuk dengan Google untuk menggunakan model gratis yang tersedia</string>
     <string name="welcome_connecting">Menghubungkan…</string>
     <string name="welcome_error">Koneksi gagal: %1$s</string>
     <string name="onboarding_btn_previous">Sebelumnya</string>
@@ -60,7 +60,8 @@
     <string name="onboarding_get_key">Dapatkan Kunci API OpenRouter</string>
     <string name="onboarding_apikey_subtitle">Masukkan kunci API %1$s Anda</string>
     <string name="onboarding_apikey_invalid">Masukkan kunci API yang valid</string>
-    <string name="onboarding_apikey_security">Kunci API Anda disimpan dengan aman di perangkat ini saja.\nTidak pernah dikirim ke server eksternal.</string>
+    <string name="onboarding_apikey_security">Kunci API Anda tetap berada di perangkat ini dan hanya digunakan untuk terhubung langsung ke penyedia yang Anda pilih.
+Kunci ini tidak dikirim ke server kami.</string>
     <string name="onboarding_channel_title">Integrasi Saluran</string>
     <string name="onboarding_channel_subtitle">Anda dapat menghubungkan saluran setelah memulai gateway</string>
     <string name="onboarding_whatsapp_desc">Pasangkan dengan memindai kode QR</string>
@@ -90,14 +91,14 @@
     <string name="settings_title">Pengaturan</string>
     <string name="settings_cd_back">Kembali</string>
     <string name="settings_section_gateway">Gateway</string>
-    <string name="settings_auto_start">Auto-start saat boot</string>
-    <string name="settings_auto_start_desc">Secara otomatis memulai gateway saat perangkat restart</string>
+    <string name="settings_auto_start">Pulihkan setelah restart</string>
+    <string name="settings_auto_start_desc">Jika opsi ini diaktifkan, aplikasi dapat memulihkan gateway Anda setelah perangkat dimulai ulang</string>
     <string name="settings_charge_only">Jalankan hanya saat mengisi daya</string>
     <string name="settings_charge_only_desc">Jaga gateway tetap aktif hanya saat mengisi daya</string>
     <string name="settings_section_battery">Baterai</string>
-    <string name="settings_battery_optimization">Pengecualian optimasi baterai</string>
-    <string name="settings_battery_exempted">Sudah dikecualikan — operasi latar belakang stabil</string>
-    <string name="settings_battery_not_exempted">Ketuk untuk konfigurasi — meningkatkan stabilitas latar belakang</string>
+    <string name="settings_battery_optimization">Pengaturan baterai</string>
+    <string name="settings_battery_exempted">Opsi ini saat ini diizinkan</string>
+    <string name="settings_battery_not_exempted">Buka pengaturan baterai jika Anda ingin meninjau opsi ini</string>
     <string name="settings_cannot_open">Tidak dapat membuka pengaturan</string>
     <string name="settings_section_ai">Model AI</string>
     <string name="settings_current_provider">AI saat ini</string>
@@ -152,11 +153,11 @@
     <string name="settings_memory_search_api_key">Kunci API Pencarian Memori</string>
     <string name="settings_memory_search_api_key_desc">Kunci override opsional untuk embedding memori. Biarkan kosong untuk memakai kredensial bawaan penyedia.</string>
     <string name="settings_memory_search_api_key_optional">Belum dikonfigurasi (opsional)</string>
-    <string name="settings_openclaw_doctor_fix">OpenClaw Doctor (Fix)</string>
-    <string name="settings_openclaw_doctor_fix_run">Jalankan `openclaw doctor --fix`</string>
+    <string name="settings_openclaw_doctor_fix">Perbaiki pengaturan OpenClaw</string>
+    <string name="settings_openclaw_doctor_fix_run">Jalankan perbaikan OpenClaw</string>
     <string name="settings_openclaw_doctor_fix_running">Berjalan…</string>
-    <string name="settings_openclaw_doctor_fix_success">Perbaikan Doctor selesai</string>
-    <string name="settings_openclaw_doctor_fix_failed">Perbaikan Doctor gagal</string>
+    <string name="settings_openclaw_doctor_fix_success">Perbaikan OpenClaw selesai</string>
+    <string name="settings_openclaw_doctor_fix_failed">Perbaikan OpenClaw gagal</string>
 
     <!-- Channels -->
     <string name="settings_section_channels">Saluran</string>
@@ -212,7 +213,7 @@
     <string name="settings_discord_require_mention_title">Wajib @mention di guild</string>
     <string name="settings_discord_require_mention_desc">Terapkan syarat mention untuk saluran guild yang diizinkan.</string>
     <string name="settings_about_version">andClaw v%1$s</string>
-    <string name="settings_about_powered_by">Powered by OpenClaw</string>
+    <string name="settings_about_powered_by">Menggunakan komponen OpenClaw</string>
     <string name="settings_provider_openai_api">ChatGPT</string>
     <string name="settings_provider_openai_codex">Codex</string>
     <string name="settings_api_type">Jenis API</string>
@@ -251,7 +252,11 @@
     <string name="dashboard_update_recovery_failed">Pemulihan gagal</string>
     <string name="dashboard_update_action_cooldown">Coba ulang otomatis sedang dalam cooldown</string>
     <string name="dashboard_update_action_manual_exhausted">Coba ulang manual sudah digunakan saat cooldown</string>
-    <string name="settings_recovery_install_confirm_message">⚠️ Instal ulang pemulihan akan memasang ulang seluruh lingkungan inti aplikasi.\n\nData pengguna Anda (chat/sesi) tidak akan dihapus, tetapi pemulihan dapat memakan beberapa menit.\n\nJangan tutup atau paksa hentikan aplikasi selama pemulihan masih berlangsung.</string>
+    <string name="settings_recovery_install_confirm_message">⚠️ Instalasi pemulihan akan memasang ulang file OpenClaw yang disertakan di aplikasi.
+
+Data pengguna Anda (chat/sesi) tidak akan dihapus, tetapi pemulihan dapat memakan beberapa menit.
+
+Jangan tutup atau paksa hentikan aplikasi selama pemulihan masih berlangsung.</string>
     <string name="settings_api_key_get_link">Dapatkan kunci API %1$s →</string>
     <string name="bug_report_included_gateway_logs">- Log UI gateway (disanitasi): %1$d baris</string>
     <string name="onboarding_provider_openai_compatible">API OpenAI kustom</string>

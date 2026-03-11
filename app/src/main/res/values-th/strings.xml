@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">andClaw</string>
     <string name="notification_channel_name">OpenClaw Gateway</string>
-    <string name="notification_channel_description">สถานะการทำงานของ OpenClaw gateway</string>
+    <string name="notification_channel_description">แสดงสถานะปัจจุบันของเกตเวย์ขณะกำลังทำงาน</string>
     <string name="notification_waiting">รอโปรแกรม</string>
     <string name="notification_running">ทำงาน</string>
     <string name="notification_starting">กำลังเริ่ม…</string>
@@ -11,7 +11,7 @@
     <string name="notification_stopped">หยุด</string>
     <string name="notification_unknown">ไม่ทราบ</string>
     <string name="notification_action_stop">หยุด</string>
-    <string name="setup_subtitle">เรียกใช้ OpenClaw บน Android</string>
+    <string name="setup_subtitle">ตั้งค่า OpenClaw บน Android</string>
     <string name="setup_storage">ที่เก็บข้อมูล</string>
     <string name="setup_storage_mb">%1$d MB</string>
     <string name="setup_proot_ready">พร้อม</string>
@@ -33,15 +33,15 @@
     <string name="step_installing_tools">กำลังติดตั้งเครื่องมือ…</string>
     <string name="step_installing_openclaw">กำลังติดตั้งเครื่องมือ AI…</string>
     <string name="step_installing_chromium">กำลังติดตั้งเบราว์เซอร์…</string>
-    <string name="step_applying_patches">กำลังปรับให้เหมาะสม…</string>
+    <string name="step_applying_patches">กำลังเตรียมไฟล์…</string>
     <string name="step_verifying">เกือบเสร็จแล้ว…</string>
     <string name="step_onboarding">กำลังเริ่มต้นเอนจิน…</string>
     <string name="step_complete">การตั้งค่าเสร็จสมบูรณ์!</string>
     <string name="step_failed">การตั้งค่าล้มเหลว</string>
-    <string name="welcome_subtitle">AI agent gateway บนโทรศัพท์ของคุณ</string>
+    <string name="welcome_subtitle">ตั้งค่าการเชื่อมต่อ AI บนโทรศัพท์เครื่องนี้</string>
     <string name="welcome_openrouter_desc">OpenRouter คือเกตเวย์ AI แบบรวมที่ให้คุณเข้าถึงโมเดลจาก OpenAI, Google, Anthropic และอื่น ๆ ด้วยบัญชีเดียว</string>
     <string name="welcome_connect_button">เชื่อมต่อกับ OpenRouter ใน 3 วินาที</string>
-    <string name="welcome_free_models">ลงทะเบียนด้วย Google · ข้ามการชำระเงินเพื่อใช้โมเดลฟรี</string>
+    <string name="welcome_free_models">ลงชื่อเข้าใช้ด้วย Google เพื่อใช้โมเดลฟรีที่มีให้</string>
     <string name="welcome_connecting">กำลังเชื่อมต่อ…</string>
     <string name="welcome_error">การเชื่อมต่อล้มเหลว: %1$s</string>
     <string name="onboarding_btn_previous">ก่อนหน้า</string>
@@ -60,7 +60,8 @@
     <string name="onboarding_get_key">รับ OpenRouter API Key</string>
     <string name="onboarding_apikey_subtitle">ป้อน %1$s API key ของคุณ</string>
     <string name="onboarding_apikey_invalid">โปรดป้อน API key ที่ถูกต้อง</string>
-    <string name="onboarding_apikey_security">API key ของคุณถูกเก็บไว้อย่างปลอดภัยบนอุปกรณ์นี้เท่านั้น\nไม่เคยส่งไปยังเซิร์ฟเวอร์ภายนอก</string>
+    <string name="onboarding_apikey_security">API key ของคุณจะอยู่บนอุปกรณ์นี้และใช้เฉพาะตอนเชื่อมต่อไปยังผู้ให้บริการที่คุณเลือกโดยตรงเท่านั้น
+จะไม่ถูกส่งไปยังเซิร์ฟเวอร์ของเรา</string>
     <string name="onboarding_channel_title">การรวมช่อง</string>
     <string name="onboarding_channel_subtitle">คุณสามารถเชื่อมต่อช่องหลังจากเริ่มต้น gateway</string>
     <string name="onboarding_whatsapp_desc">จับคู่โดยการสแกนโค้ด QR</string>
@@ -90,14 +91,14 @@
     <string name="settings_title">การตั้งค่า</string>
     <string name="settings_cd_back">ย้อนกลับ</string>
     <string name="settings_section_gateway">Gateway</string>
-    <string name="settings_auto_start">เริ่มอัตโนมัติเมื่อเปิดตัว</string>
-    <string name="settings_auto_start_desc">เริ่มต้น gateway อัตโนมัติเมื่ออุปกรณ์รีบูต</string>
+    <string name="settings_auto_start">กู้คืนหลังรีสตาร์ต</string>
+    <string name="settings_auto_start_desc">หากเปิดตัวเลือกนี้ แอปจะสามารถกู้คืนเกตเวย์ของคุณหลังจากอุปกรณ์รีสตาร์ตได้</string>
     <string name="settings_charge_only">เรียกใช้ระหว่างชาร์จเท่านั้น</string>
     <string name="settings_charge_only_desc">ให้ gateway ทำงานอยู่เฉพาะขณะชาร์จเท่านั้น</string>
     <string name="settings_section_battery">แบตเตอรี่</string>
-    <string name="settings_battery_optimization">ยกเว้นการเพิ่มประสิทธิภาพแบตเตอรี่</string>
-    <string name="settings_battery_exempted">ยกเว้นแล้ว — การทำงานในพื้นหลังที่มั่นคง</string>
-    <string name="settings_battery_not_exempted">แตะเพื่อตั้งค่า — ปรับปรุงความเสถียรในพื้นหลัง</string>
+    <string name="settings_battery_optimization">การตั้งค่าแบตเตอรี่</string>
+    <string name="settings_battery_exempted">ขณะนี้อนุญาตตัวเลือกนี้อยู่</string>
+    <string name="settings_battery_not_exempted">เปิดการตั้งค่าแบตเตอรี่หากคุณต้องการตรวจสอบตัวเลือกนี้</string>
     <string name="settings_cannot_open">ไม่สามารถเปิดการตั้งค่า</string>
     <string name="settings_section_ai">โมเดล AI</string>
     <string name="settings_current_provider">AI ปัจจุบัน</string>
@@ -152,11 +153,11 @@
     <string name="settings_memory_search_api_key">คีย์ API สำหรับค้นหาหน่วยความจำ</string>
     <string name="settings_memory_search_api_key_desc">คีย์เสริมสำหรับ embedding หน่วยความจำ เว้นว่างไว้เพื่อใช้ข้อมูลรับรองเริ่มต้นของผู้ให้บริการ</string>
     <string name="settings_memory_search_api_key_optional">ยังไม่ได้ตั้งค่า (ไม่บังคับ)</string>
-    <string name="settings_openclaw_doctor_fix">OpenClaw Doctor (Fix)</string>
-    <string name="settings_openclaw_doctor_fix_run">เรียกใช้ `openclaw doctor --fix`</string>
+    <string name="settings_openclaw_doctor_fix">ซ่อมแซมการตั้งค่า OpenClaw</string>
+    <string name="settings_openclaw_doctor_fix_run">เรียกใช้การซ่อมแซม OpenClaw</string>
     <string name="settings_openclaw_doctor_fix_running">กำลังทำงาน…</string>
-    <string name="settings_openclaw_doctor_fix_success">Doctor fix เสร็จสิ้น</string>
-    <string name="settings_openclaw_doctor_fix_failed">Doctor fix ล้มเหลว</string>
+    <string name="settings_openclaw_doctor_fix_success">ซ่อมแซม OpenClaw เรียบร้อยแล้ว</string>
+    <string name="settings_openclaw_doctor_fix_failed">ซ่อมแซม OpenClaw ไม่สำเร็จ</string>
 
     <!-- Channels -->
     <string name="settings_section_channels">ช่องทาง</string>
@@ -212,7 +213,7 @@
     <string name="settings_discord_require_mention_title">ต้องมี @mention ในกิลด์</string>
     <string name="settings_discord_require_mention_desc">ใช้เงื่อนไขการเมนชันกับช่องของกิลด์ที่อนุญาต</string>
     <string name="settings_about_version">andClaw v%1$s</string>
-    <string name="settings_about_powered_by">Powered by OpenClaw</string>
+    <string name="settings_about_powered_by">ใช้ส่วนประกอบของ OpenClaw</string>
     <string name="settings_provider_openai_api">ChatGPT</string>
     <string name="settings_provider_openai_codex">Codex</string>
     <string name="settings_api_type">ประเภท API</string>
@@ -251,7 +252,11 @@
     <string name="dashboard_update_recovery_failed">กู้คืนล้มเหลว</string>
     <string name="dashboard_update_action_cooldown">การลองใหม่อัตโนมัติอยู่ในคูลดาวน์</string>
     <string name="dashboard_update_action_manual_exhausted">ใช้การลองใหม่แบบแมนนวลในคูลดาวน์ไปแล้ว</string>
-    <string name="settings_recovery_install_confirm_message">⚠️ การติดตั้งกู้คืนจะติดตั้งรันไทม์หลักทั้งหมดของแอปใหม่อีกครั้ง\n\nข้อมูลผู้ใช้ของคุณ (แชต/เซสชัน) จะไม่ถูกลบ แต่การกู้คืนอาจใช้เวลาหลายนาที\n\nระหว่างที่กำลังกู้คืน อย่าปิดแอปหรือบังคับหยุดแอป</string>
+    <string name="settings_recovery_install_confirm_message">⚠️ การติดตั้งกู้คืนจะติดตั้งไฟล์ OpenClaw ที่มากับแอปใหม่อีกครั้ง
+
+ข้อมูลผู้ใช้ของคุณ (แชต/เซสชัน) จะไม่ถูกลบ แต่การกู้คืนอาจใช้เวลาหลายนาที
+
+ระหว่างที่กำลังกู้คืน อย่าปิดแอปหรือบังคับหยุดแอป</string>
     <string name="settings_api_key_get_link">รับคีย์ API ของ %1$s →</string>
     <string name="bug_report_included_gateway_logs">- บันทึก UI ของเกตเวย์ (ลบข้อมูลสำคัญแล้ว): %1$d บรรทัด</string>
     <string name="onboarding_provider_openai_compatible">OpenAI API แบบกำหนดเอง</string>

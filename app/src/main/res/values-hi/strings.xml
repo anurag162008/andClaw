@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">andClaw</string>
     <string name="notification_channel_name">OpenClaw Gateway</string>
-    <string name="notification_channel_description">OpenClaw गेटवे चलने की स्थिति</string>
+    <string name="notification_channel_description">गेटवे चलने के दौरान उसकी वर्तमान स्थिति दिखाता है</string>
     <string name="notification_waiting">प्रतीक्षा में</string>
     <string name="notification_running">चल रहा है</string>
     <string name="notification_starting">शुरू हो रहा है…</string>
@@ -11,7 +11,7 @@
     <string name="notification_stopped">बंद</string>
     <string name="notification_unknown">अज्ञात</string>
     <string name="notification_action_stop">बंद करें</string>
-    <string name="setup_subtitle">Android पर OpenClaw चलाएं</string>
+    <string name="setup_subtitle">Android पर OpenClaw सेट अप करें</string>
     <string name="setup_storage">संग्रहण</string>
     <string name="setup_storage_mb">%1$d MB</string>
     <string name="setup_proot_ready">तैयार</string>
@@ -33,15 +33,15 @@
     <string name="step_installing_tools">उपकरण स्थापित किए जा रहे हैं…</string>
     <string name="step_installing_openclaw">AI इंजन स्थापित किया जा रहा है…</string>
     <string name="step_installing_chromium">ब्राउज़र स्थापित किया जा रहा है…</string>
-    <string name="step_applying_patches">अनुकूलन किया जा रहा है…</string>
+    <string name="step_applying_patches">फ़ाइलें तैयार की जा रही हैं…</string>
     <string name="step_verifying">लगभग तैयार…</string>
     <string name="step_onboarding">इंजन शुरू हो रहा है…</string>
     <string name="step_complete">सेटअप पूरा!</string>
     <string name="step_failed">सेटअप विफल</string>
-    <string name="welcome_subtitle">आपके फोन पर AI एजेंट गेटवे</string>
+    <string name="welcome_subtitle">इस फ़ोन पर अपना AI कनेक्शन सेट अप करें</string>
     <string name="welcome_openrouter_desc">OpenRouter एक एकीकृत AI गेटवे है जो आपको एक ही खाते से OpenAI, Google, Anthropic और अन्य AI मॉडल तक पहुंच प्रदान करता है।</string>
     <string name="welcome_connect_button">3 सेकंड में OpenRouter से कनेक्ट करें</string>
-    <string name="welcome_free_models">Google से साइन अप करें · भुगतान छोड़ें और मुफ्त मॉडल उपयोग करें</string>
+    <string name="welcome_free_models">उपलब्ध मुफ़्त मॉडल इस्तेमाल करने के लिए Google से साइन इन करें</string>
     <string name="welcome_connecting">कनेक्ट हो रहा है…</string>
     <string name="welcome_error">कनेक्शन विफल: %1$s</string>
     <string name="onboarding_btn_previous">पिछला</string>
@@ -60,7 +60,8 @@
     <string name="onboarding_get_key">OpenRouter API कुंजी प्राप्त करें</string>
     <string name="onboarding_apikey_subtitle">अपनी %1$s API कुंजी दर्ज करें</string>
     <string name="onboarding_apikey_invalid">कृपया एक मान्य API कुंजी दर्ज करें</string>
-    <string name="onboarding_apikey_security">आपकी API कुंजी केवल इस डिवाइस पर सुरक्षित रूप से संग्रहीत है।\nइसे कभी भी बाहरी सर्वर को नहीं भेजा जाता है।</string>
+    <string name="onboarding_apikey_security">आपकी API कुंजी इसी डिवाइस पर रहती है और केवल आपके चुने हुए प्रदाता से सीधे कनेक्ट करने के लिए इस्तेमाल होती है।
+इसे हमारे सर्वर पर नहीं भेजा जाता।</string>
     <string name="onboarding_channel_title">चैनल एकीकरण</string>
     <string name="onboarding_channel_subtitle">आप गेटवे शुरू करने के बाद चैनल कनेक्ट कर सकते हैं</string>
     <string name="onboarding_whatsapp_desc">QR कोड स्कैन करके जोड़ी करें</string>
@@ -90,14 +91,14 @@
     <string name="settings_title">सेटिंग्स</string>
     <string name="settings_cd_back">वापस</string>
     <string name="settings_section_gateway">गेटवे</string>
-    <string name="settings_auto_start">बूट पर स्वचालित रूप से शुरू करें</string>
-    <string name="settings_auto_start_desc">डिवाइस पुनः शुरू होने पर गेटवे स्वचालित रूप से शुरू करें</string>
+    <string name="settings_auto_start">रीस्टार्ट के बाद पुनर्स्थापित करें</string>
+    <string name="settings_auto_start_desc">यदि आप यह विकल्प चालू करते हैं, तो डिवाइस रीस्टार्ट होने के बाद ऐप आपके गेटवे को पुनर्स्थापित कर सकती है</string>
     <string name="settings_charge_only">केवल चार्जिंग के दौरान चलाएं</string>
     <string name="settings_charge_only_desc">गेटवे को केवल चार्जिंग के दौरान सक्रिय रखें</string>
     <string name="settings_section_battery">बैटरी</string>
-    <string name="settings_battery_optimization">बैटरी अनुकूलन छूट</string>
-    <string name="settings_battery_exempted">पहले से ही छूट प्राप्त — स्थिर पृष्ठभूमि संचालन</string>
-    <string name="settings_battery_not_exempted">कॉन्फ़िगर करने के लिए टैप करें — पृष्ठभूमि स्थिरता में सुधार</string>
+    <string name="settings_battery_optimization">बैटरी सेटिंग्स</string>
+    <string name="settings_battery_exempted">यह विकल्प अभी अनुमति प्राप्त है</string>
+    <string name="settings_battery_not_exempted">यदि आप इस विकल्प की समीक्षा करना चाहते हैं, तो बैटरी सेटिंग्स खोलें</string>
     <string name="settings_cannot_open">सेटिंग्स नहीं खोल सकते</string>
     <string name="settings_section_ai">AI मॉडल</string>
     <string name="settings_current_provider">वर्तमान AI</string>
@@ -152,11 +153,11 @@
     <string name="settings_memory_search_api_key">मेमोरी सर्च API कुंजी</string>
     <string name="settings_memory_search_api_key_desc">मेमोरी एम्बेडिंग के लिए वैकल्पिक ओवरराइड कुंजी। प्रोवाइडर की डिफ़ॉल्ट क्रेडेंशियल्स इस्तेमाल करने के लिए खाली छोड़ें।</string>
     <string name="settings_memory_search_api_key_optional">कॉन्फ़िगर नहीं (वैकल्पिक)</string>
-    <string name="settings_openclaw_doctor_fix">OpenClaw Doctor (Fix)</string>
-    <string name="settings_openclaw_doctor_fix_run">`openclaw doctor --fix` चलाएँ</string>
+    <string name="settings_openclaw_doctor_fix">OpenClaw सेटअप की मरम्मत करें</string>
+    <string name="settings_openclaw_doctor_fix_run">OpenClaw मरम्मत चलाएँ</string>
     <string name="settings_openclaw_doctor_fix_running">चल रहा है…</string>
-    <string name="settings_openclaw_doctor_fix_success">Doctor fix पूरा हुआ</string>
-    <string name="settings_openclaw_doctor_fix_failed">Doctor fix विफल</string>
+    <string name="settings_openclaw_doctor_fix_success">OpenClaw मरम्मत पूरी हो गई</string>
+    <string name="settings_openclaw_doctor_fix_failed">OpenClaw मरम्मत विफल रही</string>
 
     <!-- Channels -->
     <string name="settings_section_channels">चैनल</string>
@@ -212,7 +213,7 @@
     <string name="settings_discord_require_mention_title">गिल्ड में @मेंशन आवश्यक</string>
     <string name="settings_discord_require_mention_desc">अनुमत गिल्ड चैनलों पर मेंशन गेट लागू करें।</string>
     <string name="settings_about_version">andClaw v%1$s</string>
-    <string name="settings_about_powered_by">Powered by OpenClaw</string>
+    <string name="settings_about_powered_by">OpenClaw घटकों का उपयोग करता है</string>
     <string name="settings_provider_openai_api">ChatGPT</string>
     <string name="settings_provider_openai_codex">Codex</string>
     <string name="settings_api_type">API प्रकार</string>
@@ -251,7 +252,11 @@
     <string name="dashboard_update_recovery_failed">रिकवरी विफल</string>
     <string name="dashboard_update_action_cooldown">ऑटो रिट्राई कूलडाउन में है</string>
     <string name="dashboard_update_action_manual_exhausted">कूलडाउन में मैनुअल रिट्राई पहले ही इस्तेमाल हो चुका है</string>
-    <string name="settings_recovery_install_confirm_message">⚠️ रिकवरी पुनर्स्थापना ऐप का पूरा मुख्य वातावरण फिर से इंस्टॉल करेगी।\n\nआपका उपयोगकर्ता डेटा (चैट/सेशन) नहीं मिटेगा, लेकिन रिकवरी में कई मिनट लग सकते हैं।\n\nरिकवरी चल रही हो तब तक ऐप बंद न करें और फोर्स-स्टॉप भी न करें।</string>
+    <string name="settings_recovery_install_confirm_message">⚠️ रिकवरी इंस्टॉल ऐप में शामिल OpenClaw फ़ाइलों को फिर से इंस्टॉल करेगा।
+
+आपका उपयोगकर्ता डेटा (चैट/सेशन) नहीं मिटेगा, लेकिन रिकवरी में कई मिनट लग सकते हैं।
+
+रिकवरी चल रही हो तब तक ऐप बंद न करें और फोर्स-स्टॉप भी न करें।</string>
     <string name="settings_api_key_get_link">%1$s API कुंजी प्राप्त करें →</string>
     <string name="bug_report_included_gateway_logs">- गेटवे UI लॉग (सैनिटाइज़्ड): %1$d पंक्तियाँ</string>
     <string name="onboarding_provider_openai_compatible">कस्टम OpenAI API</string>
