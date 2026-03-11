@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">andClaw</string>
     <string name="notification_channel_name">OpenClaw Gateway</string>
-    <string name="notification_channel_description">Статус работы шлюза OpenClaw</string>
+    <string name="notification_channel_description">Показывает текущее состояние шлюза во время работы</string>
     <string name="notification_waiting">Ожидание</string>
     <string name="notification_running">Работает</string>
     <string name="notification_starting">Запуск…</string>
@@ -11,7 +11,7 @@
     <string name="notification_stopped">Остановлено</string>
     <string name="notification_unknown">Неизвестно</string>
     <string name="notification_action_stop">Остановить</string>
-    <string name="setup_subtitle">Запустить OpenClaw на Android</string>
+    <string name="setup_subtitle">Настройте OpenClaw на Android</string>
     <string name="setup_storage">Хранилище</string>
     <string name="setup_storage_mb">%1$d МБ</string>
     <string name="setup_proot_ready">Готово</string>
@@ -33,15 +33,15 @@
     <string name="step_installing_tools">Установка инструментов…</string>
     <string name="step_installing_openclaw">Установка AI движка…</string>
     <string name="step_installing_chromium">Установка браузера…</string>
-    <string name="step_applying_patches">Оптимизация…</string>
+    <string name="step_applying_patches">Подготовка файлов…</string>
     <string name="step_verifying">Почти готово…</string>
     <string name="step_onboarding">Инициализация движка…</string>
     <string name="step_complete">Установка завершена!</string>
     <string name="step_failed">Установка не удалась</string>
-    <string name="welcome_subtitle">AI агент шлюз на вашем телефоне</string>
+    <string name="welcome_subtitle">Настройте подключение к ИИ на этом телефоне</string>
     <string name="welcome_openrouter_desc">OpenRouter — это единый AI-шлюз, предоставляющий доступ к моделям OpenAI, Google, Anthropic и другим с одного аккаунта.</string>
     <string name="welcome_connect_button">Подключиться к OpenRouter за 3 сек</string>
-    <string name="welcome_free_models">Регистрация через Google · Пропустите оплату для использования бесплатных моделей</string>
+    <string name="welcome_free_models">Войдите через Google, чтобы использовать доступные бесплатные модели</string>
     <string name="welcome_connecting">Подключение…</string>
     <string name="welcome_error">Ошибка подключения: %1$s</string>
     <string name="onboarding_btn_previous">Назад</string>
@@ -60,7 +60,8 @@
     <string name="onboarding_get_key">Получить API ключ OpenRouter</string>
     <string name="onboarding_apikey_subtitle">Введите ваш API ключ %1$s</string>
     <string name="onboarding_apikey_invalid">Пожалуйста, введите корректный API ключ</string>
-    <string name="onboarding_apikey_security">Ваш API ключ хранится в безопасности только на этом устройстве.\nОн никогда не отправляется на внешние серверы.</string>
+    <string name="onboarding_apikey_security">Ваш API-ключ остается на этом устройстве и используется только для прямого подключения к выбранному вами провайдеру.
+Он не отправляется на наши серверы.</string>
     <string name="onboarding_channel_title">Интеграция каналов</string>
     <string name="onboarding_channel_subtitle">Вы можете подключить каналы после запуска шлюза</string>
     <string name="onboarding_whatsapp_desc">Спарировать через сканирование QR кода</string>
@@ -90,14 +91,14 @@
     <string name="settings_title">Настройки</string>
     <string name="settings_cd_back">Назад</string>
     <string name="settings_section_gateway">Шлюз</string>
-    <string name="settings_auto_start">Автоматический запуск при включении</string>
-    <string name="settings_auto_start_desc">Автоматически запускать шлюз при перезагрузке устройства</string>
+    <string name="settings_auto_start">Восстановить после перезапуска</string>
+    <string name="settings_auto_start_desc">Если включить эту опцию, приложение сможет восстановить ваш шлюз после перезапуска устройства</string>
     <string name="settings_charge_only">Работать только во время зарядки</string>
     <string name="settings_charge_only_desc">Держать шлюз активным только во время зарядки</string>
     <string name="settings_section_battery">Батарея</string>
-    <string name="settings_battery_optimization">Исключение из оптимизации батареи</string>
-    <string name="settings_battery_exempted">Уже исключено — стабильная фоновая работа</string>
-    <string name="settings_battery_not_exempted">Нажмите для настройки — улучшает стабильность фоновой работы</string>
+    <string name="settings_battery_optimization">Настройки батареи</string>
+    <string name="settings_battery_exempted">Эта опция сейчас разрешена</string>
+    <string name="settings_battery_not_exempted">Откройте настройки батареи, если хотите проверить эту опцию</string>
     <string name="settings_cannot_open">Не удаётся открыть настройки</string>
     <string name="settings_section_ai">AI модель</string>
     <string name="settings_current_provider">Текущий ИИ</string>
@@ -152,11 +153,11 @@
     <string name="settings_memory_search_api_key">API-ключ поиска по памяти</string>
     <string name="settings_memory_search_api_key_desc">Необязательный ключ для эмбеддингов памяти. Оставьте пустым, чтобы использовать стандартные учетные данные провайдера.</string>
     <string name="settings_memory_search_api_key_optional">Не настроено (опционально)</string>
-    <string name="settings_openclaw_doctor_fix">OpenClaw Doctor (Fix)</string>
-    <string name="settings_openclaw_doctor_fix_run">Запустить `openclaw doctor --fix`</string>
+    <string name="settings_openclaw_doctor_fix">Восстановить настройку OpenClaw</string>
+    <string name="settings_openclaw_doctor_fix_run">Запустить восстановление OpenClaw</string>
     <string name="settings_openclaw_doctor_fix_running">Выполняется…</string>
-    <string name="settings_openclaw_doctor_fix_success">Исправление Doctor завершено</string>
-    <string name="settings_openclaw_doctor_fix_failed">Исправление Doctor не удалось</string>
+    <string name="settings_openclaw_doctor_fix_success">Восстановление OpenClaw завершено</string>
+    <string name="settings_openclaw_doctor_fix_failed">Не удалось восстановить OpenClaw</string>
 
     <!-- Channels -->
     <string name="settings_section_channels">Каналы</string>
@@ -212,7 +213,7 @@
     <string name="settings_discord_require_mention_title">Требовать @упоминание в гильдиях</string>
     <string name="settings_discord_require_mention_desc">Применять требование упоминания для разрешённых каналов гильдий.</string>
     <string name="settings_about_version">andClaw v%1$s</string>
-    <string name="settings_about_powered_by">Powered by OpenClaw</string>
+    <string name="settings_about_powered_by">Использует компоненты OpenClaw</string>
     <string name="settings_provider_openai_api">ChatGPT</string>
     <string name="settings_provider_openai_codex">Codex</string>
     <string name="settings_api_type">Тип API</string>
@@ -251,7 +252,11 @@
     <string name="dashboard_update_recovery_failed">Ошибка восстановления</string>
     <string name="dashboard_update_action_cooldown">Автоповтор сейчас на кулдауне</string>
     <string name="dashboard_update_action_manual_exhausted">Ручной повтор уже использован во время кулдауна</string>
-    <string name="settings_recovery_install_confirm_message">⚠️ Восстановительная переустановка заново установит всю основную среду приложения.\n\nВаши пользовательские данные (чаты/сессии) не будут удалены, но восстановление может занять несколько минут.\n\nНе закрывайте приложение и не выполняйте принудительную остановку, пока идет восстановление.</string>
+    <string name="settings_recovery_install_confirm_message">⚠️ Восстановительная установка заново установит файлы OpenClaw, включенные в приложение.
+
+Ваши пользовательские данные (чаты/сессии) не будут удалены, но восстановление может занять несколько минут.
+
+Не закрывайте приложение и не выполняйте принудительную остановку, пока идет восстановление.</string>
     <string name="settings_api_key_get_link">Получить API-ключ %1$s →</string>
     <string name="bug_report_included_gateway_logs">- Логи UI шлюза (очищенные): %1$d строк</string>
     <string name="onboarding_provider_openai_compatible">Пользовательский API OpenAI</string>

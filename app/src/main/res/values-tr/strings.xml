@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">andClaw</string>
     <string name="notification_channel_name">OpenClaw Ağ Geçidi</string>
-    <string name="notification_channel_description">OpenClaw ağ geçidi çalışma durumu</string>
+    <string name="notification_channel_description">Çalışırken ağ geçidinin mevcut durumunu gösterir</string>
     <string name="notification_waiting">Bekleniyor</string>
     <string name="notification_running">Çalışıyor</string>
     <string name="notification_starting">Başlatılıyor…</string>
@@ -11,7 +11,7 @@
     <string name="notification_stopped">Durduruldu</string>
     <string name="notification_unknown">Bilinmiyor</string>
     <string name="notification_action_stop">Durdur</string>
-    <string name="setup_subtitle">Android\'de OpenClaw Çalıştırın</string>
+    <string name="setup_subtitle">OpenClaw’ı Android’de ayarlayın</string>
     <string name="setup_storage">Depolama</string>
     <string name="setup_storage_mb">%1$d MB</string>
     <string name="setup_proot_ready">Hazır</string>
@@ -33,15 +33,15 @@
     <string name="step_installing_tools">Araçlar yükleniyor…</string>
     <string name="step_installing_openclaw">Yapay zeka motoru yükleniyor…</string>
     <string name="step_installing_chromium">Tarayıcı yükleniyor…</string>
-    <string name="step_applying_patches">Optimize ediliyor…</string>
+    <string name="step_applying_patches">Dosyalar hazırlanıyor…</string>
     <string name="step_verifying">Neredeyse bitti…</string>
     <string name="step_onboarding">Motor başlatılıyor…</string>
     <string name="step_complete">Kurulum tamamlandı!</string>
     <string name="step_failed">Kurulum başarısız</string>
-    <string name="welcome_subtitle">Telefonunuzda yapay zeka aracı ağ geçidi</string>
+    <string name="welcome_subtitle">Yapay zeka bağlantınızı bu telefonda ayarlayın</string>
     <string name="welcome_openrouter_desc">OpenRouter, tek bir hesapla OpenAI, Google, Anthropic ve daha fazlasının modellerine erişim sağlayan birleşik bir AI geçididir.</string>
     <string name="welcome_connect_button">OpenRouter ile 3 saniyede bağlan</string>
-    <string name="welcome_free_models">Google ile kaydolun · Ödemeyi atlayarak ücretsiz modelleri kullanın</string>
+    <string name="welcome_free_models">Kullanılabilir ücretsiz modelleri kullanmak için Google ile oturum açın</string>
     <string name="welcome_connecting">Bağlanıyor…</string>
     <string name="welcome_error">Bağlantı başarısız: %1$s</string>
     <string name="onboarding_btn_previous">Önceki</string>
@@ -60,7 +60,8 @@
     <string name="onboarding_get_key">OpenRouter API Anahtarını Al</string>
     <string name="onboarding_apikey_subtitle">%1$s API anahtarınızı girin</string>
     <string name="onboarding_apikey_invalid">Lütfen geçerli bir API anahtarı girin</string>
-    <string name="onboarding_apikey_security">API anahtarınız güvenli bir şekilde yalnızca bu cihazda depolanır.\nBu hiçbir zaman harici sunuculara gönderilmez.</string>
+    <string name="onboarding_apikey_security">API anahtarınız bu cihazda kalır ve yalnızca seçtiğiniz sağlayıcıya doğrudan bağlanmak için kullanılır.
+Anahtarınız sunucularımıza gönderilmez.</string>
     <string name="onboarding_channel_title">Kanal Entegrasyonu</string>
     <string name="onboarding_channel_subtitle">Ağ geçidini başlattıktan sonra kanalları bağlayabilirsiniz</string>
     <string name="onboarding_whatsapp_desc">QR kodu tarayarak eşleyin</string>
@@ -90,14 +91,14 @@
     <string name="settings_title">Ayarlar</string>
     <string name="settings_cd_back">Geri</string>
     <string name="settings_section_gateway">Ağ Geçidi</string>
-    <string name="settings_auto_start">Önyükleme sırasında otomatik başlat</string>
-    <string name="settings_auto_start_desc">Cihaz yeniden başlatıldığında ağ geçidini otomatik olarak başlat</string>
+    <string name="settings_auto_start">Yeniden başlatmadan sonra geri yükle</string>
+    <string name="settings_auto_start_desc">Bu seçeneği açarsanız uygulama, cihaz yeniden başlatıldıktan sonra ağ geçidinizi geri yükleyebilir</string>
     <string name="settings_charge_only">Yalnızca şarj sırasında çalıştır</string>
     <string name="settings_charge_only_desc">Ağ geçidini yalnızca şarj sırasında etkin tutun</string>
     <string name="settings_section_battery">Pil</string>
-    <string name="settings_battery_optimization">Pil optimizasyonu muafiyeti</string>
-    <string name="settings_battery_exempted">Zaten muaf — kararlı arka plan işlemi</string>
-    <string name="settings_battery_not_exempted">Yapılandırmak için dokunun — arka plan istikrarını artırır</string>
+    <string name="settings_battery_optimization">Pil ayarları</string>
+    <string name="settings_battery_exempted">Bu seçeneğe şu anda izin veriliyor</string>
+    <string name="settings_battery_not_exempted">Bu seçeneği gözden geçirmek isterseniz pil ayarlarını açın</string>
     <string name="settings_cannot_open">Ayarlar açılamıyor</string>
     <string name="settings_section_ai">Yapay Zeka Modeli</string>
     <string name="settings_current_provider">Geçerli yapay zekâ</string>
@@ -152,11 +153,11 @@
     <string name="settings_memory_search_api_key">Bellek araması API anahtarı</string>
     <string name="settings_memory_search_api_key_desc">Bellek gömmeleri için isteğe bağlı anahtar. Sağlayıcının varsayılan kimlik bilgilerini kullanmak için boş bırak.</string>
     <string name="settings_memory_search_api_key_optional">Yapılandırılmadı (isteğe bağlı)</string>
-    <string name="settings_openclaw_doctor_fix">OpenClaw Doctor (Fix)</string>
-    <string name="settings_openclaw_doctor_fix_run">`openclaw doctor --fix` komutunu çalıştır</string>
+    <string name="settings_openclaw_doctor_fix">OpenClaw kurulumunu onar</string>
+    <string name="settings_openclaw_doctor_fix_run">OpenClaw onarımını çalıştır</string>
     <string name="settings_openclaw_doctor_fix_running">Çalışıyor…</string>
-    <string name="settings_openclaw_doctor_fix_success">Doctor düzeltmesi tamamlandı</string>
-    <string name="settings_openclaw_doctor_fix_failed">Doctor düzeltmesi başarısız oldu</string>
+    <string name="settings_openclaw_doctor_fix_success">OpenClaw onarımı tamamlandı</string>
+    <string name="settings_openclaw_doctor_fix_failed">OpenClaw onarımı başarısız oldu</string>
 
     <!-- Channels -->
     <string name="settings_section_channels">Kanallar</string>
@@ -212,7 +213,7 @@
     <string name="settings_discord_require_mention_title">Guild\'lerde @etiket zorunlu</string>
     <string name="settings_discord_require_mention_desc">İzin verilen guild kanalları için etiket zorunluluğunu uygula.</string>
     <string name="settings_about_version">andClaw v%1$s</string>
-    <string name="settings_about_powered_by">Powered by OpenClaw</string>
+    <string name="settings_about_powered_by">OpenClaw bileşenlerini kullanır</string>
     <string name="settings_provider_openai_api">ChatGPT</string>
     <string name="settings_provider_openai_codex">Codex</string>
     <string name="settings_api_type">API Türü</string>
@@ -251,7 +252,11 @@
     <string name="dashboard_update_recovery_failed">Kurtarma başarısız</string>
     <string name="dashboard_update_action_cooldown">Otomatik yeniden deneme bekleme süresinde</string>
     <string name="dashboard_update_action_manual_exhausted">Manuel yeniden deneme bekleme süresinde zaten kullanıldı</string>
-    <string name="settings_recovery_install_confirm_message">⚠️ Kurtarma yeniden kurulumu, uygulamanın tüm temel ortamını yeniden yükler.\n\nKullanıcı verileriniz (sohbetler/oturumlar) silinmez, ancak kurtarma birkaç dakika sürebilir.\n\nKurtarma sürerken uygulamayı kapatmayın veya zorla durdurmayın.</string>
+    <string name="settings_recovery_install_confirm_message">⚠️ Kurtarma kurulumu, uygulamaya dahil edilen OpenClaw dosyalarını yeniden yükleyecektir.
+
+Kullanıcı verileriniz (sohbetler/oturumlar) silinmez, ancak kurtarma birkaç dakika sürebilir.
+
+Kurtarma sürerken uygulamayı kapatmayın veya zorla durdurmayın.</string>
     <string name="settings_api_key_get_link">%1$s API anahtarı al →</string>
     <string name="bug_report_included_gateway_logs">- Gateway UI günlükleri (temizlendi): %1$d satır</string>
     <string name="onboarding_provider_openai_compatible">Özel OpenAI API</string>

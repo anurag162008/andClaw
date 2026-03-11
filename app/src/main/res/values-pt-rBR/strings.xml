@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">andClaw</string>
     <string name="notification_channel_name">OpenClaw Gateway</string>
-    <string name="notification_channel_description">Status de execução do gateway OpenClaw</string>
+    <string name="notification_channel_description">Mostra o status atual do gateway enquanto ele está em execução</string>
     <string name="notification_waiting">Aguardando</string>
     <string name="notification_running">Em execução</string>
     <string name="notification_starting">Iniciando…</string>
@@ -11,7 +11,7 @@
     <string name="notification_stopped">Parado</string>
     <string name="notification_unknown">Desconhecido</string>
     <string name="notification_action_stop">Parar</string>
-    <string name="setup_subtitle">Executar OpenClaw no Android</string>
+    <string name="setup_subtitle">Configure o OpenClaw no Android</string>
     <string name="setup_storage">Armazenamento</string>
     <string name="setup_storage_mb">%1$d MB</string>
     <string name="setup_proot_ready">Pronto</string>
@@ -33,15 +33,15 @@
     <string name="step_installing_tools">Instalando ferramentas…</string>
     <string name="step_installing_openclaw">Instalando mecanismo de IA…</string>
     <string name="step_installing_chromium">Instalando navegador…</string>
-    <string name="step_applying_patches">Otimizando…</string>
+    <string name="step_applying_patches">Preparando arquivos…</string>
     <string name="step_verifying">Quase pronto…</string>
     <string name="step_onboarding">Inicializando motor…</string>
     <string name="step_complete">Configuração concluída!</string>
     <string name="step_failed">Falha na configuração</string>
-    <string name="welcome_subtitle">Gateway de agente de IA no seu telefone</string>
+    <string name="welcome_subtitle">Configure sua conexão de IA neste telefone</string>
     <string name="welcome_openrouter_desc">OpenRouter é um gateway de IA unificado que dá acesso a modelos da OpenAI, Google, Anthropic e mais, tudo com uma única conta.</string>
     <string name="welcome_connect_button">Conectar com OpenRouter em 3 segundos</string>
-    <string name="welcome_free_models">Cadastre-se com o Google · Pule o pagamento para usar modelos gratuitos</string>
+    <string name="welcome_free_models">Entre com o Google para usar os modelos gratuitos disponíveis</string>
     <string name="welcome_connecting">Conectando…</string>
     <string name="welcome_error">Falha na conexão: %1$s</string>
     <string name="onboarding_btn_previous">Anterior</string>
@@ -60,7 +60,8 @@
     <string name="onboarding_get_key">Obter Chave de API do OpenRouter</string>
     <string name="onboarding_apikey_subtitle">Digite sua chave de API %1$s</string>
     <string name="onboarding_apikey_invalid">Digite uma chave de API válida</string>
-    <string name="onboarding_apikey_security">Sua chave de API é armazenada com segurança apenas neste dispositivo.\nNunca é enviada para servidores externos.</string>
+    <string name="onboarding_apikey_security">Sua chave de API permanece neste dispositivo e é usada apenas para se conectar diretamente ao provedor que você escolher.
+Ela não é enviada para nossos servidores.</string>
     <string name="onboarding_channel_title">Integração de Canais</string>
     <string name="onboarding_channel_subtitle">Você pode conectar canais após iniciar o gateway</string>
     <string name="onboarding_whatsapp_desc">Emparelhar digitalizando código QR</string>
@@ -90,14 +91,14 @@
     <string name="settings_title">Configurações</string>
     <string name="settings_cd_back">Voltar</string>
     <string name="settings_section_gateway">Gateway</string>
-    <string name="settings_auto_start">Iniciar automaticamente ao reiniciar</string>
-    <string name="settings_auto_start_desc">Inicie automaticamente o gateway quando o dispositivo reiniciar</string>
+    <string name="settings_auto_start">Restaurar após reiniciar</string>
+    <string name="settings_auto_start_desc">Se você ativar esta opção, o app poderá restaurar o gateway após a reinicialização do dispositivo</string>
     <string name="settings_charge_only">Executar apenas durante o carregamento</string>
     <string name="settings_charge_only_desc">Mantenha o gateway ativo apenas durante o carregamento</string>
     <string name="settings_section_battery">Bateria</string>
-    <string name="settings_battery_optimization">Isenção de otimização de bateria</string>
-    <string name="settings_battery_exempted">Já isento — operação estável em segundo plano</string>
-    <string name="settings_battery_not_exempted">Toque para configurar — melhora a estabilidade em segundo plano</string>
+    <string name="settings_battery_optimization">Configurações de bateria</string>
+    <string name="settings_battery_exempted">Esta opção está permitida no momento</string>
+    <string name="settings_battery_not_exempted">Abra as configurações de bateria se quiser revisar esta opção</string>
     <string name="settings_cannot_open">Não é possível abrir configurações</string>
     <string name="settings_section_ai">Modelo de IA</string>
     <string name="settings_current_provider">IA atual</string>
@@ -152,11 +153,11 @@
     <string name="settings_memory_search_api_key">Chave de API da busca de memória</string>
     <string name="settings_memory_search_api_key_desc">Chave opcional para embeddings de memória. Deixe em branco para usar as credenciais padrão do provedor.</string>
     <string name="settings_memory_search_api_key_optional">Não configurado (opcional)</string>
-    <string name="settings_openclaw_doctor_fix">OpenClaw Doctor (Fix)</string>
-    <string name="settings_openclaw_doctor_fix_run">Executar `openclaw doctor --fix`</string>
+    <string name="settings_openclaw_doctor_fix">Reparar configuração do OpenClaw</string>
+    <string name="settings_openclaw_doctor_fix_run">Executar reparo do OpenClaw</string>
     <string name="settings_openclaw_doctor_fix_running">Executando…</string>
-    <string name="settings_openclaw_doctor_fix_success">Correção do Doctor concluída</string>
-    <string name="settings_openclaw_doctor_fix_failed">Correção do Doctor falhou</string>
+    <string name="settings_openclaw_doctor_fix_success">Reparo do OpenClaw concluído</string>
+    <string name="settings_openclaw_doctor_fix_failed">Falha no reparo do OpenClaw</string>
 
     <!-- Channels -->
     <string name="settings_section_channels">Canais</string>
@@ -212,7 +213,7 @@
     <string name="settings_discord_require_mention_title">Exigir @menção em guilds</string>
     <string name="settings_discord_require_mention_desc">Aplicar exigência de menção para canais de guilds permitidas.</string>
     <string name="settings_about_version">andClaw v%1$s</string>
-    <string name="settings_about_powered_by">Powered by OpenClaw</string>
+    <string name="settings_about_powered_by">Usa componentes do OpenClaw</string>
     <string name="settings_provider_openai_api">ChatGPT</string>
     <string name="settings_provider_openai_codex">Codex</string>
     <string name="settings_api_type">Tipo de API</string>
@@ -251,7 +252,11 @@
     <string name="dashboard_update_recovery_failed">Falha na recuperação</string>
     <string name="dashboard_update_action_cooldown">A nova tentativa automática está em cooldown</string>
     <string name="dashboard_update_action_manual_exhausted">A nova tentativa manual já foi usada durante o cooldown</string>
-    <string name="settings_recovery_install_confirm_message">⚠️ A reinstalação de recuperação reinstalará todo o ambiente principal do app.\n\nSeus dados de usuário (chats/sessões) não serão apagados, mas a recuperação pode levar vários minutos.\n\nNão feche nem force a parada do app enquanto a recuperação estiver em andamento.</string>
+    <string name="settings_recovery_install_confirm_message">⚠️ A instalação de recuperação reinstalará os arquivos do OpenClaw incluídos no app.
+
+Seus dados de usuário (chats/sessões) não serão apagados, mas a recuperação pode levar vários minutos.
+
+Não feche nem force a parada do app enquanto a recuperação estiver em andamento.</string>
     <string name="settings_api_key_get_link">Obter chave de API do %1$s →</string>
     <string name="bug_report_included_gateway_logs">- Logs da UI do gateway (sanitizados): %1$d linhas</string>
     <string name="onboarding_provider_openai_compatible">API OpenAI personalizada</string>

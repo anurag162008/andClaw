@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">andClaw</string>
     <string name="notification_channel_name">OpenClaw Gateway</string>
-    <string name="notification_channel_description">Trạng thái chạy của cổng OpenClaw</string>
+    <string name="notification_channel_description">Hiển thị trạng thái hiện tại của cổng trong khi đang chạy</string>
     <string name="notification_waiting">Chờ đợi</string>
     <string name="notification_running">Đang chạy</string>
     <string name="notification_starting">Đang khởi động…</string>
@@ -11,7 +11,7 @@
     <string name="notification_stopped">Đã dừng</string>
     <string name="notification_unknown">Không xác định</string>
     <string name="notification_action_stop">Dừng</string>
-    <string name="setup_subtitle">Chạy OpenClaw trên Android</string>
+    <string name="setup_subtitle">Thiết lập OpenClaw trên Android</string>
     <string name="setup_storage">Bộ nhớ</string>
     <string name="setup_storage_mb">%1$d MB</string>
     <string name="setup_proot_ready">Sẵn sàng</string>
@@ -33,15 +33,15 @@
     <string name="step_installing_tools">Đang cài đặt công cụ…</string>
     <string name="step_installing_openclaw">Đang cài đặt công cụ AI…</string>
     <string name="step_installing_chromium">Đang cài đặt trình duyệt…</string>
-    <string name="step_applying_patches">Đang tối ưu hóa…</string>
+    <string name="step_applying_patches">Đang chuẩn bị tệp…</string>
     <string name="step_verifying">Sắp hoàn thành…</string>
     <string name="step_onboarding">Đang khởi tạo engine…</string>
     <string name="step_complete">Cài đặt hoàn tất!</string>
     <string name="step_failed">Cài đặt thất bại</string>
-    <string name="welcome_subtitle">Cổng OpenClaw AI trên điện thoại của bạn</string>
+    <string name="welcome_subtitle">Thiết lập kết nối AI trên điện thoại này</string>
     <string name="welcome_openrouter_desc">OpenRouter là cổng AI hợp nhất cho phép bạn truy cập các mô hình từ OpenAI, Google, Anthropic và nhiều hơn nữa chỉ với một tài khoản.</string>
     <string name="welcome_connect_button">Kết nối với OpenRouter trong 3 giây</string>
-    <string name="welcome_free_models">Đăng ký bằng Google · Bỏ qua thanh toán để dùng mô hình miễn phí</string>
+    <string name="welcome_free_models">Đăng nhập bằng Google để dùng các mô hình miễn phí hiện có</string>
     <string name="welcome_connecting">Đang kết nối…</string>
     <string name="welcome_error">Kết nối thất bại: %1$s</string>
     <string name="onboarding_btn_previous">Trước đó</string>
@@ -60,7 +60,8 @@
     <string name="onboarding_get_key">Lấy khóa API OpenRouter</string>
     <string name="onboarding_apikey_subtitle">Nhập khóa API %1$s của bạn</string>
     <string name="onboarding_apikey_invalid">Vui lòng nhập khóa API hợp lệ</string>
-    <string name="onboarding_apikey_security">Khóa API của bạn được lưu trữ an toàn trên thiết bị này chỉ.\nNó không bao giờ được gửi đến các máy chủ bên ngoài.</string>
+    <string name="onboarding_apikey_security">Khóa API của bạn vẫn nằm trên thiết bị này và chỉ được dùng để kết nối trực tiếp với nhà cung cấp mà bạn chọn.
+Khóa này không được gửi đến máy chủ của chúng tôi.</string>
     <string name="onboarding_channel_title">Tích hợp kênh</string>
     <string name="onboarding_channel_subtitle">Bạn có thể kết nối các kênh sau khi bắt đầu cổng</string>
     <string name="onboarding_whatsapp_desc">Ghép nối bằng cách quét mã QR</string>
@@ -90,14 +91,14 @@
     <string name="settings_title">Cài đặt</string>
     <string name="settings_cd_back">Quay lại</string>
     <string name="settings_section_gateway">Cổng</string>
-    <string name="settings_auto_start">Tự động khởi động khi khởi động</string>
-    <string name="settings_auto_start_desc">Tự động bắt đầu cổng khi thiết bị khởi động lại</string>
+    <string name="settings_auto_start">Khôi phục sau khi khởi động lại</string>
+    <string name="settings_auto_start_desc">Nếu bật tùy chọn này, ứng dụng có thể khôi phục cổng của bạn sau khi thiết bị khởi động lại</string>
     <string name="settings_charge_only">Chạy chỉ khi sạc</string>
     <string name="settings_charge_only_desc">Giữ cổng hoạt động chỉ khi đang sạc</string>
     <string name="settings_section_battery">Pin</string>
-    <string name="settings_battery_optimization">Miễn trừ tối ưu hóa pin</string>
-    <string name="settings_battery_exempted">Đã được miễn trừ — hoạt động nền ổn định</string>
-    <string name="settings_battery_not_exempted">Nhấn để cấu hình — cải thiện ổn định nền</string>
+    <string name="settings_battery_optimization">Cài đặt pin</string>
+    <string name="settings_battery_exempted">Tùy chọn này hiện đang được cho phép</string>
+    <string name="settings_battery_not_exempted">Hãy mở cài đặt pin nếu bạn muốn xem lại tùy chọn này</string>
     <string name="settings_cannot_open">Không thể mở cài đặt</string>
     <string name="settings_section_ai">Mô hình AI</string>
     <string name="settings_current_provider">AI hiện tại</string>
@@ -152,11 +153,11 @@
     <string name="settings_memory_search_api_key">Khóa API tìm kiếm bộ nhớ</string>
     <string name="settings_memory_search_api_key_desc">Khóa ghi đè tùy chọn cho embedding bộ nhớ. Để trống để dùng thông tin xác thực mặc định của nhà cung cấp.</string>
     <string name="settings_memory_search_api_key_optional">Chưa cấu hình (tùy chọn)</string>
-    <string name="settings_openclaw_doctor_fix">OpenClaw Doctor (Fix)</string>
-    <string name="settings_openclaw_doctor_fix_run">Chạy `openclaw doctor --fix`</string>
+    <string name="settings_openclaw_doctor_fix">Sửa thiết lập OpenClaw</string>
+    <string name="settings_openclaw_doctor_fix_run">Chạy sửa lỗi OpenClaw</string>
     <string name="settings_openclaw_doctor_fix_running">Đang chạy…</string>
-    <string name="settings_openclaw_doctor_fix_success">Sửa lỗi Doctor đã hoàn tất</string>
-    <string name="settings_openclaw_doctor_fix_failed">Sửa lỗi Doctor thất bại</string>
+    <string name="settings_openclaw_doctor_fix_success">Đã sửa OpenClaw xong</string>
+    <string name="settings_openclaw_doctor_fix_failed">Sửa OpenClaw không thành công</string>
 
     <!-- Channels -->
     <string name="settings_section_channels">Kênh</string>
@@ -212,7 +213,7 @@
     <string name="settings_discord_require_mention_title">Yêu cầu @đề cập trong guild</string>
     <string name="settings_discord_require_mention_desc">Áp dụng yêu cầu đề cập cho các kênh guild được cho phép.</string>
     <string name="settings_about_version">andClaw v%1$s</string>
-    <string name="settings_about_powered_by">Powered by OpenClaw</string>
+    <string name="settings_about_powered_by">Sử dụng các thành phần OpenClaw</string>
     <string name="settings_provider_openai_api">ChatGPT</string>
     <string name="settings_provider_openai_codex">Codex</string>
     <string name="settings_api_type">Loại API</string>
@@ -251,7 +252,11 @@
     <string name="dashboard_update_recovery_failed">Khôi phục thất bại</string>
     <string name="dashboard_update_action_cooldown">Tự động thử lại đang trong thời gian chờ</string>
     <string name="dashboard_update_action_manual_exhausted">Đã dùng thử lại thủ công trong thời gian chờ</string>
-    <string name="settings_recovery_install_confirm_message">⚠️ Cài đặt khôi phục sẽ cài đặt lại toàn bộ môi trường chạy cốt lõi của ứng dụng.\n\nDữ liệu người dùng của bạn (chat/phiên) sẽ không bị xóa, nhưng quá trình khôi phục có thể mất vài phút.\n\nTrong khi khôi phục đang chạy, đừng đóng hoặc buộc dừng ứng dụng.</string>
+    <string name="settings_recovery_install_confirm_message">⚠️ Cài đặt khôi phục sẽ cài đặt lại các tệp OpenClaw đi kèm trong ứng dụng.
+
+Dữ liệu người dùng của bạn (chat/phiên) sẽ không bị xóa, nhưng quá trình khôi phục có thể mất vài phút.
+
+Trong khi khôi phục đang chạy, đừng đóng hoặc buộc dừng ứng dụng.</string>
     <string name="settings_api_key_get_link">Lấy khóa API %1$s →</string>
     <string name="bug_report_included_gateway_logs">- Nhật ký UI gateway (đã làm sạch): %1$d dòng</string>
     <string name="onboarding_provider_openai_compatible">API OpenAI tùy chỉnh</string>
