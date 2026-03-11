@@ -10,9 +10,6 @@ import java.util.concurrent.TimeUnit
  *
  * proot 바이너리는 APK의 jniLibs/arm64-v8a/libproot.so 로 패키징되어
  * 설치 시 nativeLibraryDir에 자동 추출된다.
- *
- * Android 7+ 의 링커 네임스페이스 제한으로 /data/app/ 에서 직접 실행 시
- * LD_LIBRARY_PATH 가 무시되므로, filesDir/bin/ 으로 복사해서 실행한다.
  */
 class ProotManager(private val context: Context) {
     data class CommandResult(
@@ -47,10 +44,6 @@ class ProotManager(private val context: Context) {
     private val nativeTallocPath: String
         get() = File(context.applicationInfo.nativeLibraryDir, "libtalloc.so").absolutePath
 
-    /** 실행용 바이너리 디렉토리 (filesDir/bin) */
-    private val binDir: File
-        get() = File(context.filesDir, "bin")
-
     /** 실행용 라이브러리 디렉토리 (filesDir/lib) */
     val libLinksDir: File
         get() = File(context.filesDir, "lib")
@@ -78,9 +71,8 @@ class ProotManager(private val context: Context) {
 
     val isProotAvailable: Boolean
         get() {
-            // nativeLibraryDir 에 원본이 있으면 OK (setupNativeLibLinks 에서 복사)
             val native = File(nativeProotPath)
-            return native.exists()
+            return native.exists() && native.canExecute()
         }
 
     val isRootfsInstalled: Boolean
@@ -126,6 +118,11 @@ class ProotManager(private val context: Context) {
 
         writeChromiumMarkerPath(detectedPath)
         return true
+    }
+
+    fun detectChromiumExecutableProotPath(): String? {
+        val detectedPath = detectChromiumExecutablePath() ?: return null
+        return "/" + File(detectedPath).toRelativeString(rootfsDir).replace('\\', '/')
     }
 
     private fun detectChromiumExecutablePath(): String? {
@@ -174,32 +171,11 @@ class ProotManager(private val context: Context) {
 
     // ── 바이너리 준비 ──
 
-    /**
-     * nativeLibraryDir 에서 filesDir/bin, filesDir/lib 로 복사.
-     * Android 링커 네임스페이스 제한을 우회하기 위해 필수.
-     */
     fun setupNativeLibLinks() {
-        binDir.mkdirs()
         libLinksDir.mkdirs()
-
-        // proot 복사
-        val nativeProot = File(nativeProotPath)
-        val localProot = File(binDir, "proot")
-        if (nativeProot.exists() && (!localProot.exists() || localProot.length() != nativeProot.length())) {
-            nativeProot.inputStream().use { input ->
-                localProot.outputStream().use { output ->
-                    input.copyTo(output)
-                }
-            }
-            localProot.setExecutable(true, false)
-            localProot.setReadable(true, false)
-        }
-
-        // libtalloc.so.2 복사 (심볼릭 링크가 아닌 실제 파일이어야 함)
         val nativeTalloc = File(nativeTallocPath)
         val localTalloc = File(libLinksDir, "libtalloc.so.2")
 
-        // 심볼릭 링크이면 삭제하고 실제 파일로 교체
         val isSymlink = localTalloc.exists() &&
             java.nio.file.Files.isSymbolicLink(localTalloc.toPath())
         val needsCopy = !localTalloc.exists() || isSymlink ||
@@ -213,7 +189,6 @@ class ProotManager(private val context: Context) {
                 }
             }
             localTalloc.setReadable(true, false)
-            localTalloc.setExecutable(true, false)
         }
     }
 

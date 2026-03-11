@@ -733,6 +733,7 @@ class SetupManager(
 
         var copiedCount = 0
         var skippedCount = 0
+        var copiedOpenClawLauncher = false
         bundledFilesByRelativePath.entries.forEachIndexed { index, (relativePath, encodedAssetRelativePath) ->
             if (!isSafeOpenClawSyncPath(relativePath)) {
                 throw SetupException("Unsafe OpenClaw asset path: $relativePath")
@@ -745,6 +746,9 @@ class SetupManager(
             } else {
                 copyAssetFile(assetPath, destination)
                 copiedCount++
+                if (relativePath == "usr/local/bin/openclaw") {
+                    copiedOpenClawLauncher = true
+                }
             }
             if ((index + 1) % 500 == 0) {
                 log("   Incremental scan... (${index + 1}/${bundledFilesByRelativePath.size})")
@@ -752,7 +756,13 @@ class SetupManager(
             onProgress?.invoke(index + 1, totalEntries)
         }
 
-        if (stalePaths.isEmpty() && copiedCount == 0) {
+        val launcherFile = File(prootManager.rootfsDir, "usr/local/bin/openclaw")
+        val shouldRepairLauncher = shouldReapplyOpenClawExecutableManifest(copiedOpenClawLauncher, launcherFile)
+
+        if (shouldSkipOpenClawIncrementalSync(stalePaths.isEmpty(), copiedCount, shouldRepairLauncher)) {
+            if (shouldRepairLauncher) {
+                executableManifest.apply(ProotManager.OPENCLAW_ASSET_DIR, prootManager.rootfsDir)
+            }
             log("   OpenClaw incremental sync: no file changes")
             return OpenClawIncrementalSyncSummary(
                 copiedCount = 0,
@@ -772,12 +782,26 @@ class SetupManager(
         }
 
         pruneEmptyOpenClawDirectories()
-        executableManifest.apply(ProotManager.OPENCLAW_ASSET_DIR, prootManager.rootfsDir)
+        if (shouldRepairLauncher) {
+            executableManifest.apply(ProotManager.OPENCLAW_ASSET_DIR, prootManager.rootfsDir)
+        }
         return OpenClawIncrementalSyncSummary(
             copiedCount = copiedCount,
             deletedCount = stalePaths.size,
             skippedCount = skippedCount,
         )
+    }
+
+    private fun shouldReapplyOpenClawExecutableManifest(copiedLauncher: Boolean, launcherFile: File): Boolean {
+        return copiedLauncher || !launcherFile.canExecute()
+    }
+
+    private fun shouldSkipOpenClawIncrementalSync(
+        noStalePaths: Boolean,
+        copiedCount: Int,
+        shouldRepairLauncher: Boolean,
+    ): Boolean {
+        return noStalePaths && copiedCount == 0 && !shouldRepairLauncher
     }
 
     private fun copyAssetFile(assetPath: String, destination: File) {
@@ -941,12 +965,18 @@ class SetupManager(
         if (!openClawBin.exists()) {
             throw SetupException("OpenClaw executable not found: ${openClawBin.path}")
         }
-        openClawBin.setReadable(true, false)
-        val executableOk = openClawBin.setExecutable(true, false)
-        if (!executableOk || !openClawBin.canExecute()) {
-            throw SetupException("Failed to set execute permission for OpenClaw: ${openClawBin.path}")
+        if (!openClawBin.canExecute()) {
+            throw SetupException(
+                "OpenClaw executable is not executable after install: ${openClawBin.path}",
+            )
         }
-        log("   OpenClaw execute permission applied")
+        val validationResult = runOpenClawValidation(requirePatchedNodeOptions = false)
+        if (validationResult == null || validationResult.exitCode != 0) {
+            throw SetupException(
+                "OpenClaw executable validation failed: ${openClawBin.path}",
+            )
+        }
+        log("   OpenClaw executable verified")
     }
 
     // ── Step 7: Playwright Chromium 설치 ──
@@ -1447,6 +1477,8 @@ class SetupManager(
     }
 
     private companion object {
+        private const val OPENCLAW_VALIDATION_BASE_COMMAND =
+            "openclaw --version >/dev/null 2>&1 || openclaw --help >/dev/null 2>&1"
         private const val OPENCLAW_UNDERSCORE_PREFIX = "andclaw_us__"
         private const val OPENCLAW_INSTALL_PROGRESS_START = 0.60f
         private const val OPENCLAW_INSTALL_PROGRESS_END = 0.72f
@@ -1563,11 +1595,8 @@ class SetupManager(
         }
 
         log("   Checking OpenClaw...")
-        executeInProot(
-            "export NODE_OPTIONS='--require /root/.openclaw-patch.js' && " +
-                "(openclaw --version 2>/dev/null || openclaw --help 2>&1 | head -1)"
-        )
-        if (!prootManager.isOpenClawInstalled) {
+        val openClawValidationResult = runOpenClawValidation(requirePatchedNodeOptions = true)
+        if (openClawValidationResult == null || openClawValidationResult.exitCode != 0 || !prootManager.isOpenClawInstalled) {
             throw SetupException("OpenClaw validation failed")
         }
 
@@ -1605,6 +1634,18 @@ class SetupManager(
             }
         }
         return process.waitFor()
+    }
+
+    private fun runOpenClawValidation(requirePatchedNodeOptions: Boolean): ProotManager.CommandResult? {
+        val extraEnv = if (requirePatchedNodeOptions) {
+            mapOf("NODE_OPTIONS" to "--require /root/.openclaw-patch.js")
+        } else {
+            emptyMap()
+        }
+        return prootManager.executeWithResult(
+            command = OPENCLAW_VALIDATION_BASE_COMMAND,
+            extraEnv = extraEnv,
+        )
     }
 }
 

@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.File
@@ -33,6 +34,9 @@ internal fun githubCopilotAuthEnv(env: Map<String, String> = System.getenv()): M
             env[key]?.takeIf { it.isNotBlank() }?.let { put(key, it) }
         }
     }
+
+private val ANDROID_CHROMIUM_EXTRA_ARGS = listOf("--no-zygote", "--single-process")
+private const val LEGACY_CHROMIUM_WRAPPER_NAME = "chromium-proot-wrapper.sh"
 
 internal fun parseListeningSocketInodes(procNetContent: String, port: Int): Set<String> {
     if (port !in 1..65535) return emptySet()
@@ -1082,24 +1086,7 @@ class ProcessManager(
                 }
             }
 
-            // Playwright Chromium 바이너리 경로 탐색 + proot wrapper 생성
-            val playwrightDir = File(prootManager.rootfsDir, "root/.cache/ms-playwright")
-            var chromePath: String? = null
-            if (playwrightDir.exists()) {
-                // 1순위: headless_shell, 2순위: chrome
-                val binary = playwrightDir.walkTopDown()
-                    .firstOrNull { it.name == "headless_shell" && it.parentFile?.name == "chrome-linux" && it.canExecute() }
-                    ?: playwrightDir.walkTopDown()
-                        .firstOrNull { it.name == "chrome" && it.parentFile?.name == "chrome-linux" && it.canExecute() }
-
-                binary?.let { bin ->
-                    val realPath = "/" + bin.toRelativeString(prootManager.rootfsDir).replace('\\', '/')
-                    // proot에서 필수 Chromium 플래그를 주입하는 wrapper 스크립트 생성
-                    val wrapperPath = realPath.substringBeforeLast('/') + "/chromium-proot-wrapper.sh"
-                    chromePath = wrapperPath
-                    ensureBrowserWrapper(bin.parentFile!!, realPath)
-                }
-            }
+            val chromePath = prootManager.detectChromiumExecutableProotPath()
 
             // 브라우저 설정
             val browserObj = json.optJSONObject("browser")
@@ -1110,16 +1097,30 @@ class ProcessManager(
                     put("defaultProfile", "openclaw")
                     if (chromePath != null) {
                         put("executablePath", chromePath)
+                        put("extraArgs", JSONArray(ANDROID_CHROMIUM_EXTRA_ARGS))
                     }
                 })
                 addLog("[andClaw] Browser config added (executablePath=$chromePath)")
                 changed = true
-            } else if (chromePath != null) {
+            } else {
                 val currentExe = browserObj.optString("executablePath", "")
-                if (currentExe != chromePath) {
+                val hasLegacyWrapperPath = currentExe.endsWith("/$LEGACY_CHROMIUM_WRAPPER_NAME")
+                if (chromePath != null && currentExe != chromePath) {
                     browserObj.put("executablePath", chromePath)
                     addLog("[andClaw] Browser executablePath updated: $chromePath")
                     changed = true
+                } else if (chromePath == null && hasLegacyWrapperPath) {
+                    browserObj.remove("executablePath")
+                    addLog("[andClaw] Legacy Chromium wrapper path removed; falling back to native discovery")
+                    changed = true
+                }
+                if (chromePath != null) {
+                    val mergedExtraArgs = mergeRequiredExtraArgs(browserObj.optJSONArray("extraArgs"))
+                    if (!jsonArrayStringListEquals(browserObj.optJSONArray("extraArgs"), mergedExtraArgs)) {
+                        browserObj.put("extraArgs", JSONArray(mergedExtraArgs))
+                        addLog("[andClaw] Browser extraArgs updated for Android Chromium")
+                        changed = true
+                    }
                 }
             }
 
@@ -1517,22 +1518,27 @@ class ProcessManager(
         return findListeningSocketInodes(port).isEmpty()
     }
 
-    /**
-     * proot에서 Chromium 실행 시 필수 플래그(--no-zygote 등)를 주입하는 wrapper 스크립트를 생성한다.
-     * OpenClaw config에 커스텀 launch args를 넘길 방법이 없으므로 wrapper로 우회.
-     *
-     * @param chromeLinuxDir rootfs 내 chrome-linux 디렉토리 (Android 호스트 경로)
-     * @param realBinaryPath proot 내부 경로 (e.g. /root/.cache/ms-playwright/.../headless_shell)
-     */
-    private fun ensureBrowserWrapper(chromeLinuxDir: File, realBinaryPath: String) {
-        val wrapper = File(chromeLinuxDir, "chromium-proot-wrapper.sh")
-        // proot 내부 절대 경로로 원본 바이너리를 직접 exec (dirname 명령어가 없을 수 있으므로)
-        val script = "#!/bin/sh\nexec $realBinaryPath --no-zygote --single-process \"\$@\"\n"
-        if (!wrapper.exists() || wrapper.readText() != script) {
-            wrapper.writeText(script)
-            wrapper.setExecutable(true, false)
-            addLog("[andClaw] Browser wrapper script created")
+    private fun jsonArrayStringListEquals(array: JSONArray?, expected: List<String>): Boolean {
+        if (array == null || array.length() != expected.size) return false
+        return expected.indices.all { index -> array.optString(index) == expected[index] }
+    }
+
+    private fun mergeRequiredExtraArgs(array: JSONArray?): List<String> {
+        val merged = mutableListOf<String>()
+        if (array != null) {
+            for (index in 0 until array.length()) {
+                val value = array.optString(index).trim()
+                if (value.isNotEmpty() && value !in merged) {
+                    merged += value
+                }
+            }
         }
+        ANDROID_CHROMIUM_EXTRA_ARGS.forEach { arg ->
+            if (arg !in merged) {
+                merged += arg
+            }
+        }
+        return merged
     }
 
     /**
