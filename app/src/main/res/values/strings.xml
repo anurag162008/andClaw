@@ -3,7 +3,7 @@
 
     <!-- Notification -->
     <string name="notification_channel_name">OpenClaw Gateway</string>
-    <string name="notification_channel_description">OpenClaw gateway running status</string>
+    <string name="notification_channel_description">Shows the current gateway status while it is running</string>
     <string name="notification_waiting">Waiting</string>
     <string name="notification_running">Running</string>
     <string name="notification_starting">Starting…</string>
@@ -14,7 +14,7 @@
     <string name="notification_action_stop">Stop</string>
 
     <!-- Setup Screen -->
-    <string name="setup_subtitle">Run OpenClaw on Android</string>
+    <string name="setup_subtitle">Set up OpenClaw on Android</string>
     <string name="setup_storage">Storage</string>
     <string name="setup_storage_mb">%1$d MB</string>
     <string name="setup_proot_ready">Ready</string>
@@ -38,17 +38,17 @@
     <string name="step_installing_tools">Installing tools…</string>
     <string name="step_installing_openclaw">Installing AI engine…</string>
     <string name="step_installing_chromium">Installing browser…</string>
-    <string name="step_applying_patches">Optimizing…</string>
+    <string name="step_applying_patches">Preparing files…</string>
     <string name="step_verifying">Almost done…</string>
     <string name="step_onboarding">Initializing engine…</string>
     <string name="step_complete">Setup complete!</string>
     <string name="step_failed">Setup failed</string>
 
     <!-- Welcome / OAuth -->
-    <string name="welcome_subtitle">AI agent gateway on your phone</string>
+    <string name="welcome_subtitle">Set up your AI connection on this phone</string>
     <string name="welcome_openrouter_desc">OpenRouter is a unified AI gateway that gives you access to models from OpenAI, Google, Anthropic, and more — all with a single account.</string>
     <string name="welcome_connect_button">Connect with OpenRouter in 3 sec</string>
-    <string name="welcome_free_models">Sign up with Google · Skip payment to use free models</string>
+    <string name="welcome_free_models">Sign in with Google to use available free models</string>
     <string name="welcome_connecting">Connecting…</string>
     <string name="welcome_error">Connection failed: %1$s</string>
 
@@ -69,7 +69,8 @@
     <string name="onboarding_get_key">Get OpenRouter API Key</string>
     <string name="onboarding_apikey_subtitle">Enter your %1$s API key</string>
     <string name="onboarding_apikey_invalid">Please enter a valid API key</string>
-    <string name="onboarding_apikey_security">Your API key is stored securely on this device only.\nIt is never sent to external servers.</string>
+    <string name="onboarding_apikey_security">Your API key stays on this device and is used only to connect to the provider you choose.
+It is not sent to our servers.</string>
     <string name="onboarding_channel_title">Channel Integration</string>
     <string name="onboarding_channel_subtitle">You can connect channels after starting the gateway</string>
     <string name="onboarding_whatsapp_desc">Pair by scanning QR code</string>
@@ -97,7 +98,11 @@
     <string name="dashboard_update_recovery_failed">Recovery failed</string>
     <string name="dashboard_update_action_cooldown">Auto retry is in cooldown</string>
     <string name="dashboard_update_action_manual_exhausted">Manual retry already used in cooldown</string>
-    <string name="settings_recovery_install_confirm_message">⚠️ Recovery reinstall will reinstall the entire core runtime of the app.\n\nYour user data (chats/sessions) will not be deleted, but recovery can take several minutes.\n\nDo not close or force-stop the app while recovery is in progress.</string>
+    <string name="settings_recovery_install_confirm_message">⚠️ Recovery install will reinstall the OpenClaw files included with the app.
+
+Your user data (chats/sessions) will not be deleted, but recovery can take several minutes.
+
+Do not close or force-stop the app while recovery is in progress.</string>
     <string name="dashboard_apikey_required_title">API key required</string>
     <string name="dashboard_apikey_required_message">Please set up your API key in Settings before starting the gateway.</string>
     <string name="dashboard_apikey_go_settings">Go to Settings</string>
@@ -116,14 +121,14 @@
     <string name="settings_title">Settings</string>
     <string name="settings_cd_back">Back</string>
     <string name="settings_section_gateway">Gateway</string>
-    <string name="settings_auto_start">Auto-start on boot</string>
-    <string name="settings_auto_start_desc">Automatically start the gateway when device reboots</string>
+    <string name="settings_auto_start">Restore after restart</string>
+    <string name="settings_auto_start_desc">If you turn this on, the app can restore your gateway after the device restarts</string>
     <string name="settings_charge_only">Run while charging only</string>
     <string name="settings_charge_only_desc">Keep the gateway active only while charging</string>
     <string name="settings_section_battery">Battery</string>
-    <string name="settings_battery_optimization">Battery optimization exemption</string>
-    <string name="settings_battery_exempted">Already exempted — stable background operation</string>
-    <string name="settings_battery_not_exempted">Tap to configure — improves background stability</string>
+    <string name="settings_battery_optimization">Battery settings</string>
+    <string name="settings_battery_exempted">This option is currently allowed</string>
+    <string name="settings_battery_not_exempted">Open battery settings if you want to review this option</string>
     <string name="settings_cannot_open">Cannot open settings</string>
     <string name="settings_section_ai">AI Model</string>
     <string name="settings_current_provider">Current AI</string>
@@ -179,11 +184,11 @@
     <string name="settings_memory_search_api_key">Memory Search API Key</string>
     <string name="settings_memory_search_api_key_desc">Optional override key for memory embeddings. Leave empty to use provider default credentials.</string>
     <string name="settings_memory_search_api_key_optional">Not configured (optional)</string>
-    <string name="settings_openclaw_doctor_fix">OpenClaw Doctor (Fix)</string>
-    <string name="settings_openclaw_doctor_fix_run">Run `openclaw doctor --fix`</string>
+    <string name="settings_openclaw_doctor_fix">Repair OpenClaw setup</string>
+    <string name="settings_openclaw_doctor_fix_run">Run OpenClaw repair</string>
     <string name="settings_openclaw_doctor_fix_running">Running…</string>
-    <string name="settings_openclaw_doctor_fix_success">Doctor fix completed</string>
-    <string name="settings_openclaw_doctor_fix_failed">Doctor fix failed</string>
+    <string name="settings_openclaw_doctor_fix_success">OpenClaw repair completed</string>
+    <string name="settings_openclaw_doctor_fix_failed">OpenClaw repair failed</string>
     <string name="settings_openclaw_update_action">Update OpenClaw</string>
     <string name="settings_openclaw_update_running">Updating OpenClaw…</string>
     <string name="settings_openclaw_update_available_version">Update available: %1$s → %2$s</string>
@@ -245,7 +250,7 @@
     <string name="settings_discord_require_mention_title">Require @mention in guilds</string>
     <string name="settings_discord_require_mention_desc">Apply mention gate for allowlisted guild channels.</string>
     <string name="settings_about_version">andClaw v%1$s</string>
-    <string name="settings_about_powered_by">Powered by OpenClaw</string>
+    <string name="settings_about_powered_by">Uses OpenClaw components</string>
     <string name="settings_provider_openai_api">ChatGPT</string>
     <string name="settings_provider_openai_codex">Codex</string>
     <string name="settings_api_type">API Type</string>

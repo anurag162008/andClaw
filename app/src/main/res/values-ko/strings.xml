@@ -1,7 +1,7 @@
 <resources>
     <!-- Notification -->
     <string name="notification_channel_name">OpenClaw 게이트웨이</string>
-    <string name="notification_channel_description">OpenClaw 게이트웨이 실행 상태</string>
+    <string name="notification_channel_description">게이트웨이가 실행 중일 때 현재 상태를 표시합니다</string>
     <string name="notification_waiting">대기 중</string>
     <string name="notification_running">실행 중</string>
     <string name="notification_starting">시작 중…</string>
@@ -12,7 +12,7 @@
     <string name="notification_action_stop">중지</string>
 
     <!-- Setup Screen -->
-    <string name="setup_subtitle">안드로이드에서 OpenClaw를 실행하세요</string>
+    <string name="setup_subtitle">안드로이드에서 OpenClaw를 설정하세요</string>
     <string name="setup_storage">저장 공간</string>
     <string name="setup_storage_mb">%1$d MB</string>
     <string name="setup_proot_ready">준비됨</string>
@@ -36,17 +36,17 @@
     <string name="step_installing_tools">도구 설치 중…</string>
     <string name="step_installing_openclaw">AI 엔진 설치 중…</string>
     <string name="step_installing_chromium">브라우저 설치 중…</string>
-    <string name="step_applying_patches">최적화 중…</string>
+    <string name="step_applying_patches">파일 준비 중…</string>
     <string name="step_verifying">거의 완료…</string>
     <string name="step_onboarding">엔진 초기화 중…</string>
     <string name="step_complete">설치 완료!</string>
     <string name="step_failed">설치 실패</string>
 
     <!-- Welcome / OAuth -->
-    <string name="welcome_subtitle">당신의 폰에서 AI 에이전트 게이트웨이를</string>
+    <string name="welcome_subtitle">이 휴대폰에서 AI 연결을 설정하세요</string>
     <string name="welcome_openrouter_desc">OpenRouter는 OpenAI, Google, Anthropic 등 다양한 AI 모델을 하나의 계정으로 사용할 수 있는 통합 AI 게이트웨이입니다.</string>
     <string name="welcome_connect_button">OpenRouter로 3초 연결</string>
-    <string name="welcome_free_models">구글 계정으로 가입 · 결제는 건너뛰면 무료 모델 사용 가능</string>
+    <string name="welcome_free_models">구글로 로그인하면 사용 가능한 무료 모델도 이용할 수 있습니다</string>
     <string name="welcome_connecting">연결 중…</string>
     <string name="welcome_error">연결 실패: %1$s</string>
 
@@ -67,7 +67,8 @@
     <string name="onboarding_get_key">OpenRouter API 키 발급받기</string>
     <string name="onboarding_apikey_subtitle">%1$s API 키를 입력하세요</string>
     <string name="onboarding_apikey_invalid">유효한 API 키를 입력해주세요</string>
-    <string name="onboarding_apikey_security">API 키는 기기 내부에만 안전하게 저장됩니다.\n외부 서버로 전송되지 않습니다.</string>
+    <string name="onboarding_apikey_security">API 키는 이 기기에 저장되며, 선택한 제공자에 직접 연결할 때만 사용됩니다.
+당사 서버로 전송되지 않습니다.</string>
     <string name="onboarding_channel_title">채널 연동</string>
     <string name="onboarding_channel_subtitle">게이트웨이를 시작한 후 채널을 연동할 수 있습니다</string>
     <string name="onboarding_whatsapp_desc">QR 코드 스캔으로 페어링</string>
@@ -101,14 +102,14 @@
     <string name="settings_title">설정</string>
     <string name="settings_cd_back">뒤로</string>
     <string name="settings_section_gateway">게이트웨이</string>
-    <string name="settings_auto_start">부팅 시 자동 시작</string>
-    <string name="settings_auto_start_desc">기기 재부팅 시 자동으로 게이트웨이를 시작합니다</string>
+    <string name="settings_auto_start">재시작 후 복원</string>
+    <string name="settings_auto_start_desc">이 옵션을 켜면 기기 재시작 후 게이트웨이를 복원할 수 있습니다</string>
     <string name="settings_charge_only">충전 중에만 가동</string>
     <string name="settings_charge_only_desc">충전 중일 때만 게이트웨이를 활성화합니다</string>
     <string name="settings_section_battery">배터리</string>
-    <string name="settings_battery_optimization">배터리 최적화 제외</string>
-    <string name="settings_battery_exempted">이미 제외됨 — 백그라운드 실행이 안정적입니다</string>
-    <string name="settings_battery_not_exempted">탭하여 설정 — 백그라운드 실행 안정성이 향상됩니다</string>
+    <string name="settings_battery_optimization">배터리 설정</string>
+    <string name="settings_battery_exempted">현재 이 옵션이 허용되어 있습니다</string>
+    <string name="settings_battery_not_exempted">원하시면 배터리 설정에서 이 옵션을 검토할 수 있습니다</string>
     <string name="settings_cannot_open">설정을 열 수 없습니다</string>
     <string name="settings_section_ai">AI 모델</string>
     <string name="settings_current_provider">현재 AI</string>
@@ -163,11 +164,11 @@
     <string name="settings_memory_search_api_key">메모리 검색 API 키</string>
     <string name="settings_memory_search_api_key_desc">메모리 임베딩용 선택 키. 비워두면 프로바이더 기본 인증 정보를 사용합니다.</string>
     <string name="settings_memory_search_api_key_optional">미설정(선택)</string>
-    <string name="settings_openclaw_doctor_fix">OpenClaw Doctor (Fix)</string>
-    <string name="settings_openclaw_doctor_fix_run">`openclaw doctor --fix` 실행</string>
+    <string name="settings_openclaw_doctor_fix">OpenClaw 설정 복구</string>
+    <string name="settings_openclaw_doctor_fix_run">OpenClaw 복구 실행</string>
     <string name="settings_openclaw_doctor_fix_running">실행 중…</string>
-    <string name="settings_openclaw_doctor_fix_success">Doctor fix 완료</string>
-    <string name="settings_openclaw_doctor_fix_failed">Doctor fix 실패</string>
+    <string name="settings_openclaw_doctor_fix_success">OpenClaw 복구가 완료되었습니다</string>
+    <string name="settings_openclaw_doctor_fix_failed">OpenClaw 복구에 실패했습니다</string>
 
     <!-- Channels -->
     <string name="settings_section_channels">채널</string>
@@ -223,7 +224,7 @@
     <string name="settings_discord_require_mention_title">길드에서 @멘션 필요</string>
     <string name="settings_discord_require_mention_desc">허용된 길드 채널에 멘션 게이트를 적용합니다.</string>
     <string name="settings_about_version">andClaw v%1$s</string>
-    <string name="settings_about_powered_by">Powered by OpenClaw</string>
+    <string name="settings_about_powered_by">OpenClaw 구성요소 사용</string>
     <string name="settings_provider_openai_api">ChatGPT</string>
     <string name="settings_provider_openai_codex">Codex</string>
     <string name="settings_api_type">API 유형</string>
@@ -261,7 +262,11 @@
     <string name="dashboard_update_recovery_failed">복구 실패</string>
     <string name="dashboard_update_action_cooldown">자동 재시도가 쿨다운 중임</string>
     <string name="dashboard_update_action_manual_exhausted">쿨다운 중 수동 재시도를 이미 사용함</string>
-    <string name="settings_recovery_install_confirm_message">⚠️ 복구 설치를 시작하면 앱의 핵심 구성요소를 모두 다시 설치합니다.\n\n사용자 데이터(채팅/세션)는 삭제되지 않지만, 복구에는 몇 분 이상 걸릴 수 있습니다.\n\n복구가 완료될 때까지 앱을 종료하거나 강제 종료하지 마세요.</string>
+    <string name="settings_recovery_install_confirm_message">⚠️ 복구 설치를 시작하면 앱에 포함된 OpenClaw 파일을 다시 설치합니다.
+
+사용자 데이터(채팅/세션)는 삭제되지 않지만, 복구에는 몇 분 이상 걸릴 수 있습니다.
+
+복구가 완료될 때까지 앱을 종료하거나 강제 종료하지 마세요.</string>
     <string name="settings_api_key_get_link">%1$s API 키 발급 →</string>
     <string name="bug_report_included_gateway_logs">- 게이트웨이 UI 로그(정리됨): %1$d줄</string>
     <string name="onboarding_provider_openai_compatible">커스텀 OpenAI API</string>
