@@ -555,7 +555,7 @@ class MainActivity : ComponentActivity() {
 
         return try {
             if (wasGatewayActive) {
-                GatewayService.stop(this)
+                GatewayService.stop(this, source = "main_activity:startup_update_stop")
                 val stopped = waitForGatewayStopped(app)
                 if (!stopped) {
                     return StartupOpenClawUpdateResult(
@@ -624,7 +624,7 @@ class MainActivity : ComponentActivity() {
                 GatewayStatus.ERROR,
                 -> {
                     if (!startRequested) {
-                        GatewayService.start(this)
+                        GatewayService.start(this, source = "main_activity:startup_update_restore")
                         startRequested = true
                     }
                     delay(250)
@@ -634,7 +634,7 @@ class MainActivity : ComponentActivity() {
 
         val status = app.processManager.gatewayState.value.status
         if (status != GatewayStatus.RUNNING && status != GatewayStatus.STARTING) {
-            GatewayService.start(this)
+            GatewayService.start(this, source = "main_activity:startup_update_restore")
         }
     }
 }

@@ -5,6 +5,7 @@ import com.coderred.andclaw.data.PreferencesManager
 import com.coderred.andclaw.proot.ProcessManager
 import com.coderred.andclaw.proot.ProotManager
 import com.coderred.andclaw.proot.SetupManager
+import com.coderred.andclaw.service.GatewayService
 
 class AndClawApp : Application() {
 
@@ -23,5 +24,6 @@ class AndClawApp : Application() {
         prootManager = ProotManager(this)
         setupManager = SetupManager(this, prootManager, preferencesManager)
         processManager = ProcessManager(prootManager)
+        GatewayService.bindRetainedProcessManager(processManager)
     }
 }

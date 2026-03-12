@@ -25,7 +25,7 @@ class UpdateReceiver : BroadcastReceiver() {
                 val prefs = PreferencesManager(context)
                 val shouldRestart = prefs.gatewayWasRunning.first() && prefs.isSetupComplete.first()
                 if (shouldRestart) {
-                    GatewayService.start(context, userInitiated = false)
+                    GatewayService.start(context, userInitiated = false, source = "update:auto_restart")
                 }
             } finally {
                 pendingResult.finish()

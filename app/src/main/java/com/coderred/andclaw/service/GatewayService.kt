@@ -44,31 +44,45 @@ class GatewayService : Service() {
     private enum class GatewayActionType {
         START,
         RESTART,
+        ATTACH,
         STOP,
     }
 
     companion object {
+        internal enum class AttachRecoveryAction {
+            ATTACH,
+            RESTART,
+            START,
+        }
+
         const val CHANNEL_ID = "andclaw_gateway"
         const val PAIRING_CHANNEL_ID = "andclaw_pairing"
         const val NOTIFICATION_ID = 1
         const val PAIRING_NOTIFICATION_ID = 2
-        private const val START_WAKE_LOCK_TIMEOUT_MS = 120_000L
-        // Bundle update policy 기본 최대치(20분) + startup final state 대기(2분) + 여유(1분)
-        private const val START_WAKE_LOCK_TIMEOUT_BACKGROUND_MS = 23L * 60L * 1000L
-        private const val START_TERMINAL_WAIT_TIMEOUT_MS = 120_000L
-        private const val RESTART_WAKE_LOCK_TIMEOUT_MS = 120_000L
+        private const val START_WAKE_LOCK_TIMEOUT_MS = 300_000L
+        // Bundle update policy 기본 최대치(20분) + startup final state 대기(5분) + 여유(1분)
+        private const val START_WAKE_LOCK_TIMEOUT_BACKGROUND_MS = 26L * 60L * 1000L
+        private const val START_TERMINAL_WAIT_TIMEOUT_MS = 300_000L
+        private const val RESTART_WAKE_LOCK_TIMEOUT_MS = 300_000L
+        private const val ATTACH_HEALTH_PROBE_TIMEOUT_MS = 8_000L
         private const val WHATSAPP_LOGIN_WAKE_LOCK_TIMEOUT_MS = 4L * 60L * 1000L
         const val ACTION_START = "com.coderred.andclaw.action.START"
         const val ACTION_STOP = "com.coderred.andclaw.action.STOP"
         const val ACTION_STOP_FOR_MISSING_MODEL = "com.coderred.andclaw.action.STOP_FOR_MISSING_MODEL"
         const val ACTION_RESTART = "com.coderred.andclaw.action.RESTART"
+        const val ACTION_ATTACH = "com.coderred.andclaw.action.ATTACH"
         const val ACTION_WHATSAPP_LOGIN_GUARD_START = "com.coderred.andclaw.action.WHATSAPP_LOGIN_GUARD_START"
         const val ACTION_WHATSAPP_LOGIN_GUARD_STOP = "com.coderred.andclaw.action.WHATSAPP_LOGIN_GUARD_STOP"
         private const val EXTRA_FROM_WATCHDOG = "from_watchdog"
         private const val EXTRA_USER_INITIATED = "user_initiated"
+        private const val EXTRA_TRIGGER_SOURCE = "trigger_source"
         private const val EXTRA_WAKE_LOCK_TIMEOUT_MS = "wake_lock_timeout_ms"
+        private const val UNKNOWN_TRIGGER_SOURCE = "unknown"
+        private const val STICKY_RECOVERY_TRIGGER_SOURCE = "system:sticky_recovery"
+        private const val DIAGNOSTIC_SOURCE_MAX_LENGTH = 80
 
         private var _instance: GatewayService? = null
+        private var retainedProcessManager: ProcessManager? = null
 
         internal fun shouldHoldChargingWakeLock(batteryStatus: Int): Boolean {
             return batteryStatus == BatteryManager.BATTERY_STATUS_CHARGING ||
@@ -120,15 +134,134 @@ class GatewayService : Service() {
             }
         }
 
-        /** 현재 서비스의 ProcessManager. 서비스가 살아있을 때만 non-null. */
         val processManager: ProcessManager?
-            get() = _instance?.pm
+            get() = _instance?.pm ?: retainedProcessManager
 
-        fun start(context: Context, fromWatchdog: Boolean = false, userInitiated: Boolean = true) {
+        val isInstanceActive: Boolean
+            get() = _instance != null
+
+        internal fun bindRetainedProcessManager(processManager: ProcessManager) {
+            retainedProcessManager = processManager
+        }
+
+        internal fun clearRetainedProcessManagerForTest() {
+            retainedProcessManager = null
+        }
+
+        internal fun normalizeTriggerSource(source: String?): String {
+            if (source.isNullOrBlank()) return UNKNOWN_TRIGGER_SOURCE
+            val builder = StringBuilder()
+            var previousDash = false
+            source.trim().lowercase().forEach { ch ->
+                when {
+                    ch in 'a'..'z' || ch in '0'..'9' || ch == ':' || ch == '_' -> {
+                        builder.append(ch)
+                        previousDash = false
+                    }
+
+                    ch == '-' || ch.isWhitespace() || ch == '/' || ch == '.' -> {
+                        if (!previousDash && builder.isNotEmpty()) {
+                            builder.append('-')
+                            previousDash = true
+                        }
+                    }
+                }
+                if (builder.length >= DIAGNOSTIC_SOURCE_MAX_LENGTH) return@forEach
+            }
+            return builder
+                .toString()
+                .trim('-', ':', '_')
+                .ifBlank { UNKNOWN_TRIGGER_SOURCE }
+                .take(DIAGNOSTIC_SOURCE_MAX_LENGTH)
+        }
+
+        internal fun buildDiagnosticLogLine(
+            action: String,
+            source: String,
+            userInitiated: Boolean,
+            fromWatchdog: Boolean,
+            startId: Int,
+            flags: Int,
+        ): String {
+            val normalizedAction = action.ifBlank { "UNKNOWN" }
+            val normalizedSource = normalizeTriggerSource(source)
+            val base = StringBuilder()
+                .append("[andClaw][Diag] received action=")
+                .append(normalizedAction)
+                .append(" source=")
+                .append(normalizedSource)
+                .append(" user=")
+                .append(userInitiated)
+                .append(" watchdog=")
+                .append(fromWatchdog)
+                .append(" startId=")
+                .append(startId)
+            if (flags != 0) {
+                base.append(" flags=").append(flags)
+            }
+            return base.toString()
+        }
+
+        internal fun buildStartupFailureDiagnosticLine(
+            stage: String,
+            cause: String,
+            detail: String? = null,
+            finalStatus: GatewayStatus? = null,
+            errorMessage: String? = null,
+        ): String {
+            val base = StringBuilder()
+                .append("[andClaw][Diag] startup_failure stage=")
+                .append(normalizeTriggerSource(stage))
+                .append(" cause=")
+                .append(normalizeTriggerSource(cause))
+            detail?.trim()?.takeIf { it.isNotEmpty() }?.let {
+                base.append(" detail=").append(normalizeTriggerSource(it))
+            }
+            finalStatus?.let {
+                base.append(" finalStatus=").append(it.name)
+            }
+            errorMessage?.trim()?.takeIf { it.isNotEmpty() }?.let {
+                base.append(" error=").append(normalizeTriggerSource(it))
+            }
+            return base.toString()
+        }
+
+        internal fun shouldAttachOnStickyRecovery(
+            status: GatewayStatus?,
+            runningHealthy: Boolean,
+        ): Boolean {
+            return status == GatewayStatus.RUNNING && runningHealthy
+        }
+
+        internal fun shouldRejoinStickyStartup(
+            status: GatewayStatus?,
+            hasActiveStartupAttempt: Boolean,
+        ): Boolean {
+            return hasActiveStartupAttempt && status == GatewayStatus.STARTING
+        }
+
+        internal fun determineAttachRecoveryAction(
+            status: GatewayStatus?,
+            runningHealthy: Boolean,
+        ): AttachRecoveryAction {
+            return when {
+                status == GatewayStatus.RUNNING && runningHealthy -> AttachRecoveryAction.ATTACH
+                status == GatewayStatus.RUNNING -> AttachRecoveryAction.RESTART
+                else -> AttachRecoveryAction.START
+            }
+        }
+
+        fun start(
+            context: Context,
+            fromWatchdog: Boolean = false,
+            userInitiated: Boolean = true,
+            source: String = UNKNOWN_TRIGGER_SOURCE,
+        ) {
             val intent = Intent(context, GatewayService::class.java).apply {
                 action = ACTION_START
                 putExtra(EXTRA_FROM_WATCHDOG, fromWatchdog)
                 putExtra(EXTRA_USER_INITIATED, userInitiated)
+                putExtra(EXTRA_TRIGGER_SOURCE, normalizeTriggerSource(source))
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
@@ -141,11 +274,13 @@ class GatewayService : Service() {
             context: Context,
             userInitiated: Boolean = true,
             fromWatchdog: Boolean = false,
+            source: String = UNKNOWN_TRIGGER_SOURCE,
         ) {
             val intent = Intent(context, GatewayService::class.java).apply {
                 action = ACTION_RESTART
                 putExtra(EXTRA_USER_INITIATED, userInitiated)
                 putExtra(EXTRA_FROM_WATCHDOG, fromWatchdog)
+                putExtra(EXTRA_TRIGGER_SOURCE, normalizeTriggerSource(source))
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
@@ -154,16 +289,39 @@ class GatewayService : Service() {
             }
         }
 
-        fun stop(context: Context) {
+        fun stop(context: Context, source: String = UNKNOWN_TRIGGER_SOURCE) {
             val intent = Intent(context, GatewayService::class.java).apply {
                 action = ACTION_STOP
+                putExtra(EXTRA_TRIGGER_SOURCE, normalizeTriggerSource(source))
             }
             context.startService(intent)
         }
 
-        fun stopForMissingModelSelection(context: Context) {
+        fun attachToRunningGateway(
+            context: Context,
+            fromWatchdog: Boolean = false,
+            source: String = UNKNOWN_TRIGGER_SOURCE,
+        ) {
+            val intent = Intent(context, GatewayService::class.java).apply {
+                action = ACTION_ATTACH
+                putExtra(EXTRA_FROM_WATCHDOG, fromWatchdog)
+                putExtra(EXTRA_USER_INITIATED, false)
+                putExtra(EXTRA_TRIGGER_SOURCE, normalizeTriggerSource(source))
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+        }
+
+        fun stopForMissingModelSelection(
+            context: Context,
+            source: String = "gateway:missing_model_selection",
+        ) {
             val intent = Intent(context, GatewayService::class.java).apply {
                 action = ACTION_STOP_FOR_MISSING_MODEL
+                putExtra(EXTRA_TRIGGER_SOURCE, normalizeTriggerSource(source))
             }
             context.startService(intent)
         }
@@ -212,11 +370,12 @@ class GatewayService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        _instance = this
 
         val app = application as AndClawApp
         pm = app.processManager
         prefs = app.preferencesManager
+        bindRetainedProcessManager(pm)
+        _instance = this
 
         createNotificationChannel()
         createPairingNotificationChannel()
@@ -281,6 +440,16 @@ class GatewayService : Service() {
             return START_STICKY
         }
         if (action == null) {
+            pm.appendGatewayDiagnosticLog(
+                buildDiagnosticLogLine(
+                    action = "START",
+                    source = STICKY_RECOVERY_TRIGGER_SOURCE,
+                    userInitiated = false,
+                    fromWatchdog = true,
+                    startId = startId,
+                    flags = flags,
+                ),
+            )
             if (isWhatsAppLoginGuardActive()) {
                 android.util.Log.i(
                     "GatewayService",
@@ -291,9 +460,46 @@ class GatewayService : Service() {
             // START_STICKY 재생성(null intent) 시 이전 사용자 의도가 running이면 복구를 재시도한다.
             runAction(GatewayActionType.START, startId) { actionToken, actionStartId ->
                 val shouldRecover = prefs.gatewayWasRunning.first() && prefs.isSetupComplete.first()
+                var stickyStatus = pm.gatewayState.value.status
+                val stickyHealthy = if (stickyStatus == GatewayStatus.RUNNING) {
+                    val healthy = pm.probeGatewayHealth(timeoutMs = ATTACH_HEALTH_PROBE_TIMEOUT_MS)
+                    stickyStatus = pm.gatewayState.value.status
+                    stickyStatus != GatewayStatus.RUNNING || healthy
+                } else {
+                    true
+                }
+                val shouldAttach = shouldAttachOnStickyRecovery(stickyStatus, stickyHealthy)
+                val shouldRejoinStartup = shouldRejoinStickyStartup(
+                    status = stickyStatus,
+                    hasActiveStartupAttempt = pm.hasActiveStartupAttempt(),
+                )
+                pm.appendGatewayDiagnosticLog(
+                    "[andClaw][Diag] auto_start source=$STICKY_RECOVERY_TRIGGER_SOURCE shouldRecover=$shouldRecover attach=$shouldAttach rejoin=$shouldRejoinStartup status=${stickyStatus?.name ?: "null"} healthy=$stickyHealthy startId=$actionStartId",
+                )
                 if (!shouldRecover) {
                     GatewayWatchdogReceiver.cancel(applicationContext)
                     stopServiceForeground(actionStartId)
+                    return@runAction
+                }
+                if (shouldAttach) {
+                    handleAttach(actionToken = actionToken, startId = actionStartId)
+                    return@runAction
+                }
+                if (shouldRejoinStartup) {
+                    withTimedWakeLock(START_TERMINAL_WAIT_TIMEOUT_MS) {
+                        val finalStatus = awaitGatewayStartupTerminalState(START_TERMINAL_WAIT_TIMEOUT_MS)
+                        if (!isActionCurrent(actionToken)) return@withTimedWakeLock
+                        handleStartupOutcome(finalStatus, actionToken)
+                    }
+                    return@runAction
+                }
+                if (stickyStatus == GatewayStatus.RUNNING) {
+                    handleRestart(
+                        userInitiated = false,
+                        fromWatchdog = true,
+                        actionToken = actionToken,
+                        startId = actionStartId,
+                    )
                     return@runAction
                 }
                 handleStart(
@@ -308,6 +514,17 @@ class GatewayService : Service() {
 
         val fromWatchdog = intent.getBooleanExtra(EXTRA_FROM_WATCHDOG, false)
         val userInitiated = intent.getBooleanExtra(EXTRA_USER_INITIATED, true)
+        val source = intent.getStringExtra(EXTRA_TRIGGER_SOURCE) ?: UNKNOWN_TRIGGER_SOURCE
+        pm.appendGatewayDiagnosticLog(
+            buildDiagnosticLogLine(
+                action = action.substringAfterLast('.'),
+                source = source,
+                userInitiated = userInitiated,
+                fromWatchdog = fromWatchdog,
+                startId = startId,
+                flags = flags,
+            ),
+        )
         when (action) {
             ACTION_START -> {
                 if (!userInitiated && isWhatsAppLoginGuardActive()) {
@@ -343,6 +560,14 @@ class GatewayService : Service() {
                     )
                 }
             }
+            ACTION_ATTACH -> {
+                runAction(GatewayActionType.ATTACH, startId) { actionToken, actionStartId ->
+                    handleAttach(
+                        actionToken = actionToken,
+                        startId = actionStartId,
+                    )
+                }
+            }
             ACTION_STOP -> {
                 runAction(GatewayActionType.STOP, startId) { actionToken, actionStartId ->
                     handleStop(actionToken = actionToken, startId = actionStartId)
@@ -363,7 +588,6 @@ class GatewayService : Service() {
         stopChargingWakeLockController()
         releaseActiveWakeLock()
         releaseWhatsAppLoginWakeLock()
-        pm.stop()
         serviceScope.cancel()
         _instance = null
         super.onDestroy()
@@ -425,7 +649,10 @@ class GatewayService : Service() {
 
         val stopIntent = PendingIntent.getService(
             this, 1,
-            Intent(this, GatewayService::class.java).apply { action = ACTION_STOP },
+            Intent(this, GatewayService::class.java).apply {
+                action = ACTION_STOP
+                putExtra(EXTRA_TRIGGER_SOURCE, normalizeTriggerSource("notification:stop_action"))
+            },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
@@ -492,6 +719,55 @@ class GatewayService : Service() {
 
     // ── WakeLock ──
 
+    private suspend fun handleAttach(actionToken: Long, startId: Int) {
+        if (!isActionCurrent(actionToken)) return
+        var status = pm.gatewayState.value.status
+        val runningHealthy = if (status == GatewayStatus.RUNNING) {
+            val healthy = pm.probeGatewayHealth(timeoutMs = ATTACH_HEALTH_PROBE_TIMEOUT_MS)
+            status = pm.gatewayState.value.status
+            status != GatewayStatus.RUNNING || healthy
+        } else {
+            true
+        }
+        if (!isActionCurrent(actionToken)) return
+        when (determineAttachRecoveryAction(status, runningHealthy)) {
+            AttachRecoveryAction.ATTACH -> Unit
+            AttachRecoveryAction.RESTART -> {
+                pm.appendGatewayDiagnosticLog(
+                    "[andClaw][Diag] attach_fallback action=restart status=${status?.name ?: "null"} healthy=$runningHealthy",
+                )
+                handleRestart(
+                    userInitiated = false,
+                    fromWatchdog = true,
+                    actionToken = actionToken,
+                    startId = startId,
+                )
+                return
+            }
+            AttachRecoveryAction.START -> {
+                pm.appendGatewayDiagnosticLog(
+                    "[andClaw][Diag] attach_fallback action=start status=${status?.name ?: "null"} healthy=$runningHealthy",
+                )
+                handleStart(
+                    fromWatchdog = true,
+                    userInitiated = false,
+                    actionToken = actionToken,
+                    startId = startId,
+                )
+                return
+            }
+        }
+        if (!isActionCurrent(actionToken)) return
+        pm.clearStartupAttempt()
+        val shouldKeepRunning = prefs.gatewayWasRunning.first() && prefs.isSetupComplete.first()
+        if (!isActionCurrent(actionToken)) return
+        if (shouldKeepRunning) {
+            GatewayWatchdogReceiver.schedule(applicationContext)
+        } else {
+            stopServiceForeground(startId)
+        }
+    }
+
     private suspend fun handleStart(
         fromWatchdog: Boolean,
         userInitiated: Boolean,
@@ -503,6 +779,13 @@ class GatewayService : Service() {
         if (fromWatchdog) {
             val shouldKeepRunning = prefs.gatewayWasRunning.first() && prefs.isSetupComplete.first()
             if (!shouldKeepRunning) {
+                pm.appendGatewayDiagnosticLog(
+                    buildStartupFailureDiagnosticLine(
+                        stage = "handle_start",
+                        cause = "watchdog_start_cancelled",
+                        detail = "desired_running_false",
+                    ),
+                )
                 GatewayWatchdogReceiver.cancel(applicationContext)
                 stopServiceForeground(startId)
                 return
@@ -533,6 +816,12 @@ class GatewayService : Service() {
             return
         }
 
+        pm.markStartupAttemptStarted()
+        GatewayWatchdogReceiver.schedule(
+            applicationContext,
+            delayMs = startWakeLockTimeoutMs,
+        )
+
         withTimedWakeLock(startWakeLockTimeoutMs) {
             if (!isActionCurrent(actionToken)) return@withTimedWakeLock
 
@@ -542,7 +831,15 @@ class GatewayService : Service() {
                 )
                 if (result.outcome == BundleUpdateOutcome.FAILED) {
                     android.util.Log.e("GatewayService", "Bundle update policy run failed: ${result.errorMessage}")
+                    pm.appendGatewayDiagnosticLog(
+                        buildStartupFailureDiagnosticLine(
+                            stage = "handle_start",
+                            cause = "bundle_update_failed",
+                            detail = result.errorMessage,
+                        ),
+                    )
                     if (isActionCurrent(actionToken)) {
+                        pm.clearStartupAttempt()
                         // 번들 업데이트 실패 시 부분 설치 상태로 런타임을 시작하면 ENOENT로 연쇄 실패할 수 있다.
                         // 사용자 의도는 유지하고 watchdog 복구를 위해 desired-running 상태만 유지한다.
                         markDesiredRunningAndScheduleWatchdog(actionToken)
@@ -553,7 +850,15 @@ class GatewayService : Service() {
                 throw error
             } catch (error: Exception) {
                 android.util.Log.e("GatewayService", "Bundle update failed during ACTION_START", error)
+                pm.appendGatewayDiagnosticLog(
+                    buildStartupFailureDiagnosticLine(
+                        stage = "handle_start",
+                        cause = "bundle_update_exception",
+                        detail = error.message ?: error.javaClass.simpleName,
+                    ),
+                )
                 if (isActionCurrent(actionToken)) {
+                    pm.clearStartupAttempt()
                     markDesiredRunningAndScheduleWatchdog(actionToken)
                 }
                 return@withTimedWakeLock
@@ -569,6 +874,12 @@ class GatewayService : Service() {
             }
 
             if (launchConfig.selectedModelEntries.isEmpty()) {
+                pm.appendGatewayDiagnosticLog(
+                    buildStartupFailureDiagnosticLine(
+                        stage = "handle_start",
+                        cause = "missing_model_selection",
+                    ),
+                )
                 stopForMissingModelSelection(startId)
                 return@withTimedWakeLock
             }
@@ -618,6 +929,13 @@ class GatewayService : Service() {
         if (!userInitiated) {
             val shouldKeepRunning = prefs.gatewayWasRunning.first() && prefs.isSetupComplete.first()
             if (fromWatchdog && !shouldKeepRunning) {
+                pm.appendGatewayDiagnosticLog(
+                    buildStartupFailureDiagnosticLine(
+                        stage = "handle_restart",
+                        cause = "watchdog_restart_cancelled",
+                        detail = "desired_running_false",
+                    ),
+                )
                 GatewayWatchdogReceiver.cancel(applicationContext)
                 stopServiceForeground(startId)
                 return
@@ -626,6 +944,13 @@ class GatewayService : Service() {
             val status = pm.gatewayState.value.status
             val alreadyActive = status == GatewayStatus.RUNNING || status == GatewayStatus.STARTING
             if (!fromWatchdog && !shouldKeepRunning && !alreadyActive) {
+                pm.appendGatewayDiagnosticLog(
+                    buildStartupFailureDiagnosticLine(
+                        stage = "handle_restart",
+                        cause = "auto_restart_cancelled",
+                        detail = "desired_running_false",
+                    ),
+                )
                 GatewayWatchdogReceiver.cancel(applicationContext)
                 stopServiceForeground(startId)
                 return
@@ -634,6 +959,7 @@ class GatewayService : Service() {
 
         // RESTART는 사용자 의도상 running 유지이므로 즉시 desired-running=true를 반영한다.
         if (!setDesiredRunningAndWatchdog(shouldRun = true, actionToken = actionToken)) return
+        pm.markStartupAttemptStarted()
 
         withTimedWakeLock(RESTART_WAKE_LOCK_TIMEOUT_MS) {
             if (!isActionCurrent(actionToken)) return@withTimedWakeLock
@@ -643,6 +969,12 @@ class GatewayService : Service() {
 
             if (!isActionCurrent(actionToken)) return@withTimedWakeLock
             if (launchConfig.selectedModelEntries.isEmpty()) {
+                pm.appendGatewayDiagnosticLog(
+                    buildStartupFailureDiagnosticLine(
+                        stage = "handle_restart",
+                        cause = "missing_model_selection",
+                    ),
+                )
                 stopForMissingModelSelection(startId)
                 return@withTimedWakeLock
             }
@@ -703,6 +1035,22 @@ class GatewayService : Service() {
             markDesiredRunningAndScheduleWatchdog(actionToken)
             return
         }
+
+        pm.appendGatewayDiagnosticLog(
+            buildStartupFailureDiagnosticLine(
+                stage = "startup_terminal",
+                cause = when (finalStatus) {
+                    null -> "startup_timeout"
+                    GatewayStatus.ERROR -> "startup_terminal_error"
+                    GatewayStatus.STOPPED -> "startup_terminal_stopped"
+                    GatewayStatus.STOPPING -> "startup_terminal_stopping"
+                    GatewayStatus.STARTING -> "startup_terminal_starting"
+                    GatewayStatus.RUNNING -> "startup_terminal_running"
+                },
+                finalStatus = finalStatus,
+                errorMessage = pm.gatewayState.value.errorMessage,
+            ),
+        )
 
         if (finalStatus == null) {
             // STARTING 상태 고착 방지
@@ -783,6 +1131,14 @@ class GatewayService : Service() {
                 "GatewayService",
                 "Timed out waiting for gateway startup terminal state after ${timeoutMs}ms",
             )
+            pm.appendGatewayDiagnosticLog(
+                buildStartupFailureDiagnosticLine(
+                    stage = "await_terminal_state",
+                    cause = "startup_timeout",
+                    detail = "timeout_${timeoutMs}ms",
+                    errorMessage = pm.gatewayState.value.errorMessage,
+                ),
+            )
         }
         return finalState?.status
     }
@@ -802,6 +1158,9 @@ class GatewayService : Service() {
                     // STOP은 지연 없이 선점한다. 오래 걸리는 START/RESTART 종료를 기다리지 않는다.
                     previousAction?.cancel()
                     if (previousAction != null) {
+                        pm.appendGatewayDiagnosticLog(
+                            "[andClaw][Diag] action=${actionType.name} previous=${previousActionType?.name ?: "UNKNOWN"} policy=cancel_previous startId=$startId",
+                        )
                         val stopToken = actionToken
                         serviceScope.launch {
                             try {
@@ -819,9 +1178,19 @@ class GatewayService : Service() {
                     }
                 } else {
                     if (previousActionType == GatewayActionType.STOP) {
+                        if (previousAction != null) {
+                            pm.appendGatewayDiagnosticLog(
+                                "[andClaw][Diag] action=${actionType.name} previous=${previousActionType.name} policy=await_previous_stop startId=$startId",
+                            )
+                        }
                         // STOP 이후 START/RESTART가 들어오면 STOP 완료를 보장한 뒤 진행한다.
                         previousAction?.join()
                     } else {
+                        if (previousAction != null) {
+                            pm.appendGatewayDiagnosticLog(
+                                "[andClaw][Diag] action=${actionType.name} previous=${previousActionType?.name ?: "UNKNOWN"} policy=cancel_and_join_previous startId=$startId",
+                            )
+                        }
                         previousAction?.cancelAndJoin()
                     }
                 }
