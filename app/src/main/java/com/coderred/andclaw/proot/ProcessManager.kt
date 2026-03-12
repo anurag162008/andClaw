@@ -14,7 +14,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -290,6 +292,8 @@ class ProcessManager(
     private var uptimeJob: Job? = null
     private var startTime: Long = 0L
     private var scope: CoroutineScope? = null
+    private var startupJob: Job? = null
+    private var startupAttemptGeneration: Long = 0L
 
     private val _dashboardUrl = MutableStateFlow<String?>(null)
     val dashboardUrl: StateFlow<String?> = _dashboardUrl.asStateFlow()
@@ -305,11 +309,73 @@ class ProcessManager(
     private var lastMemorySearchEnabled: Boolean = true
     private var lastMemorySearchProvider: String = DEFAULT_MEMORY_SEARCH_PROVIDER
     private var lastMemorySearchApiKey: String = ""
+    private var startupAttemptStartedElapsedMs: Long? = null
+    private val openClawConfigLock = Any()
+
+    private fun generateGatewayAuthToken(): String = java.security.SecureRandom().let { sr ->
+        ByteArray(24).also { sr.nextBytes(it) }
+            .joinToString("") { "%02x".format(it) }
+    }
+
+    private fun ensureGatewayAuthConfig(json: JSONObject): Boolean {
+        val gateway = json.optJSONObject("gateway") ?: JSONObject().also { json.put("gateway", it) }
+        val auth = gateway.optJSONObject("auth")
+
+        return when {
+            auth == null -> {
+                gateway.put(
+                    "auth",
+                    JSONObject().apply {
+                        put("mode", "token")
+                        put("token", generateGatewayAuthToken())
+                    },
+                )
+                true
+            }
+            auth.optString("mode").ifBlank { "token" } == "token" && auth.optString("token").isBlank() -> {
+                auth.put("mode", "token")
+                auth.put("token", generateGatewayAuthToken())
+                true
+            }
+            else -> false
+        }
+    }
 
     val isRunning: Boolean
         get() = _gatewayState.value.status == GatewayStatus.RUNNING
 
+    internal fun markStartupAttemptStarted(nowElapsedMs: Long = SystemClock.elapsedRealtime()) {
+        startupAttemptStartedElapsedMs = nowElapsedMs
+    }
+
+    internal fun clearStartupAttempt() {
+        startupAttemptStartedElapsedMs = null
+    }
+
+    internal fun startupAttemptAgeSeconds(nowElapsedMs: Long = SystemClock.elapsedRealtime()): Long? {
+        val startedAt = startupAttemptStartedElapsedMs ?: return null
+        return ((nowElapsedMs - startedAt).coerceAtLeast(0L)) / 1000L
+    }
+
+    internal fun hasActiveStartupAttempt(): Boolean = startupAttemptStartedElapsedMs != null
+
+    internal fun beginStartupAttemptGeneration(): Long {
+        startupAttemptGeneration += 1
+        return startupAttemptGeneration
+    }
+
+    internal fun invalidateStartupAttemptGeneration() {
+        startupAttemptGeneration += 1
+        startupJob?.cancel()
+        startupJob = null
+    }
+
+    internal fun isStartupAttemptGenerationValid(generation: Long): Boolean {
+        return generation == startupAttemptGeneration
+    }
+
     fun setConfigurationError(message: String) {
+        clearStartupAttempt()
         addLog("[andClaw] $message")
         _gatewayState.value = _gatewayState.value.copy(
             status = GatewayStatus.ERROR,
@@ -318,6 +384,7 @@ class ProcessManager(
     }
 
     fun setStoppedNotice(message: String) {
+        clearStartupAttempt()
         addLog("[andClaw] $message")
         _gatewayState.value = _gatewayState.value.copy(
             status = GatewayStatus.STOPPED,
@@ -366,6 +433,8 @@ class ProcessManager(
         val status = _gatewayState.value.status
         if (status == GatewayStatus.RUNNING || status == GatewayStatus.STARTING) return
 
+        markStartupAttemptStarted()
+
         val normalizedMemorySearchProvider = normalizeMemorySearchProvider(memorySearchProvider)
         val normalizedMemorySearchApiKey = memorySearchApiKey.trim()
 
@@ -381,6 +450,7 @@ class ProcessManager(
 
         _gatewayState.value = _gatewayState.value.copy(
             status = GatewayStatus.STARTING,
+            uptime = 0L,
             errorMessage = null,
         )
         addLog("[andClaw] Starting gateway...")
@@ -392,21 +462,34 @@ class ProcessManager(
         }
 
         // 새 scope 생성
+        invalidateStartupAttemptGeneration()
         scope?.cancel()
         val newScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         scope = newScope
+        val startupGeneration = beginStartupAttemptGeneration()
 
-        newScope.launch {
+        startupJob = newScope.launch {
             var launchedProcess: Process? = null
             var localOutputJob: Job? = null
             var localUptimeJob: Job? = null
+
+            suspend fun ensureStartupAttemptStillValid() {
+                currentCoroutineContext().ensureActive()
+                if (!isStartupAttemptGenerationValid(startupGeneration)) {
+                    throw kotlinx.coroutines.CancellationException("Startup attempt invalidated")
+                }
+            }
+
             try {
                 // 패치 파일이 없으면 생성
                 ensurePatchFile()
+                ensureStartupAttemptStillValid()
 
                 // 기존 게이트웨이 인스턴스 정리 (supervised + orphan 프로세스)
                 stopSupervisedGatewayIfRunning()
+                ensureStartupAttemptStillValid()
                 killOrphanGatewayProcesses()
+                ensureStartupAttemptStillValid()
 
                 // config 파일 생성/갱신 (모델, 게이트웨이, 브라우저 설정)
                 ensureOpenClawConfig(
@@ -424,9 +507,11 @@ class ProcessManager(
                     memorySearchProvider = normalizedMemorySearchProvider.takeIf { applyMemorySearchConfig },
                     memorySearchApiKey = normalizedMemorySearchApiKey.takeIf { applyMemorySearchConfig },
                 )
+                ensureStartupAttemptStillValid()
 
                 // 채널 설정 기록
                 ensureChannelConfig(channelConfig)
+                ensureStartupAttemptStillValid()
 
                 // proot 명령어 구성
                 val cmd = prootManager.buildGatewayCommand()
@@ -497,12 +582,19 @@ class ProcessManager(
 
                 addLog("[andClaw] Command: ${cmd.joinToString(" ")}")
 
+                ensureStartupAttemptStillValid()
                 launchedProcess = pb.start()
+                if (!isStartupAttemptGenerationValid(startupGeneration)) {
+                    runCatching { launchedProcess.destroyForcibly() }
+                    runCatching { launchedProcess.waitFor(2, TimeUnit.SECONDS) }
+                    throw kotlinx.coroutines.CancellationException("Startup attempt invalidated after process launch")
+                }
                 process = launchedProcess
                 startTime = System.currentTimeMillis()
 
                 _gatewayState.value = _gatewayState.value.copy(
                     status = GatewayStatus.STARTING,
+                    uptime = 0L,
                     pid = getProcessId(launchedProcess),
                     dashboardReady = false,
                 )
@@ -535,6 +627,7 @@ class ProcessManager(
                 // 예기치 않은 종료 (사용자가 stop()을 호출하지 않았는데 종료된 경우)
                 if (_gatewayState.value.status == GatewayStatus.RUNNING ||
                     _gatewayState.value.status == GatewayStatus.STARTING) {
+                    clearStartupAttempt()
                     _gatewayState.value = _gatewayState.value.copy(
                         status = GatewayStatus.ERROR,
                         errorMessage = "Process terminated unexpectedly (exit: $exitCode)",
@@ -558,12 +651,16 @@ class ProcessManager(
                 }
             } catch (e: Exception) {
                 addLog("[andClaw] Error: ${e.message}")
+                clearStartupAttempt()
                 _gatewayState.value = _gatewayState.value.copy(
                     status = GatewayStatus.ERROR,
                     errorMessage = e.message,
                     pid = null,
                 )
             } finally {
+                if (startupJob === currentCoroutineContext()[Job]) {
+                    startupJob = null
+                }
                 if (outputJob === localOutputJob) {
                     outputJob = null
                 }
@@ -581,6 +678,9 @@ class ProcessManager(
      * 게이트웨이 프로세스를 중지한다.
      */
     fun stop() {
+        clearStartupAttempt()
+        invalidateStartupAttemptGeneration()
+        scope?.cancel()
         val currentStatus = _gatewayState.value.status
         if (currentStatus != GatewayStatus.RUNNING && currentStatus != GatewayStatus.STARTING) return
 
@@ -625,6 +725,7 @@ class ProcessManager(
         memorySearchProvider: String = DEFAULT_MEMORY_SEARCH_PROVIDER,
         memorySearchApiKey: String = "",
     ) {
+        markStartupAttemptStarted()
         stop()
         start(
             apiProvider = apiProvider,
@@ -784,30 +885,27 @@ class ProcessManager(
     ) {
         val configFile = File(prootManager.rootfsDir, "root/.openclaw/openclaw.json")
 
-        try {
-            val json = if (configFile.exists()) {
-                JSONObject(configFile.readText())
-            } else {
-                configFile.parentFile?.mkdirs()
-                addLog("[andClaw] Creating minimal openclaw config")
-                val token = java.security.SecureRandom().let { sr ->
-                    ByteArray(24).also { sr.nextBytes(it) }
-                        .joinToString("") { "%02x".format(it) }
-                }
-                JSONObject().apply {
-                    put("agents", JSONObject().put("defaults", JSONObject()))
-                    put("gateway", JSONObject().apply {
-                        put("auth", JSONObject().apply {
-                            put("mode", "token")
-                            put("token", token)
+        synchronized(openClawConfigLock) {
+            try {
+                val json = if (configFile.exists()) {
+                    JSONObject(configFile.readText())
+                } else {
+                    configFile.parentFile?.mkdirs()
+                    addLog("[andClaw] Creating minimal openclaw config")
+                    JSONObject().apply {
+                        put("agents", JSONObject().put("defaults", JSONObject()))
+                        put("gateway", JSONObject().apply {
+                            put("auth", JSONObject().apply {
+                                put("mode", "token")
+                                put("token", generateGatewayAuthToken())
+                            })
                         })
-                    })
+                    }
                 }
-            }
 
-            // agents.defaults가 없으면 생성
-            val agents = json.optJSONObject("agents") ?: JSONObject().also { json.put("agents", it) }
-            val defaults = agents.optJSONObject("defaults") ?: JSONObject().also { agents.put("defaults", it) }
+                // agents.defaults가 없으면 생성
+                val agents = json.optJSONObject("agents") ?: JSONObject().also { json.put("agents", it) }
+                val defaults = agents.optJSONObject("defaults") ?: JSONObject().also { agents.put("defaults", it) }
 
             // 현재 모델/목록 확인
             val modelObj = defaults.optJSONObject("model")
@@ -1196,8 +1294,11 @@ class ProcessManager(
                 changed = true
             }
 
-            // gateway 설정 (mode 및 controlUi.allowedOrigins)
-            val gateway = json.optJSONObject("gateway") ?: JSONObject().also { json.put("gateway", it) }
+                // gateway 설정 (mode 및 controlUi.allowedOrigins)
+                val gateway = json.optJSONObject("gateway") ?: JSONObject().also { json.put("gateway", it) }
+                if (ensureGatewayAuthConfig(json)) {
+                    changed = true
+                }
 
             // gateway.mode 설정 (필수 - 미설정 시 게이트웨이 시작 불가)
             if (!gateway.has("mode")) {
@@ -1226,11 +1327,12 @@ class ProcessManager(
                 }
             }
 
-            if (changed) {
-                configFile.writeText(json.toString(2))
+                if (changed) {
+                    configFile.writeText(json.toString(2))
+                }
+            } catch (e: Exception) {
+                addLog("[andClaw] Config update failed: ${e.message}")
             }
-        } catch (e: Exception) {
-            addLog("[andClaw] Config update failed: ${e.message}")
         }
     }
 
@@ -1240,20 +1342,27 @@ class ProcessManager(
     fun ensureChannelConfig(channelConfig: ChannelConfig) {
         val configFile = File(prootManager.rootfsDir, "root/.openclaw/openclaw.json")
 
-        try {
-            val json = if (configFile.exists()) {
-                JSONObject(configFile.readText())
-            } else {
-                configFile.parentFile?.mkdirs()
-                addLog("[andClaw] Creating minimal openclaw config for channel setup")
-                JSONObject().apply {
-                    put("agents", JSONObject().put("defaults", JSONObject()))
-                    put("gateway", JSONObject())
+        synchronized(openClawConfigLock) {
+            try {
+                val json = if (configFile.exists()) {
+                    JSONObject(configFile.readText())
+                } else {
+                    configFile.parentFile?.mkdirs()
+                    addLog("[andClaw] Creating minimal openclaw config for channel setup")
+                    JSONObject().apply {
+                        put("agents", JSONObject().put("defaults", JSONObject()))
+                        put("gateway", JSONObject().apply {
+                            put("auth", JSONObject().apply {
+                                put("mode", "token")
+                                put("token", generateGatewayAuthToken())
+                            })
+                        })
+                    }
                 }
-            }
-            sanitizeKnownIncompatibleConfigKeys(json)
-            val channels = json.optJSONObject("channels") ?: JSONObject().also { json.put("channels", it) }
-            val managedChannels = mutableListOf<String>()
+                sanitizeKnownIncompatibleConfigKeys(json)
+                ensureGatewayAuthConfig(json)
+                val channels = json.optJSONObject("channels") ?: JSONObject().also { json.put("channels", it) }
+                val managedChannels = mutableListOf<String>()
 
             if (channelConfig.whatsappEnabled) {
                 val whatsapp = channels.optJSONObject("whatsapp") ?: JSONObject().also { channels.put("whatsapp", it) }
@@ -1324,28 +1433,29 @@ class ProcessManager(
                 addLog("[andClaw] Channel config cleared")
             }
 
-            // 채널에 맞는 플러그인 활성화/비활성화
-            val plugins = json.optJSONObject("plugins") ?: JSONObject().also { json.put("plugins", it) }
-            val entries = plugins.optJSONObject("entries") ?: JSONObject().also { plugins.put("entries", it) }
+                // 채널에 맞는 플러그인 활성화/비활성화
+                val plugins = json.optJSONObject("plugins") ?: JSONObject().also { json.put("plugins", it) }
+                val entries = plugins.optJSONObject("entries") ?: JSONObject().also { plugins.put("entries", it) }
 
-            // Telegram
-            val tgPlugin = entries.optJSONObject("telegram") ?: JSONObject()
-            tgPlugin.put("enabled", channelConfig.telegramEnabled && channelConfig.telegramBotToken.isNotBlank())
-            entries.put("telegram", tgPlugin)
+                // Telegram
+                val tgPlugin = entries.optJSONObject("telegram") ?: JSONObject()
+                tgPlugin.put("enabled", channelConfig.telegramEnabled && channelConfig.telegramBotToken.isNotBlank())
+                entries.put("telegram", tgPlugin)
 
-            // Discord
-            val dcPlugin = entries.optJSONObject("discord") ?: JSONObject()
-            dcPlugin.put("enabled", channelConfig.discordEnabled && channelConfig.discordBotToken.isNotBlank())
-            entries.put("discord", dcPlugin)
+                // Discord
+                val dcPlugin = entries.optJSONObject("discord") ?: JSONObject()
+                dcPlugin.put("enabled", channelConfig.discordEnabled && channelConfig.discordBotToken.isNotBlank())
+                entries.put("discord", dcPlugin)
 
-            // WhatsApp
-            val waPlugin = entries.optJSONObject("whatsapp") ?: JSONObject()
-            waPlugin.put("enabled", channelConfig.whatsappEnabled)
-            entries.put("whatsapp", waPlugin)
+                // WhatsApp
+                val waPlugin = entries.optJSONObject("whatsapp") ?: JSONObject()
+                waPlugin.put("enabled", channelConfig.whatsappEnabled)
+                entries.put("whatsapp", waPlugin)
 
-            configFile.writeText(json.toString(2))
-        } catch (e: Exception) {
-            addLog("[andClaw] Channel config failed: ${e.message}")
+                configFile.writeText(json.toString(2))
+            } catch (e: Exception) {
+                addLog("[andClaw] Channel config failed: ${e.message}")
+            }
         }
     }
 
@@ -1730,6 +1840,10 @@ class ProcessManager(
         }
     }
 
+    internal fun appendGatewayDiagnosticLog(line: String) {
+        addLog(line)
+    }
+
     private fun addLog(line: String) {
         Log.i(TAG, line)
         val current = _logLines.value.toMutableList()
@@ -1764,6 +1878,7 @@ class ProcessManager(
         val isPortConflict = lineLower.contains("already listening on ws://127.0.0.1:18789") ||
             lineLower.contains("port 18789 is already in use")
         if (isPortConflict) {
+            clearStartupAttempt()
             _gatewayState.value = _gatewayState.value.copy(
                 status = GatewayStatus.ERROR,
                 errorMessage = "Port 18789 is already in use",
@@ -1776,6 +1891,7 @@ class ProcessManager(
             lineLower.contains("18789") &&
             !lineLower.contains("already listening")
         ) {
+            clearStartupAttempt()
             _gatewayState.value = _gatewayState.value.copy(
                 status = GatewayStatus.RUNNING,
                 dashboardReady = true,
