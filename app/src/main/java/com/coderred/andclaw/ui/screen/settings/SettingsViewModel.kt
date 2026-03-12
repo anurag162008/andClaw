@@ -26,10 +26,9 @@ import com.coderred.andclaw.data.SelectedModelConfigEntry
 import com.coderred.andclaw.data.SessionLogEntry
 import com.coderred.andclaw.data.SetupState
 import com.coderred.andclaw.data.GlobalDefaultModelOption
-import com.coderred.andclaw.data.isSessionError
 import com.coderred.andclaw.data.hasGitHubCopilotEnvAuth
+import com.coderred.andclaw.data.hasOpenClawModelsStatusAuth
 import com.coderred.andclaw.data.hasOpenClawSecretRef
-import com.coderred.andclaw.data.parseOpenRouterModels
 import com.coderred.andclaw.proot.BundleUpdateOutcome
 import com.coderred.andclaw.proot.GatewayWsClient
 import com.coderred.andclaw.proot.OpenClawModelCatalogReader
@@ -796,7 +795,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setBraveSearchApiKey(key: String) {
         viewModelScope.launch(Dispatchers.IO) {
             prefs.setBraveSearchApiKey(key)
-            restartGatewayIfRunning()
+            restartGatewayIfRunning(source = "settings:brave_search_key_changed")
         }
     }
 
@@ -964,7 +963,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             }
             try {
                 if (wasGatewayActive) {
-                    GatewayService.stop(context)
+                    GatewayService.stop(context, source = "settings:openclaw_update_stop")
                     val stopped = waitForGatewayStopped()
                     if (!stopped) {
                         val status = processManager.gatewayState.value.status
@@ -1030,13 +1029,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 GatewayStatus.STOPPED,
                 GatewayStatus.ERROR,
                 -> {
-                    GatewayService.start(context)
+                    GatewayService.start(context, source = "settings:openclaw_update_restore")
                     return
                 }
                 GatewayStatus.STOPPING -> delay(250)
             }
         }
-        GatewayService.start(context)
+        GatewayService.start(context, source = "settings:openclaw_update_restore")
     }
 
     fun consumeOpenClawUpdateResult() {
@@ -1148,7 +1147,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     ): BugReportPreview {
         val includedGatewayLogCount = BugReportBundleBuilder.sanitizeGatewayLogLines(gatewayLogLines).size
         return BugReportPreview(
-            sessionErrorCount = sessionEntries.count { it.isSessionError() },
+            sessionErrorCount = sessionEntries.count { it.stopReason == "error" || it.errorMessage != null },
             hasGatewayError = !gatewayErrorMessage.isNullOrBlank(),
             hasProcessError = !gatewayErrorMessage.isNullOrBlank(),
             gatewayLogCount = includedGatewayLogCount,
@@ -1210,7 +1209,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private suspend fun applyChannelConfigAndRestart() {
         val channelConfig = prefs.channelConfig.first()
         processManager.ensureChannelConfig(channelConfig)
-        restartGatewayIfRunning()
+        restartGatewayIfRunning(source = "settings:channel_config_changed")
     }
 
     private fun supportsMemorySearchOverride(provider: String): Boolean {
@@ -1243,11 +1242,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         val shouldRestartForMemoryRuntime =
             launchConfig.memorySearchEnabled && supportsMemorySearchOverride(launchConfig.memorySearchProvider)
         if (forceRestart || shouldRestartForMemoryRuntime) {
-            restartGatewayIfRunning()
+            restartGatewayIfRunning(source = "settings:memory_search_changed")
         }
     }
 
-    private fun restartGatewayIfRunning(delayMs: Long = 1000L) {
+    private fun restartGatewayIfRunning(
+        delayMs: Long = 1000L,
+        source: String = "settings:restart_if_running",
+    ) {
         val status = processManager.gatewayState.value.status
         if (
             status != GatewayStatus.RUNNING &&
@@ -1258,7 +1260,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         restartJob = viewModelScope.launch(Dispatchers.Main) {
             kotlinx.coroutines.delay(delayMs)
             val context = getApplication<Application>()
-            GatewayService.restart(context, userInitiated = false)
+            GatewayService.restart(context, userInitiated = false, source = source)
         }
     }
 
@@ -1266,7 +1268,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         withContext(Dispatchers.Main) {
             val context = getApplication<Application>()
             // 515 복구는 강제로 재시작을 시도해야 하므로 userInitiated=true로 우회한다.
-            GatewayService.restart(context, userInitiated = true)
+            GatewayService.restart(context, userInitiated = true, source = "settings:whatsapp_recovery_restart")
         }
     }
 
@@ -1275,15 +1277,22 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             val launchConfig = prefs.getGatewayLaunchConfigSnapshot()
             val context = getApplication<Application>()
             when (resolveRuntimeLaunchConfigChangeAction(launchConfig, detectCodexAuth())) {
-                RuntimeLaunchConfigChangeAction.RESTART -> GatewayService.restart(context, userInitiated = true)
-                RuntimeLaunchConfigChangeAction.STOP -> GatewayService.stop(context)
+                RuntimeLaunchConfigChangeAction.RESTART -> GatewayService.restart(
+                    context,
+                    userInitiated = true,
+                    source = "settings:runtime_launch_config_restart",
+                )
+                RuntimeLaunchConfigChangeAction.STOP -> GatewayService.stop(
+                    context,
+                    source = "settings:runtime_launch_config_stop",
+                )
                 RuntimeLaunchConfigChangeAction.NONE -> Unit
             }
         }
     }
 
     fun restartGatewayIfRunningNow() {
-        restartGatewayIfRunning(delayMs = 0L)
+        restartGatewayIfRunning(delayMs = 0L, source = "settings:manual_restart_now")
     }
 
     fun fetchModels() {
@@ -1308,7 +1317,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                         }
 
                         val body = conn.inputStream.bufferedReader().use { it.readText() }
-                        parseOpenRouterModels(body)
+                        parseOpenRouterModelsLocal(body)
                     } finally {
                         conn.disconnect()
                     }
@@ -1380,6 +1389,83 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 _isLoadingModels.value = false
             }
         }
+    }
+
+    private fun parseOpenRouterModelsLocal(jsonBody: String): List<OpenRouterModel> {
+        val result = mutableListOf<OpenRouterModel>()
+        val json = JSONObject(jsonBody)
+        val data = json.getJSONArray("data")
+
+        for (i in 0 until data.length()) {
+            val model = data.getJSONObject(i)
+            val id = model.optString("id", "")
+
+            val supportedParams = model.optJSONArray("supported_parameters")
+            var supportsTools = false
+            if (supportedParams != null) {
+                for (j in 0 until supportedParams.length()) {
+                    if (supportedParams.getString(j) == "tools") {
+                        supportsTools = true
+                        break
+                    }
+                }
+            }
+            if (!supportsTools) continue
+
+            var supportsReasoning = false
+            if (supportedParams != null) {
+                for (j in 0 until supportedParams.length()) {
+                    if (supportedParams.getString(j) == "reasoning") {
+                        supportsReasoning = true
+                        break
+                    }
+                }
+            }
+
+            val modality = model.optString("modality", "")
+            val supportsImages = modality.contains("image")
+            val name = model.optString("name", id)
+            val contextLength = model.optInt("context_length", 0)
+            val maxOutputTokens = model.optInt(
+                "top_provider_max_completion_tokens",
+                model.optInt("max_completion_tokens", 4096),
+            )
+
+            val pricingObj = model.optJSONObject("pricing")
+            val promptStr = pricingObj?.optString("prompt", "") ?: ""
+            val completionStr = pricingObj?.optString("completion", "") ?: ""
+            val promptPrice = promptStr.toDoubleOrNull() ?: -1.0
+            val completionPrice = completionStr.toDoubleOrNull() ?: -1.0
+            val isFree = id.endsWith(":free") || (promptPrice == 0.0 && completionPrice == 0.0)
+
+            val pricing = if (isFree) {
+                "Free"
+            } else {
+                val perMillion = promptPrice * 1_000_000
+                when {
+                    perMillion < 0.01 -> "$0/M"
+                    perMillion < 1.0 -> "$${String.format("%.2f", perMillion)}/M"
+                    else -> "$${String.format("%.1f", perMillion)}/M"
+                }
+            }
+
+            result.add(
+                OpenRouterModel(
+                    id = id,
+                    name = name,
+                    contextLength = contextLength,
+                    maxOutputTokens = maxOutputTokens,
+                    isFree = isFree,
+                    pricing = pricing,
+                    supportsReasoning = supportsReasoning,
+                    supportsImages = supportsImages,
+                ),
+            )
+        }
+
+        val freeModels = result.filter { it.isFree }.sortedByDescending { it.contextLength }
+        val paidModels = result.filter { !it.isFree }.sortedByDescending { it.contextLength }
+        return freeModels + paidModels
     }
 
     private fun loadBuiltInModels(provider: String): List<OpenRouterModel> {
@@ -2028,13 +2114,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     private fun updateGitHubCopilotProfilePreference(profileId: String) {
         val configFile = File(prootManager.rootfsDir, "root/.openclaw/openclaw.json")
-        configFile.parentFile?.mkdirs()
+        if (!configFile.exists()) return
 
-        val root = if (configFile.exists()) {
-            runCatching { JSONObject(configFile.readText()) }.getOrElse { JSONObject() }
-        } else {
-            JSONObject()
-        }
+        val root = runCatching { JSONObject(configFile.readText()) }
+            .getOrElse {
+                Log.w(TAG, "Skipping GitHub Copilot profile preference update: invalid openclaw.json", it)
+                return
+            }
 
         val auth = root.optJSONObject("auth") ?: JSONObject().also { root.put("auth", it) }
         val profiles = auth.optJSONObject("profiles") ?: JSONObject().also { auth.put("profiles", it) }
@@ -2099,14 +2185,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 if (hasStoredProfile) return true
             }
 
-            val authListCommand = "export NODE_OPTIONS='--require /root/.openclaw-patch.js' && " +
-                "openclaw models auth list --provider github-copilot 2>&1"
-            val authListOutput = prootManager.executeAndCapture(authListCommand)
-            if (!authListOutput.isNullOrBlank()) {
-                val normalized = authListOutput.lowercase()
-                if (normalized.contains("github-copilot:")) return true
-            }
-            false
+            val authStatusCommand = "export NODE_OPTIONS='--require /root/.openclaw-patch.js' && " +
+                "openclaw models status --json 2>&1"
+            val authStatusOutput = prootManager.executeAndCapture(authStatusCommand)
+            hasOpenClawModelsStatusAuth(authStatusOutput, "github-copilot")
         } catch (_: Exception) {
             false
         }
@@ -2140,16 +2222,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             }
 
             // CLI 상태 조회 (느린 편이라 마지막 fallback)
-            val authListCommand = "export NODE_OPTIONS='--require /root/.openclaw-patch.js' && " +
-                "openclaw models auth list --provider openai-codex 2>&1"
-            val authListOutput = prootManager.executeAndCapture(authListCommand)
-            if (!authListOutput.isNullOrBlank()) {
-                val normalized = authListOutput.lowercase()
-                if (normalized.contains("openai-codex:")) return true
-                if (normalized.contains("codex-cli")) return true
-                if (normalized.contains("chatgpt")) return true
-            }
-            false
+            val authStatusCommand = "export NODE_OPTIONS='--require /root/.openclaw-patch.js' && " +
+                "openclaw models status --json 2>&1"
+            val authStatusOutput = prootManager.executeAndCapture(authStatusCommand)
+            hasOpenClawModelsStatusAuth(authStatusOutput, "openai-codex")
         } catch (_: Exception) {
             false
         }
@@ -2620,7 +2696,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                                 return@launch
                             }
                             cancelWhatsAppQr()
-                            restartGatewayIfRunning(delayMs = 0L)
+                            restartGatewayIfRunning(delayMs = 0L, source = "settings:whatsapp_disconnect_restart")
                             withContext(Dispatchers.IO) {
                                 refreshWhatsAppLinkStateInternal()
                             }

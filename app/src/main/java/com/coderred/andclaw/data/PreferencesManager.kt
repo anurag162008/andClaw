@@ -39,6 +39,91 @@ internal fun hasOpenClawSecretRef(profile: org.json.JSONObject, key: String): Bo
     }
 }
 
+internal fun extractJsonObjectPayload(output: String?): String? {
+    if (output.isNullOrBlank()) return null
+
+    var depth = 0
+    var startIndex = -1
+    var inString = false
+    var escaping = false
+
+    output.forEachIndexed { index, ch ->
+        if (escaping) {
+            escaping = false
+            return@forEachIndexed
+        }
+
+        when (ch) {
+            '\\' -> if (inString) escaping = true
+            '"' -> inString = !inString
+            '{' -> if (!inString) {
+                if (depth == 0) startIndex = index
+                depth += 1
+            }
+            '}' -> if (!inString && depth > 0) {
+                depth -= 1
+                if (depth == 0 && startIndex >= 0) {
+                    return output.substring(startIndex, index + 1)
+                }
+            }
+        }
+    }
+
+    return null
+}
+
+internal fun hasOpenClawModelsStatusAuth(output: String?, providerId: String): Boolean {
+    if (output.isNullOrBlank()) return false
+    val normalizedProviderId = providerId.trim().lowercase()
+    if (normalizedProviderId.isBlank()) return false
+
+    fun isUsableStatus(status: String): Boolean {
+        return when (status.trim().lowercase()) {
+            "ok", "expiring", "static" -> true
+            else -> false
+        }
+    }
+
+    return runCatching {
+        val jsonPayload = extractJsonObjectPayload(output) ?: return@runCatching false
+        val root = org.json.JSONObject(jsonPayload)
+        val auth = root.optJSONObject("auth") ?: return@runCatching false
+
+        val providers = auth.optJSONArray("providers")
+        if (providers != null) {
+            for (index in 0 until providers.length()) {
+                val provider = providers.optJSONObject(index) ?: continue
+                if (provider.optString("provider").trim().lowercase() != normalizedProviderId) continue
+                val effectiveKind = provider.optJSONObject("effective")?.optString("kind")?.trim()?.lowercase()
+                if (effectiveKind == "env" || effectiveKind == "models.json") {
+                    return@runCatching true
+                }
+            }
+        }
+
+        val oauth = auth.optJSONObject("oauth") ?: return@runCatching false
+        val oauthProviders = oauth.optJSONArray("providers")
+        if (oauthProviders != null) {
+            for (index in 0 until oauthProviders.length()) {
+                val provider = oauthProviders.optJSONObject(index) ?: continue
+                if (provider.optString("provider").trim().lowercase() != normalizedProviderId) continue
+                if (isUsableStatus(provider.optString("status"))) return@runCatching true
+            }
+        }
+
+        val profiles = oauth.optJSONArray("profiles")
+        if (profiles != null) {
+            for (index in 0 until profiles.length()) {
+                val profile = profiles.optJSONObject(index) ?: continue
+                if (profile.optString("provider").trim().lowercase() != normalizedProviderId) continue
+                if (isUsableStatus(profile.optString("status"))) return@runCatching true
+            }
+        }
+
+        false
+    }.getOrDefault(false)
+}
+
 class PreferencesManager(private val context: Context) {
 
     private fun resolveDefaultModelMetadata(
@@ -137,10 +222,10 @@ class PreferencesManager(private val context: Context) {
         if (hasStoredProfile) return true
 
         return runCatching {
-            val authListCommand = "export NODE_OPTIONS='--require /root/.openclaw-patch.js' && " +
-                "openclaw models auth list --provider github-copilot 2>&1"
-            val authListOutput = prootManager.executeAndCapture(authListCommand)
-            !authListOutput.isNullOrBlank() && authListOutput.lowercase().contains("github-copilot:")
+            val authStatusCommand = "export NODE_OPTIONS='--require /root/.openclaw-patch.js' && " +
+                "openclaw models status --json 2>&1"
+            val authStatusOutput = prootManager.executeAndCapture(authStatusCommand)
+            hasOpenClawModelsStatusAuth(authStatusOutput, "github-copilot")
         }.getOrDefault(false)
     }
 
