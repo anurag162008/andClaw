@@ -33,6 +33,57 @@ class GatewayWatchdogRecoveryWorker(
         private const val CHANNEL_ID = "andclaw_watchdog_recovery"
         private const val NOTIFICATION_ID = 30101
         private const val HEALTH_PROBE_TIMEOUT_MS = 8_000L
+        private const val STARTING_RECOVERY_GRACE_PERIOD_SECONDS = 120L
+
+        internal enum class RecoveryAction {
+            NONE,
+            ATTACH,
+            RESTART,
+            START,
+        }
+
+        internal fun determineRecoveryAction(
+            status: GatewayStatus?,
+            serviceActive: Boolean,
+            runningHealthy: Boolean,
+            startupAttemptActive: Boolean = false,
+            startupUptimeSeconds: Long = 0L,
+        ): RecoveryAction {
+            if (startupAttemptActive) {
+                if (status == GatewayStatus.STARTING) {
+                    return if (startupUptimeSeconds < STARTING_RECOVERY_GRACE_PERIOD_SECONDS) {
+                        RecoveryAction.NONE
+                    } else {
+                        RecoveryAction.RESTART
+                    }
+                }
+                if (serviceActive && startupUptimeSeconds < STARTING_RECOVERY_GRACE_PERIOD_SECONDS) {
+                    return RecoveryAction.NONE
+                }
+            }
+
+            return when (status) {
+                null,
+                GatewayStatus.STOPPED,
+                GatewayStatus.ERROR -> RecoveryAction.START
+                GatewayStatus.RUNNING -> {
+                    when {
+                        !serviceActive && runningHealthy -> RecoveryAction.ATTACH
+                        !runningHealthy -> RecoveryAction.RESTART
+                        serviceActive -> RecoveryAction.NONE
+                        else -> RecoveryAction.RESTART
+                    }
+                }
+                GatewayStatus.STARTING -> {
+                    if (startupUptimeSeconds >= STARTING_RECOVERY_GRACE_PERIOD_SECONDS) {
+                        RecoveryAction.RESTART
+                    } else {
+                        RecoveryAction.NONE
+                    }
+                }
+                GatewayStatus.STOPPING -> RecoveryAction.NONE
+            }
+        }
 
         fun enqueue(context: Context) {
             val request = OneTimeWorkRequestBuilder<GatewayWatchdogRecoveryWorker>()
@@ -52,49 +103,68 @@ class GatewayWatchdogRecoveryWorker(
         }
 
         val processManager = GatewayService.processManager
-        var status = processManager?.gatewayState?.value?.status
-        val needsRecovery = when (status) {
-            null,
-            GatewayStatus.STOPPED,
-            GatewayStatus.ERROR -> true
-            GatewayStatus.RUNNING -> {
-                val healthy = processManager?.probeGatewayHealth(timeoutMs = HEALTH_PROBE_TIMEOUT_MS) == true
-                // Probe 중 상태 전이가 일어난 경우 stale RUNNING 판정을 폐기한다.
-                status = processManager?.gatewayState?.value?.status ?: status
-                when (status) {
-                    GatewayStatus.STOPPED,
-                    GatewayStatus.ERROR -> true
-                    GatewayStatus.RUNNING -> {
-                        if (!healthy) {
-                            Log.w("GatewayWatchdogWorker", "Gateway RUNNING but unhealthy, restarting")
-                        }
-                        !healthy
-                    }
-                    GatewayStatus.STARTING,
-                    GatewayStatus.STOPPING -> false
-                }
+        var gatewayState = processManager?.gatewayState?.value
+        var status = gatewayState?.status
+        val serviceActive = GatewayService.isInstanceActive
+        val startupAttemptAgeSeconds = processManager?.startupAttemptAgeSeconds()
+        val startupAttemptActive = startupAttemptAgeSeconds != null
+        val runningHealthy = if (status == GatewayStatus.RUNNING) {
+            val healthy = processManager?.probeGatewayHealth(timeoutMs = HEALTH_PROBE_TIMEOUT_MS) == true
+            gatewayState = processManager?.gatewayState?.value ?: gatewayState
+            status = gatewayState?.status ?: status
+            if (status != GatewayStatus.RUNNING) {
+                true
+            } else {
+                healthy
             }
-            GatewayStatus.STARTING,
-            GatewayStatus.STOPPING -> false
+        } else {
+            true
         }
+        val recoveryAction = determineRecoveryAction(
+            status = status,
+            serviceActive = serviceActive,
+            runningHealthy = runningHealthy,
+            startupAttemptActive = startupAttemptActive,
+            startupUptimeSeconds = startupAttemptAgeSeconds ?: 0L,
+        )
+        val needsRecovery = recoveryAction != RecoveryAction.NONE
         if (!needsRecovery) {
             return Result.success()
         }
 
         return try {
             setForeground(createForegroundInfo())
-            if (status == GatewayStatus.RUNNING) {
-                GatewayService.restart(
-                    applicationContext,
-                    userInitiated = false,
-                    fromWatchdog = true,
-                )
-            } else {
-                GatewayService.start(
-                    applicationContext,
-                    fromWatchdog = true,
-                    userInitiated = false,
-                )
+            when (recoveryAction) {
+                RecoveryAction.ATTACH -> {
+                    processManager?.appendGatewayDiagnosticLog(
+                        "[andClaw][Diag] watchdog_recover service_missing action=attach_service",
+                    )
+                    GatewayService.attachToRunningGateway(
+                        applicationContext,
+                        fromWatchdog = true,
+                        source = "watchdog:attach_service",
+                    )
+                }
+                RecoveryAction.RESTART -> {
+                    if (status == GatewayStatus.RUNNING && !runningHealthy) {
+                        Log.w("GatewayWatchdogWorker", "Gateway RUNNING but unhealthy, restarting")
+                    }
+                    GatewayService.restart(
+                        applicationContext,
+                        userInitiated = false,
+                        fromWatchdog = true,
+                        source = "watchdog:recovery_restart",
+                    )
+                }
+                RecoveryAction.START -> {
+                    GatewayService.start(
+                        applicationContext,
+                        fromWatchdog = true,
+                        userInitiated = false,
+                        source = "watchdog:recovery_start",
+                    )
+                }
+                RecoveryAction.NONE -> Unit
             }
             Result.success()
         } catch (error: Exception) {

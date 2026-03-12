@@ -26,6 +26,7 @@ class GatewayWatchdogReceiver : BroadcastReceiver() {
         private const val MIN_DELAY_MS = 5_000L
         private const val HEALTH_PROBE_TIMEOUT_MS = 6_000L
         private const val RUNNING_UNHEALTHY_RECOVERY_THRESHOLD = 2
+        private const val STARTING_RECOVERY_GRACE_PERIOD_SECONDS = 120L
         private val runningUnhealthyFailures = AtomicInteger(0)
 
         fun intervalMs(): Long = WATCHDOG_INTERVAL_MS
@@ -74,9 +75,34 @@ class GatewayWatchdogReceiver : BroadcastReceiver() {
         internal fun decideRecovery(
             status: GatewayStatus?,
             runningHealthy: Boolean = true,
+            serviceActive: Boolean = true,
+            startupAttemptActive: Boolean = false,
+            startupUptimeSeconds: Long = 0L,
             previousRunningUnhealthyFailures: Int = 0,
             runningUnhealthyRecoveryThreshold: Int = RUNNING_UNHEALTHY_RECOVERY_THRESHOLD,
         ): RecoveryDecision {
+            if (startupAttemptActive) {
+                if (status == GatewayStatus.STARTING) {
+                    return if (startupUptimeSeconds < STARTING_RECOVERY_GRACE_PERIOD_SECONDS) {
+                        RecoveryDecision(
+                            needsRecovery = false,
+                            nextRunningUnhealthyFailures = 0,
+                        )
+                    } else {
+                        RecoveryDecision(
+                            needsRecovery = true,
+                            nextRunningUnhealthyFailures = 0,
+                        )
+                    }
+                }
+                if (serviceActive && startupUptimeSeconds < STARTING_RECOVERY_GRACE_PERIOD_SECONDS) {
+                    return RecoveryDecision(
+                        needsRecovery = false,
+                        nextRunningUnhealthyFailures = 0,
+                    )
+                }
+            }
+
             return when (status) {
                 null,
                 GatewayStatus.STOPPED,
@@ -85,21 +111,40 @@ class GatewayWatchdogReceiver : BroadcastReceiver() {
                     nextRunningUnhealthyFailures = 0,
                 )
                 GatewayStatus.RUNNING -> {
-                    if (runningHealthy) {
+                    if (!serviceActive) {
+                        RecoveryDecision(
+                            needsRecovery = true,
+                            nextRunningUnhealthyFailures = 0,
+                        )
+                    } else {
+                        if (runningHealthy) {
+                            RecoveryDecision(
+                                needsRecovery = false,
+                                nextRunningUnhealthyFailures = 0,
+                            )
+                        } else {
+                            val nextFailureCount = (previousRunningUnhealthyFailures + 1).coerceAtLeast(1)
+                            val shouldRecover = nextFailureCount >= runningUnhealthyRecoveryThreshold
+                            RecoveryDecision(
+                                needsRecovery = shouldRecover,
+                                nextRunningUnhealthyFailures = if (shouldRecover) 0 else nextFailureCount,
+                            )
+                        }
+                    }
+                }
+                GatewayStatus.STARTING -> {
+                    if (startupUptimeSeconds >= STARTING_RECOVERY_GRACE_PERIOD_SECONDS) {
+                        RecoveryDecision(
+                            needsRecovery = true,
+                            nextRunningUnhealthyFailures = 0,
+                        )
+                    } else {
                         RecoveryDecision(
                             needsRecovery = false,
                             nextRunningUnhealthyFailures = 0,
                         )
-                    } else {
-                        val nextFailureCount = (previousRunningUnhealthyFailures + 1).coerceAtLeast(1)
-                        val shouldRecover = nextFailureCount >= runningUnhealthyRecoveryThreshold
-                        RecoveryDecision(
-                            needsRecovery = shouldRecover,
-                            nextRunningUnhealthyFailures = if (shouldRecover) 0 else nextFailureCount,
-                        )
                     }
                 }
-                GatewayStatus.STARTING,
                 GatewayStatus.STOPPING -> RecoveryDecision(
                     needsRecovery = false,
                     nextRunningUnhealthyFailures = 0,
@@ -162,12 +207,17 @@ class GatewayWatchdogReceiver : BroadcastReceiver() {
                 }
 
                 val processManager = GatewayService.processManager
-                var status = processManager?.gatewayState?.value?.status
+                var gatewayState = processManager?.gatewayState?.value
+                var status = gatewayState?.status
+                val serviceActive = GatewayService.isInstanceActive
+                val startupAttemptAgeSeconds = processManager?.startupAttemptAgeSeconds()
+                val startupAttemptActive = startupAttemptAgeSeconds != null
                 val previousRunningUnhealthyFailures = runningUnhealthyFailures.get()
                 val runningHealthy = if (status == GatewayStatus.RUNNING) {
                     val healthy = processManager?.probeGatewayHealth(timeoutMs = HEALTH_PROBE_TIMEOUT_MS) == true
                     // Probe 중 상태 전이가 일어난 경우 stale RUNNING 판정을 폐기한다.
-                    status = processManager?.gatewayState?.value?.status ?: status
+                    gatewayState = processManager?.gatewayState?.value ?: gatewayState
+                    status = gatewayState?.status ?: status
                     if (status != GatewayStatus.RUNNING) true else healthy
                 } else {
                     true
@@ -175,9 +225,18 @@ class GatewayWatchdogReceiver : BroadcastReceiver() {
                 val decision = decideRecovery(
                     status = status,
                     runningHealthy = runningHealthy,
+                    serviceActive = serviceActive,
+                    startupAttemptActive = startupAttemptActive,
+                    startupUptimeSeconds = startupAttemptAgeSeconds ?: 0L,
                     previousRunningUnhealthyFailures = previousRunningUnhealthyFailures,
                 )
                 runningUnhealthyFailures.set(decision.nextRunningUnhealthyFailures)
+
+                if ((status == GatewayStatus.RUNNING || status == GatewayStatus.STARTING) && !serviceActive) {
+                    processManager?.appendGatewayDiagnosticLog(
+                        "[andClaw][Diag] watchdog_detected service_missing status=${status ?: "null"}",
+                    )
+                }
 
                 if (status == GatewayStatus.RUNNING && !runningHealthy) {
                     val failureForLog = if (decision.needsRecovery) {
