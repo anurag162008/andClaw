@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.net.Uri
 import android.os.BatteryManager
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.coderred.andclaw.AndClawApp
@@ -40,16 +41,21 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.net.HttpURLConnection
+import java.net.URLEncoder
 import java.net.URL
+import java.nio.charset.StandardCharsets
 
 class DashboardViewModel(application: Application) : AndroidViewModel(application) {
     companion object {
+        private const val TAG = "DashboardViewModel"
         private const val WHATSAPP_QR_EXPIRES_MS = 120_000L
         private const val WHATSAPP_LOGIN_GUARD_TIMEOUT_MS = 4L * 60L * 1000L
         private const val WHATSAPP_LOGIN_GUARD_REFRESH_INTERVAL_MS = 60_000L
         private const val WHATSAPP_STABLE_CONNECTED_REQUIRED_COUNT = 4
         private const val WHATSAPP_GATEWAY_RESTART_READY_TIMEOUT_MS = 20_000L
         private const val WHATSAPP_GATEWAY_RESTART_RETRY_INTERVAL_MS = 250L
+        private const val DASHBOARD_TOKEN_READ_ATTEMPTS = 8
+        private const val DASHBOARD_TOKEN_READ_DELAY_MS = 250L
     }
 
     private val app = application as AndClawApp
@@ -164,7 +170,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun startGateway() {
-        GatewayService.start(getApplication())
+        GatewayService.start(getApplication(), source = "dashboard:manual_start")
     }
 
     fun getLaunchApiKeyWarning(onResult: (LaunchApiKeyWarning) -> Unit) {
@@ -177,39 +183,36 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun stopGatewayForMissingModelSelection() {
-        GatewayService.stopForMissingModelSelection(getApplication())
+        GatewayService.stopForMissingModelSelection(getApplication(), source = "dashboard:missing_model_selection")
     }
 
     fun stopGateway() {
-        GatewayService.stop(getApplication())
+        GatewayService.stop(getApplication(), source = "dashboard:manual_stop")
     }
 
     fun restartGateway() {
-        stopGateway()
-        viewModelScope.launch {
-            delay(1000)
-            startGateway()
-        }
+        GatewayService.restart(
+            getApplication(),
+            userInitiated = true,
+            source = "dashboard:manual_restart",
+        )
     }
 
     fun openDashboard(context: Context) {
-        try {
+        viewModelScope.launch {
             val configFile = java.io.File(app.prootManager.rootfsDir, "root/.openclaw/openclaw.json")
-            val token = if (configFile.exists()) {
-                val json = org.json.JSONObject(configFile.readText())
-                json.optJSONObject("gateway")?.optJSONObject("auth")?.optString("token", "") ?: ""
-            } else ""
-
-            val url = if (token.isNotBlank()) {
-                "http://localhost:18789/?token=${Uri.encode(token)}"
-            } else {
-                "http://localhost:18789/"
+            val url = withContext(Dispatchers.IO) {
+                resolveDashboardUrl(
+                    readToken = { readGatewayAuthTokenFromConfig(configFile) },
+                    attempts = DASHBOARD_TOKEN_READ_ATTEMPTS,
+                    delayMs = DASHBOARD_TOKEN_READ_DELAY_MS,
+                )
             }
-            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-        } catch (_: Exception) {
-            context.startActivity(
-                Intent(Intent.ACTION_VIEW, Uri.parse("http://localhost:18789/"))
-            )
+            if (url != null) {
+                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+            } else {
+                Log.w(TAG, "Skipping dashboard open: gateway auth token unavailable")
+            }
         }
     }
 
@@ -227,17 +230,20 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 modelContext = model.contextLength,
                 modelMaxOutput = model.maxOutputTokens,
             )
-            restartGatewayIfRunning()
+            restartGatewayIfRunning(source = "dashboard:selected_model_changed")
         }
     }
 
-    private fun restartGatewayIfRunning(delayMs: Long = 700L) {
+    private fun restartGatewayIfRunning(
+        delayMs: Long = 700L,
+        source: String = "dashboard:restart_if_running",
+    ) {
         if (!app.processManager.isRunning) return
         restartJob?.cancel()
         restartJob = viewModelScope.launch {
             delay(delayMs)
             val context = getApplication<Application>()
-            GatewayService.restart(context, userInitiated = false)
+            GatewayService.restart(context, userInitiated = false, source = source)
         }
     }
 
@@ -417,7 +423,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 }
                 if (purgedStaleCreds && wasWhatsAppProviderRunning) {
                     val preRestartPid = app.processManager.gatewayState.value.pid
-                    restartGatewayIfRunning(delayMs = 0L)
+                    restartGatewayIfRunning(delayMs = 0L, source = "dashboard:whatsapp_qr_restart")
                     val restartReady = waitForGatewayRestartReady(
                         requireTransition = true,
                         previousPid = preRestartPid,
@@ -722,3 +728,32 @@ data class DashboardGatewayUiState(
     val errorMessage: String? = null,
     val dashboardReady: Boolean = false,
 )
+
+internal fun readGatewayAuthTokenFromConfig(configFile: java.io.File): String? {
+    return runCatching {
+        if (!configFile.exists()) return null
+        val json = org.json.JSONObject(configFile.readText())
+        json.optJSONObject("gateway")
+            ?.optJSONObject("auth")
+            ?.optString("token", "")
+            ?.takeIf { it.isNotBlank() }
+    }.getOrNull()
+}
+
+internal suspend fun resolveDashboardUrl(
+    readToken: suspend () -> String?,
+    attempts: Int,
+    delayMs: Long,
+): String? {
+    repeat(attempts.coerceAtLeast(1)) { index ->
+        val token = readToken()
+        if (!token.isNullOrBlank()) {
+            val encodedToken = URLEncoder.encode(token, StandardCharsets.UTF_8.toString())
+            return "http://localhost:18789/#token=$encodedToken"
+        }
+        if (index < attempts - 1) {
+            delay(delayMs)
+        }
+    }
+    return null
+}
