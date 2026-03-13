@@ -19,6 +19,8 @@ fun AndClawNavGraph(
     isSetupComplete: Boolean,
     isOnboardingComplete: Boolean,
     authCallbackUri: Uri? = null,
+    openPairingRequestsOnLaunch: Boolean = false,
+    onOpenPairingRequestsHandled: () -> Unit = {},
 ) {
     val targetRoute = when {
         !isSetupComplete -> Screen.Setup.route
@@ -43,6 +45,23 @@ fun AndClawNavGraph(
                 launchSingleTop = true
             }
         }
+    }
+
+    LaunchedEffect(openPairingRequestsOnLaunch, targetRoute, currentRoute) {
+        if (!openPairingRequestsOnLaunch) return@LaunchedEffect
+        if (targetRoute != Screen.Dashboard.route) return@LaunchedEffect
+        if (currentRoute == null) return@LaunchedEffect
+
+        if (currentRoute != Screen.Dashboard.route) {
+            val poppedToDashboard = navController.popBackStack(Screen.Dashboard.route, inclusive = false)
+            if (!poppedToDashboard) {
+                navController.navigate(Screen.Dashboard.route) {
+                    launchSingleTop = true
+                }
+            }
+        }
+
+        onOpenPairingRequestsHandled()
     }
 
     NavHost(

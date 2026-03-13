@@ -79,13 +79,19 @@ private data class StartupOpenClawUpdateResult(
 
 class MainActivity : ComponentActivity() {
 
+    companion object {
+        const val ACTION_OPEN_PAIRING_REQUESTS = "com.coderred.andclaw.action.OPEN_PAIRING_REQUESTS"
+        const val EXTRA_OPEN_PAIRING_REQUESTS = "open_pairing_requests"
+    }
+
     private var authCallbackUri by mutableStateOf<Uri?>(null)
+    private var openPairingRequestsOnLaunch by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
-        handleDeepLink(intent)
+        handleIncomingIntent(intent)
 
         val app = application as AndClawApp
 
@@ -301,6 +307,10 @@ class MainActivity : ComponentActivity() {
                             isSetupComplete = isSetupComplete,
                             isOnboardingComplete = isOnboardingComplete,
                             authCallbackUri = authCallbackUri,
+                            openPairingRequestsOnLaunch = openPairingRequestsOnLaunch,
+                            onOpenPairingRequestsHandled = {
+                                openPairingRequestsOnLaunch = false
+                            },
                         )
                     }
 
@@ -471,10 +481,16 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        handleDeepLink(intent)
+        setIntent(intent)
+        handleIncomingIntent(intent)
     }
 
-    private fun handleDeepLink(intent: Intent?) {
+    private fun handleIncomingIntent(intent: Intent?) {
+        if (shouldOpenPairingRequests(intent)) {
+            openPairingRequestsOnLaunch = true
+            consumePairingLaunchSignal(intent)
+        }
+
         val uri = intent?.data ?: return
         if (uri.scheme == OpenRouterAuth.CALLBACK_SCHEME &&
             uri.host == OpenRouterAuth.CALLBACK_HOST &&
@@ -482,6 +498,20 @@ class MainActivity : ComponentActivity() {
         ) {
             authCallbackUri = uri
         }
+    }
+
+    private fun shouldOpenPairingRequests(intent: Intent?): Boolean {
+        if (intent == null) return false
+        return intent.action == ACTION_OPEN_PAIRING_REQUESTS ||
+            intent.getBooleanExtra(EXTRA_OPEN_PAIRING_REQUESTS, false)
+    }
+
+    private fun consumePairingLaunchSignal(intent: Intent?) {
+        if (intent == null) return
+        if (intent.action == ACTION_OPEN_PAIRING_REQUESTS) {
+            intent.action = null
+        }
+        intent.removeExtra(EXTRA_OPEN_PAIRING_REQUESTS)
     }
 
     private suspend fun maybeLaunchInAppReview(app: AndClawApp) {
