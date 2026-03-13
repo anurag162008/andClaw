@@ -17,6 +17,7 @@ import androidx.core.app.NotificationCompat
 import com.coderred.andclaw.AndClawApp
 import com.coderred.andclaw.MainActivity
 import com.coderred.andclaw.R
+import com.coderred.andclaw.data.GatewaySurvivorMetadata
 import com.coderred.andclaw.data.GatewayStatus
 import com.coderred.andclaw.data.PairingRequest
 import com.coderred.andclaw.data.PreferencesManager
@@ -35,6 +36,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import java.io.File
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -65,7 +67,9 @@ class GatewayService : Service() {
         private const val START_TERMINAL_WAIT_TIMEOUT_MS = 300_000L
         private const val RESTART_WAKE_LOCK_TIMEOUT_MS = 300_000L
         private const val ATTACH_HEALTH_PROBE_TIMEOUT_MS = 8_000L
+        private const val STICKY_PREFLIGHT_HEALTH_PROBE_TIMEOUT_MS = 2_500L
         private const val WHATSAPP_LOGIN_WAKE_LOCK_TIMEOUT_MS = 4L * 60L * 1000L
+        private const val DEFAULT_GATEWAY_WS_ENDPOINT = "127.0.0.1:18789"
         const val ACTION_START = "com.coderred.andclaw.action.START"
         const val ACTION_STOP = "com.coderred.andclaw.action.STOP"
         const val ACTION_STOP_FOR_MISSING_MODEL = "com.coderred.andclaw.action.STOP_FOR_MISSING_MODEL"
@@ -251,6 +255,42 @@ class GatewayService : Service() {
             }
         }
 
+        internal fun isSurvivorPidAlive(pid: Int?): Boolean {
+            if (pid == null || pid <= 0) return false
+            return File("/proc/$pid").exists()
+        }
+
+        internal fun shouldAttachOnStickyPreflight(
+            shouldRecover: Boolean,
+            metadata: GatewaySurvivorMetadata?,
+            pidAlive: Boolean,
+            healthCheckPassed: Boolean,
+        ): Boolean {
+            if (!shouldRecover) return false
+            if (metadata == null) return false
+            if (metadata.startupAttemptActive) return false
+            if (!pidAlive || !healthCheckPassed) return false
+            val endpoint = metadata.wsEndpoint.trim().lowercase()
+            return endpoint == DEFAULT_GATEWAY_WS_ENDPOINT || endpoint == "localhost:18789"
+        }
+
+        internal fun shouldPersistGatewaySurvivorMetadata(
+            status: GatewayStatus,
+            pid: Int?,
+            hasActiveStartupAttempt: Boolean,
+        ): Boolean {
+            if (pid == null || pid <= 0) return false
+            return status == GatewayStatus.RUNNING ||
+                (status == GatewayStatus.STARTING && hasActiveStartupAttempt)
+        }
+
+        internal fun survivorMetadataStartupAttemptActive(
+            status: GatewayStatus,
+            hasActiveStartupAttempt: Boolean,
+        ): Boolean {
+            return status == GatewayStatus.STARTING && hasActiveStartupAttempt
+        }
+
         fun start(
             context: Context,
             fromWatchdog: Boolean = false,
@@ -354,6 +394,8 @@ class GatewayService : Service() {
     private var actionJobType: GatewayActionType? = null
     private val actionSequence = AtomicLong(0L)
     private val desiredRunningMutex = Mutex()
+    private var lastPersistedSurvivorPid: Int? = null
+    private var lastPersistedSurvivorStartupAttemptActive: Boolean? = null
     private val wakeLockGuard = Any()
     private var activeWakeLock: PowerManager.WakeLock? = null
     private val whatsappLoginWakeLockGuard = Any()
@@ -389,6 +431,27 @@ class GatewayService : Service() {
             var reviewRunTracker = InAppReviewRunTracker()
             pm.gatewayState.collect { state ->
                 val status = state.status
+                val hasActiveStartupAttempt = pm.hasActiveStartupAttempt()
+                if (shouldPersistGatewaySurvivorMetadata(status, state.pid, hasActiveStartupAttempt)) {
+                    val startupAttemptActive = survivorMetadataStartupAttemptActive(
+                        status,
+                        hasActiveStartupAttempt,
+                    )
+                    if (
+                        lastPersistedSurvivorPid != state.pid ||
+                        lastPersistedSurvivorStartupAttemptActive != startupAttemptActive
+                    ) {
+                        updateGatewaySurvivorMetadata(
+                            startupAttemptActive = startupAttemptActive,
+                            pidOverride = state.pid,
+                        )
+                        lastPersistedSurvivorPid = state.pid
+                        lastPersistedSurvivorStartupAttemptActive = startupAttemptActive
+                    }
+                } else {
+                    lastPersistedSurvivorPid = null
+                    lastPersistedSurvivorStartupAttemptActive = null
+                }
                 if (status != lastGatewayStatus) {
                     val (updatedTracker, counterAction) = advanceInAppReviewRunTracker(
                         tracker = reviewRunTracker,
@@ -460,6 +523,19 @@ class GatewayService : Service() {
             // START_STICKY 재생성(null intent) 시 이전 사용자 의도가 running이면 복구를 재시도한다.
             runAction(GatewayActionType.START, startId) { actionToken, actionStartId ->
                 val shouldRecover = prefs.gatewayWasRunning.first() && prefs.isSetupComplete.first()
+                val survivorMetadata = prefs.getGatewaySurvivorMetadata()
+                val survivorPidAlive = isSurvivorPidAlive(survivorMetadata?.pid)
+                val survivorHealthy = if (survivorPidAlive) {
+                    pm.probeGatewayHealthDirect(timeoutMs = STICKY_PREFLIGHT_HEALTH_PROBE_TIMEOUT_MS)
+                } else {
+                    false
+                }
+                val shouldPreflightAttach = shouldAttachOnStickyPreflight(
+                    shouldRecover = shouldRecover,
+                    metadata = survivorMetadata,
+                    pidAlive = survivorPidAlive,
+                    healthCheckPassed = survivorHealthy,
+                )
                 var stickyStatus = pm.gatewayState.value.status
                 val stickyHealthy = if (stickyStatus == GatewayStatus.RUNNING) {
                     val healthy = pm.probeGatewayHealth(timeoutMs = ATTACH_HEALTH_PROBE_TIMEOUT_MS)
@@ -474,11 +550,19 @@ class GatewayService : Service() {
                     hasActiveStartupAttempt = pm.hasActiveStartupAttempt(),
                 )
                 pm.appendGatewayDiagnosticLog(
-                    "[andClaw][Diag] auto_start source=$STICKY_RECOVERY_TRIGGER_SOURCE shouldRecover=$shouldRecover attach=$shouldAttach rejoin=$shouldRejoinStartup status=${stickyStatus?.name ?: "null"} healthy=$stickyHealthy startId=$actionStartId",
+                    "[andClaw][Diag] auto_start source=$STICKY_RECOVERY_TRIGGER_SOURCE shouldRecover=$shouldRecover preflightAttach=$shouldPreflightAttach attach=$shouldAttach rejoin=$shouldRejoinStartup status=${stickyStatus?.name ?: "null"} healthy=$stickyHealthy startId=$actionStartId",
                 )
                 if (!shouldRecover) {
                     GatewayWatchdogReceiver.cancel(applicationContext)
+                    prefs.clearGatewaySurvivorMetadata()
                     stopServiceForeground(actionStartId)
+                    return@runAction
+                }
+                if (shouldPreflightAttach) {
+                    handleAttach(
+                        actionToken = actionToken,
+                        startId = actionStartId,
+                    )
                     return@runAction
                 }
                 if (shouldAttach) {
@@ -694,8 +778,13 @@ class GatewayService : Service() {
         val text = getString(R.string.pairing_notification_text, channelName, displayName)
 
         val openIntent = PendingIntent.getActivity(
-            this, 0,
-            Intent(this, MainActivity::class.java),
+            this,
+            PAIRING_NOTIFICATION_ID,
+            Intent(this, MainActivity::class.java).apply {
+                action = MainActivity.ACTION_OPEN_PAIRING_REQUESTS
+                putExtra(MainActivity.EXTRA_OPEN_PAIRING_REQUESTS, true)
+                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
@@ -759,6 +848,7 @@ class GatewayService : Service() {
         }
         if (!isActionCurrent(actionToken)) return
         pm.clearStartupAttempt()
+        updateGatewaySurvivorMetadata(startupAttemptActive = false)
         val shouldKeepRunning = prefs.gatewayWasRunning.first() && prefs.isSetupComplete.first()
         if (!isActionCurrent(actionToken)) return
         if (shouldKeepRunning) {
@@ -817,6 +907,7 @@ class GatewayService : Service() {
         }
 
         pm.markStartupAttemptStarted()
+        updateGatewaySurvivorMetadata(startupAttemptActive = true)
         GatewayWatchdogReceiver.schedule(
             applicationContext,
             delayMs = startWakeLockTimeoutMs,
@@ -910,6 +1001,11 @@ class GatewayService : Service() {
                 launchConfig.memorySearchEnabled,
                 launchConfig.memorySearchProvider,
                 launchConfig.memorySearchApiKey,
+                survivorMetadata = if (fromWatchdog || !userInitiated) {
+                    prefs.getGatewaySurvivorMetadata()
+                } else {
+                    null
+                },
             )
 
             val finalStatus = awaitGatewayStartupTerminalState(START_TERMINAL_WAIT_TIMEOUT_MS)
@@ -960,6 +1056,7 @@ class GatewayService : Service() {
         // RESTART는 사용자 의도상 running 유지이므로 즉시 desired-running=true를 반영한다.
         if (!setDesiredRunningAndWatchdog(shouldRun = true, actionToken = actionToken)) return
         pm.markStartupAttemptStarted()
+        updateGatewaySurvivorMetadata(startupAttemptActive = true)
 
         withTimedWakeLock(RESTART_WAKE_LOCK_TIMEOUT_MS) {
             if (!isActionCurrent(actionToken)) return@withTimedWakeLock
@@ -1032,6 +1129,7 @@ class GatewayService : Service() {
         if (!isActionCurrent(actionToken)) return
 
         if (finalStatus == GatewayStatus.RUNNING) {
+            updateGatewaySurvivorMetadata(startupAttemptActive = false)
             markDesiredRunningAndScheduleWatchdog(actionToken)
             return
         }
@@ -1056,6 +1154,7 @@ class GatewayService : Service() {
             // STARTING 상태 고착 방지
             pm.stop()
         }
+        prefs.clearGatewaySurvivorMetadata()
         // START/RESTART 실패는 사용자 의도를 꺾지 않는다.
         // transient failure 후에도 watchdog/boot/update 경로가 복구를 계속 시도해야 한다.
         markDesiredRunningAndScheduleWatchdog(actionToken)
@@ -1068,8 +1167,26 @@ class GatewayService : Service() {
     private suspend fun forceDesiredStopped() {
         desiredRunningMutex.withLock {
             prefs.setGatewayWasRunning(false)
+            prefs.clearGatewaySurvivorMetadata()
             GatewayWatchdogReceiver.cancel(applicationContext)
         }
+    }
+
+    private suspend fun updateGatewaySurvivorMetadata(
+        startupAttemptActive: Boolean,
+        pidOverride: Int? = null,
+    ) {
+        val pid = pidOverride ?: pm.gatewayState.value.pid ?: return
+        val now = System.currentTimeMillis()
+        prefs.setGatewaySurvivorMetadata(
+            GatewaySurvivorMetadata(
+                pid = pid,
+                launchedAtEpochMs = now,
+                wsEndpoint = DEFAULT_GATEWAY_WS_ENDPOINT,
+                startupAttemptActive = startupAttemptActive,
+                updatedAtEpochMs = now,
+            ),
+        )
     }
 
     private suspend fun setDesiredRunningAndWatchdog(

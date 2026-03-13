@@ -7,6 +7,7 @@ import android.util.Log
 import com.coderred.andclaw.data.ChannelConfig
 import com.coderred.andclaw.data.GatewayState
 import com.coderred.andclaw.data.GatewayStatus
+import com.coderred.andclaw.data.GatewaySurvivorMetadata
 import com.coderred.andclaw.data.PairingRequest
 import com.coderred.andclaw.data.SessionLogEntry
 import kotlinx.coroutines.CoroutineScope
@@ -67,6 +68,19 @@ internal fun parseListeningSocketInodes(procNetContent: String, port: Int): Set<
 internal fun extractSocketInode(fdTarget: String): String? {
     val match = Regex("""socket:\[(\d+)]""").matchEntire(fdTarget.trim()) ?: return null
     return match.groupValues[1]
+}
+
+internal fun shouldReattachGatewaySurvivor(
+    metadata: GatewaySurvivorMetadata?,
+    pidAlive: Boolean,
+    healthCheckPassed: Boolean,
+    expectedEndpoint: String = "127.0.0.1:18789",
+): Boolean {
+    if (metadata == null) return false
+    if (metadata.startupAttemptActive) return false
+    if (!pidAlive || !healthCheckPassed) return false
+    val endpoint = metadata.wsEndpoint.trim().lowercase()
+    return endpoint == expectedEndpoint || endpoint == "localhost:18789"
 }
 
 internal fun buildOpenClawPairingDenyScript(): String = """
@@ -394,6 +408,10 @@ class ProcessManager(
 
     suspend fun probeGatewayHealth(timeoutMs: Long = 8_000L): Boolean {
         if (_gatewayState.value.status != GatewayStatus.RUNNING) return false
+        return probeGatewayHealthDirect(timeoutMs)
+    }
+
+    suspend fun probeGatewayHealthDirect(timeoutMs: Long = 8_000L): Boolean {
         return withContext(Dispatchers.IO) {
             try {
                 GatewayWsClient(prootManager).probeGatewayHealth(timeoutMs)
@@ -429,6 +447,7 @@ class ProcessManager(
         memorySearchEnabled: Boolean = true,
         memorySearchProvider: String = DEFAULT_MEMORY_SEARCH_PROVIDER,
         memorySearchApiKey: String = "",
+        survivorMetadata: GatewaySurvivorMetadata? = null,
     ) {
         val status = _gatewayState.value.status
         if (status == GatewayStatus.RUNNING || status == GatewayStatus.STARTING) return
@@ -484,6 +503,35 @@ class ProcessManager(
                 // 패치 파일이 없으면 생성
                 ensurePatchFile()
                 ensureStartupAttemptStillValid()
+
+                val survivorPidAlive = survivorMetadata?.pid?.let { pid ->
+                    pid > 0 && File("/proc/$pid").exists()
+                } == true
+                val survivorHealthy = if (survivorPidAlive) {
+                    probeGatewayHealthDirect(timeoutMs = 2_500L)
+                } else {
+                    false
+                }
+                if (
+                    shouldReattachGatewaySurvivor(
+                        metadata = survivorMetadata,
+                        pidAlive = survivorPidAlive,
+                        healthCheckPassed = survivorHealthy,
+                    )
+                ) {
+                    clearStartupAttempt()
+                    startTime = System.currentTimeMillis()
+                    _gatewayState.value = _gatewayState.value.copy(
+                        status = GatewayStatus.RUNNING,
+                        uptime = 0L,
+                        pid = survivorMetadata?.pid,
+                        errorMessage = null,
+                        dashboardReady = true,
+                    )
+                    addLog("[andClaw] Reattached to surviving gateway (PID: ${survivorMetadata?.pid ?: "?"})")
+                    startPairingObserver()
+                    return@launch
+                }
 
                 // 기존 게이트웨이 인스턴스 정리 (supervised + orphan 프로세스)
                 stopSupervisedGatewayIfRunning()
@@ -683,6 +731,7 @@ class ProcessManager(
         scope?.cancel()
         val currentStatus = _gatewayState.value.status
         if (currentStatus != GatewayStatus.RUNNING && currentStatus != GatewayStatus.STARTING) return
+        val pidFromState = _gatewayState.value.pid
 
         _gatewayState.value = _gatewayState.value.copy(status = GatewayStatus.STOPPING)
         addLog("[andClaw] Stopping gateway...")
@@ -691,13 +740,37 @@ class ProcessManager(
         uptimeJob?.cancel()
         stopPairingObserver()
 
-        // 프로세스 트리 전체 종료
+        var stoppedByHandle = false
+
+        // 프로세스 핸들이 있는 일반 케이스 종료
         process?.let { proc ->
             proc.destroyForcibly()
             runCatching {
                 proc.waitFor(2, TimeUnit.SECONDS)
             }
+            stoppedByHandle = true
         }
+
+        // 프로세스-데스 이후 survivor 재부착 케이스: process 핸들이 없으므로 PID 기반 종료 시도
+        if (!stoppedByHandle && pidFromState != null && pidFromState > 0) {
+            val isAlive = File("/proc/$pidFromState").exists()
+            if (isAlive) {
+                val killed = runCatching {
+                    android.os.Process.killProcess(pidFromState)
+                    true
+                }.getOrDefault(false)
+                if (killed) {
+                    stoppedByHandle = true
+                    addLog("[andClaw] Stopped reattached gateway by PID: $pidFromState")
+                }
+            }
+        }
+
+        // 최후 fallback: supervised gateway stop 요청
+        if (!stoppedByHandle) {
+            stopSupervisedGatewayIfRunning()
+        }
+
         process = null
 
         _gatewayState.value = GatewayState(status = GatewayStatus.STOPPED)
@@ -724,6 +797,7 @@ class ProcessManager(
         memorySearchEnabled: Boolean = true,
         memorySearchProvider: String = DEFAULT_MEMORY_SEARCH_PROVIDER,
         memorySearchApiKey: String = "",
+        survivorMetadata: GatewaySurvivorMetadata? = null,
     ) {
         markStartupAttemptStarted()
         stop()
@@ -744,6 +818,7 @@ class ProcessManager(
             memorySearchEnabled = memorySearchEnabled,
             memorySearchProvider = memorySearchProvider,
             memorySearchApiKey = memorySearchApiKey,
+            survivorMetadata = survivorMetadata,
         )
     }
 

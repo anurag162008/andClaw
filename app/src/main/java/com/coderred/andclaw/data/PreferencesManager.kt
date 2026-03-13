@@ -276,6 +276,12 @@ class PreferencesManager(private val context: Context) {
         private val KEY_MEMORY_SEARCH_PROVIDER = stringPreferencesKey("memory_search_provider")
         private val KEY_MEMORY_SEARCH_API_KEY = stringPreferencesKey("memory_search_api_key")
         private val KEY_GATEWAY_WAS_RUNNING = booleanPreferencesKey("gateway_was_running")
+        private val KEY_GATEWAY_SURVIVOR_PID = intPreferencesKey("gateway_survivor_pid")
+        private val KEY_GATEWAY_SURVIVOR_LAUNCHED_AT = longPreferencesKey("gateway_survivor_launched_at")
+        private val KEY_GATEWAY_SURVIVOR_WS_ENDPOINT = stringPreferencesKey("gateway_survivor_ws_endpoint")
+        private val KEY_GATEWAY_SURVIVOR_STARTUP_ATTEMPT_ACTIVE =
+            booleanPreferencesKey("gateway_survivor_startup_attempt_active")
+        private val KEY_GATEWAY_SURVIVOR_UPDATED_AT = longPreferencesKey("gateway_survivor_updated_at")
         private val KEY_BUNDLE_UPDATE_FAIL_COUNT_BY_VERSION = stringPreferencesKey("bundle_update_fail_count_by_version")
         private val KEY_BUNDLE_UPDATE_LAST_FAIL_AT = longPreferencesKey("bundle_update_last_fail_at")
         private val KEY_BUNDLE_UPDATE_LAST_FAIL_ELAPSED = longPreferencesKey("bundle_update_last_fail_elapsed")
@@ -2406,6 +2412,71 @@ class PreferencesManager(private val context: Context) {
         context.dataStore.edit { it[KEY_GATEWAY_WAS_RUNNING] = running }
     }
 
+    suspend fun getGatewaySurvivorMetadata(
+        nowEpochMs: Long = System.currentTimeMillis(),
+    ): GatewaySurvivorMetadata? {
+        val snapshot = context.dataStore.data.first()
+        val rawEndpoint = snapshot[KEY_GATEWAY_SURVIVOR_WS_ENDPOINT]?.trim().orEmpty()
+        val endpoint = rawEndpoint.lowercase()
+        if (endpoint != "127.0.0.1:18789" && endpoint != "localhost:18789") {
+            return null
+        }
+        val pid = snapshot[KEY_GATEWAY_SURVIVOR_PID]
+            ?.takeIf { it > 0 }
+            ?: return null
+        val launchedAtEpochMs = snapshot[KEY_GATEWAY_SURVIVOR_LAUNCHED_AT]
+            ?.takeIf { it in 0..nowEpochMs }
+            ?: return null
+        val updatedAtEpochMs = snapshot[KEY_GATEWAY_SURVIVOR_UPDATED_AT]
+            ?.takeIf { it in 0..nowEpochMs }
+            ?: return null
+        val startupAttemptActive = snapshot[KEY_GATEWAY_SURVIVOR_STARTUP_ATTEMPT_ACTIVE] ?: false
+        return GatewaySurvivorMetadata(
+            pid = pid,
+            launchedAtEpochMs = launchedAtEpochMs,
+            wsEndpoint = endpoint,
+            startupAttemptActive = startupAttemptActive,
+            updatedAtEpochMs = updatedAtEpochMs,
+        )
+    }
+
+    suspend fun setGatewaySurvivorMetadata(metadata: GatewaySurvivorMetadata) {
+        val normalizedEndpoint = metadata.wsEndpoint.trim().lowercase()
+        if (normalizedEndpoint != "127.0.0.1:18789" && normalizedEndpoint != "localhost:18789") {
+            clearGatewaySurvivorMetadata()
+            return
+        }
+        context.dataStore.edit { prefs ->
+            if (metadata.pid > 0) {
+                prefs[KEY_GATEWAY_SURVIVOR_PID] = metadata.pid
+            } else {
+                prefs.remove(KEY_GATEWAY_SURVIVOR_PID)
+            }
+            if (metadata.launchedAtEpochMs >= 0L) {
+                prefs[KEY_GATEWAY_SURVIVOR_LAUNCHED_AT] = metadata.launchedAtEpochMs
+            } else {
+                prefs.remove(KEY_GATEWAY_SURVIVOR_LAUNCHED_AT)
+            }
+            prefs[KEY_GATEWAY_SURVIVOR_WS_ENDPOINT] = normalizedEndpoint
+            prefs[KEY_GATEWAY_SURVIVOR_STARTUP_ATTEMPT_ACTIVE] = metadata.startupAttemptActive
+            if (metadata.updatedAtEpochMs >= 0L) {
+                prefs[KEY_GATEWAY_SURVIVOR_UPDATED_AT] = metadata.updatedAtEpochMs
+            } else {
+                prefs.remove(KEY_GATEWAY_SURVIVOR_UPDATED_AT)
+            }
+        }
+    }
+
+    suspend fun clearGatewaySurvivorMetadata() {
+        context.dataStore.edit { prefs ->
+            prefs.remove(KEY_GATEWAY_SURVIVOR_PID)
+            prefs.remove(KEY_GATEWAY_SURVIVOR_LAUNCHED_AT)
+            prefs.remove(KEY_GATEWAY_SURVIVOR_WS_ENDPOINT)
+            prefs.remove(KEY_GATEWAY_SURVIVOR_STARTUP_ATTEMPT_ACTIVE)
+            prefs.remove(KEY_GATEWAY_SURVIVOR_UPDATED_AT)
+        }
+    }
+
     suspend fun incrementInAppReviewGatewayHealthyRunCount() {
         context.dataStore.edit { prefs ->
             val current = (prefs[KEY_IN_APP_REVIEW_GATEWAY_HEALTHY_RUN_COUNT] ?: 0).coerceAtLeast(0)
@@ -2717,4 +2788,12 @@ data class InAppReviewEligibility(
     val gatewayHealthyRunCount: Int,
     val lastRequestAtEpochMs: Long?,
     val lastRequestVersion: Int?,
+)
+
+data class GatewaySurvivorMetadata(
+    val pid: Int,
+    val launchedAtEpochMs: Long,
+    val wsEndpoint: String,
+    val startupAttemptActive: Boolean,
+    val updatedAtEpochMs: Long,
 )
