@@ -37,8 +37,8 @@ android {
         applicationId = "com.coderred.andclaw"
         minSdk = 26
         targetSdk = 35
-        versionCode = 91
-        versionName = "0.0.91"
+        versionCode = 94
+        versionName = "0.0.94"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -63,7 +63,7 @@ android {
         create("dev") {
             dimension = "env"
             applicationIdSuffix = ".dev"
-            versionCode = 91
+            versionCode = 94
             versionNameSuffix = "-dev"
             resValue("string", "app_name", "andClaw Dev")
             buildConfigField("String", "OAUTH_CALLBACK_SCHEME", "\"andclaw-dev\"")
