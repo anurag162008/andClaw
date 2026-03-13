@@ -26,7 +26,7 @@ class GatewayWatchdogReceiver : BroadcastReceiver() {
         private const val MIN_DELAY_MS = 5_000L
         private const val HEALTH_PROBE_TIMEOUT_MS = 6_000L
         private const val RUNNING_UNHEALTHY_RECOVERY_THRESHOLD = 2
-        private const val STARTING_RECOVERY_GRACE_PERIOD_SECONDS = 120L
+        private const val STARTING_RECOVERY_GRACE_PERIOD_SECONDS = 300L
         private val runningUnhealthyFailures = AtomicInteger(0)
 
         fun intervalMs(): Long = WATCHDOG_INTERVAL_MS

@@ -207,11 +207,8 @@ class GatewayWsClient(private val prootManager: ProotManager) {
                 }
 
                 val probeResult = call(
-                    method = "channels.status",
-                    params = JSONObject().apply {
-                        put("probe", false)
-                        put("timeoutMs", budget.statusProbeTimeoutMs)
-                    },
+                    method = gatewayHealthProbeMethod(),
+                    params = gatewayHealthProbeParams(),
                     timeoutMs = budget.statusTimeoutMs,
                 )
                 probeResult != null
@@ -227,15 +224,16 @@ class GatewayWsClient(private val prootManager: ProotManager) {
 
     private suspend fun probeGatewayHealthViaCli(budget: HealthProbeTimeoutBudget): Boolean {
         val probeResult = callViaGatewayCli(
-            method = "channels.status",
-            params = JSONObject().apply {
-                put("probe", false)
-                put("timeoutMs", budget.statusProbeTimeoutMs)
-            },
+            method = gatewayHealthProbeMethod(),
+            params = gatewayHealthProbeParams(),
             timeoutMs = budget.statusTimeoutMs,
         )
         return probeResult != null
     }
+
+    internal fun gatewayHealthProbeMethod(): String = "health"
+
+    internal fun gatewayHealthProbeParams(): JSONObject = JSONObject()
 
     internal fun resolveHealthProbeTimeoutBudget(timeoutMs: Long): HealthProbeTimeoutBudget {
         val normalizedTimeoutMs = timeoutMs.coerceIn(2_000L, 20_000L)

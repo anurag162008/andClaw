@@ -33,7 +33,7 @@ class GatewayWatchdogRecoveryWorker(
         private const val CHANNEL_ID = "andclaw_watchdog_recovery"
         private const val NOTIFICATION_ID = 30101
         private const val HEALTH_PROBE_TIMEOUT_MS = 8_000L
-        private const val STARTING_RECOVERY_GRACE_PERIOD_SECONDS = 120L
+        private const val STARTING_RECOVERY_GRACE_PERIOD_SECONDS = 300L
 
         internal enum class RecoveryAction {
             NONE,
