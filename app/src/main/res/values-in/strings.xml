@@ -260,6 +260,7 @@ Jangan tutup atau paksa hentikan aplikasi selama pemulihan masih berlangsung.</s
     <string name="settings_api_key_get_link">Dapatkan kunci API %1$s →</string>
     <string name="bug_report_included_gateway_logs">- Log UI gateway (disanitasi): %1$d baris</string>
     <string name="onboarding_provider_openai_compatible">API OpenAI kustom</string>
+    <string name="onboarding_provider_ollama">Ollama (Lokal)</string>
     <string name="onboarding_provider_zai">Z.ai</string>
     <string name="onboarding_provider_kimi_coding">Kimi Code</string>
     <string name="onboarding_provider_minimax">MiniMax</string>
@@ -268,7 +269,10 @@ Jangan tutup atau paksa hentikan aplikasi selama pemulihan masih berlangsung.</s
     <string name="onboarding_provider_nvidia">NVIDIA</string>
     <string name="settings_openai_compatible_base_url">URL dasar (kompatibel OpenAI)</string>
     <string name="settings_openai_compatible_model_id">ID model</string>
-
+    <string name="settings_ollama_base_url">URL dasar (Ollama)</string>
+    <string name="settings_ollama_model_id">ID model</string>
+    <string name="settings_ollama_host_address">Alamat host</string>
+    <string name="settings_ollama_docs_link">Buka dokumentasi Ollama →</string>
     <string name="settings_openclaw_update_action">Perbarui OpenClaw</string>
     <string name="settings_openclaw_update_running">Memperbarui OpenClaw…</string>
     <string name="settings_openclaw_update_available_version">Pembaruan tersedia: %1$s → %2$s</string>

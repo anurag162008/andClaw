@@ -260,6 +260,7 @@ Kurtarma sürerken uygulamayı kapatmayın veya zorla durdurmayın.</string>
     <string name="settings_api_key_get_link">%1$s API anahtarı al →</string>
     <string name="bug_report_included_gateway_logs">- Gateway UI günlükleri (temizlendi): %1$d satır</string>
     <string name="onboarding_provider_openai_compatible">Özel OpenAI API</string>
+    <string name="onboarding_provider_ollama">Ollama (Yerel)</string>
     <string name="onboarding_provider_zai">Z.ai</string>
     <string name="onboarding_provider_kimi_coding">Kimi Code</string>
     <string name="onboarding_provider_minimax">MiniMax</string>
@@ -268,7 +269,10 @@ Kurtarma sürerken uygulamayı kapatmayın veya zorla durdurmayın.</string>
     <string name="onboarding_provider_nvidia">NVIDIA</string>
     <string name="settings_openai_compatible_base_url">Temel URL (OpenAI uyumlu)</string>
     <string name="settings_openai_compatible_model_id">Model kimliği</string>
-
+    <string name="settings_ollama_base_url">Temel URL (Ollama)</string>
+    <string name="settings_ollama_model_id">Model kimliği</string>
+    <string name="settings_ollama_host_address">Ana makine adresi</string>
+    <string name="settings_ollama_docs_link">Ollama belgelerini aç →</string>
     <string name="settings_openclaw_update_action">OpenClaw’ı güncelle</string>
     <string name="settings_openclaw_update_running">OpenClaw güncelleniyor…</string>
     <string name="settings_openclaw_update_available_version">Güncelleme mevcut: %1$s → %2$s</string>

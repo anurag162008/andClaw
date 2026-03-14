@@ -270,6 +270,7 @@
     <string name="settings_api_key_get_link">%1$s API 키 발급 →</string>
     <string name="bug_report_included_gateway_logs">- 게이트웨이 UI 로그(정리됨): %1$d줄</string>
     <string name="onboarding_provider_openai_compatible">커스텀 OpenAI API</string>
+    <string name="onboarding_provider_ollama">Ollama (로컬)</string>
     <string name="onboarding_provider_zai">Z.ai</string>
     <string name="onboarding_provider_kimi_coding">Kimi Code</string>
     <string name="onboarding_provider_minimax">MiniMax</string>
@@ -278,7 +279,10 @@
     <string name="onboarding_provider_nvidia">NVIDIA</string>
     <string name="settings_openai_compatible_base_url">기본 URL (OpenAI 호환)</string>
     <string name="settings_openai_compatible_model_id">모델 ID</string>
-
+    <string name="settings_ollama_base_url">기본 URL (Ollama)</string>
+    <string name="settings_ollama_model_id">모델 ID</string>
+    <string name="settings_ollama_host_address">호스트 주소</string>
+    <string name="settings_ollama_docs_link">Ollama 문서 열기 →</string>
     <string name="settings_openclaw_update_action">OpenClaw 업데이트</string>
     <string name="settings_openclaw_update_running">OpenClaw 업데이트 중…</string>
     <string name="settings_openclaw_update_available_version">업데이트 가능: %1$s → %2$s</string>

@@ -260,6 +260,7 @@ Trong khi khôi phục đang chạy, đừng đóng hoặc buộc dừng ứng d
     <string name="settings_api_key_get_link">Lấy khóa API %1$s →</string>
     <string name="bug_report_included_gateway_logs">- Nhật ký UI gateway (đã làm sạch): %1$d dòng</string>
     <string name="onboarding_provider_openai_compatible">API OpenAI tùy chỉnh</string>
+    <string name="onboarding_provider_ollama">Ollama (cục bộ)</string>
     <string name="onboarding_provider_zai">Z.ai</string>
     <string name="onboarding_provider_kimi_coding">Kimi Code</string>
     <string name="onboarding_provider_minimax">MiniMax</string>
@@ -268,7 +269,10 @@ Trong khi khôi phục đang chạy, đừng đóng hoặc buộc dừng ứng d
     <string name="onboarding_provider_nvidia">NVIDIA</string>
     <string name="settings_openai_compatible_base_url">URL cơ sở (tương thích OpenAI)</string>
     <string name="settings_openai_compatible_model_id">ID mô hình</string>
-
+    <string name="settings_ollama_base_url">URL cơ sở (Ollama)</string>
+    <string name="settings_ollama_model_id">ID mô hình</string>
+    <string name="settings_ollama_host_address">Địa chỉ máy chủ</string>
+    <string name="settings_ollama_docs_link">Mở tài liệu Ollama →</string>
     <string name="settings_openclaw_update_action">Cập nhật OpenClaw</string>
     <string name="settings_openclaw_update_running">Đang cập nhật OpenClaw…</string>
     <string name="settings_openclaw_update_available_version">Có bản cập nhật: %1$s → %2$s</string>

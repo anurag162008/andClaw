@@ -260,6 +260,7 @@
     <string name="settings_api_key_get_link">%1$s API कुंजी प्राप्त करें →</string>
     <string name="bug_report_included_gateway_logs">- गेटवे UI लॉग (सैनिटाइज़्ड): %1$d पंक्तियाँ</string>
     <string name="onboarding_provider_openai_compatible">कस्टम OpenAI API</string>
+    <string name="onboarding_provider_ollama">Ollama (लोकल)</string>
     <string name="onboarding_provider_zai">Z.ai</string>
     <string name="onboarding_provider_kimi_coding">Kimi Code</string>
     <string name="onboarding_provider_minimax">MiniMax</string>
@@ -268,7 +269,10 @@
     <string name="onboarding_provider_nvidia">NVIDIA</string>
     <string name="settings_openai_compatible_base_url">बेस URL (OpenAI-संगत)</string>
     <string name="settings_openai_compatible_model_id">मॉडल ID</string>
-
+    <string name="settings_ollama_base_url">बेस URL (Ollama)</string>
+    <string name="settings_ollama_model_id">मॉडल ID</string>
+    <string name="settings_ollama_host_address">होस्ट पता</string>
+    <string name="settings_ollama_docs_link">Ollama दस्तावेज़ खोलें →</string>
     <string name="settings_openclaw_update_action">OpenClaw अपडेट करें</string>
     <string name="settings_openclaw_update_running">OpenClaw अपडेट हो रहा है…</string>
     <string name="settings_openclaw_update_available_version">अपडेट उपलब्ध: %1$s → %2$s</string>

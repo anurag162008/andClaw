@@ -261,6 +261,7 @@
     <string name="settings_api_key_get_link">获取 %1$s API 密钥 →</string>
     <string name="bug_report_included_gateway_logs">- 网关 UI 日志（已脱敏）：%1$d 行</string>
     <string name="onboarding_provider_openai_compatible">自定义 OpenAI API</string>
+    <string name="onboarding_provider_ollama">Ollama（本地）</string>
     <string name="onboarding_provider_zai">Z.ai</string>
     <string name="onboarding_provider_kimi_coding">Kimi Code</string>
     <string name="onboarding_provider_minimax">MiniMax</string>
@@ -269,7 +270,10 @@
     <string name="onboarding_provider_nvidia">NVIDIA</string>
     <string name="settings_openai_compatible_base_url">基础 URL（OpenAI 兼容）</string>
     <string name="settings_openai_compatible_model_id">模型 ID</string>
-
+    <string name="settings_ollama_base_url">基础 URL（Ollama）</string>
+    <string name="settings_ollama_model_id">模型 ID</string>
+    <string name="settings_ollama_host_address">主机地址</string>
+    <string name="settings_ollama_docs_link">打开 Ollama 文档 →</string>
     <string name="settings_openclaw_update_action">更新 OpenClaw</string>
     <string name="settings_openclaw_update_running">正在更新 OpenClaw…</string>
     <string name="settings_openclaw_update_available_version">有可用更新：%1$s → %2$s</string>

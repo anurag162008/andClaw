@@ -1,8 +1,16 @@
 package com.coderred.andclaw.proot
 
 import java.io.File
+import java.net.HttpURLConnection
+import java.net.URL
+import org.json.JSONArray
+import org.json.JSONObject
 
 object OpenClawModelCatalogReader {
+    // Test hook: allow tests to override the server loader to avoid network IO
+    var testLoaderOverride: ((baseUrl: String) -> List<ModelEntry>)? = null
+    private const val OLLAMA_DEFAULT_CONTEXT_WINDOW = 128_000
+    private const val OLLAMA_DEFAULT_MAX_TOKENS = 8_192
     const val LEGACY_BUILTIN_MODELS_PATH =
         "usr/local/lib/node_modules/openclaw/node_modules/@mariozechner/pi-ai/dist/models.generated.js"
     const val RUNTIME_MODEL_CATALOG_DIR = "usr/local/lib/node_modules/openclaw/dist"
@@ -23,6 +31,141 @@ object OpenClawModelCatalogReader {
         val supportsReasoning: Boolean,
         val supportsImages: Boolean,
     )
+
+    private data class OllamaModelDetails(
+        val contextWindow: Int?,
+        val supportsTools: Boolean,
+        val supportsReasoning: Boolean?,
+        val supportsImages: Boolean?,
+    )
+
+    fun loadOllamaModelsFromServer(baseUrl: String): List<ModelEntry> {
+        // If a test hook is provided, use it to bypass network calls
+        testLoaderOverride?.let { override -> return override(baseUrl) }
+        val apiBase = resolveOllamaApiBase(baseUrl)
+        val endpoint = "$apiBase/api/tags"
+        val url = URL(endpoint)
+        val conn = url.openConnection() as HttpURLConnection
+        return try {
+            conn.requestMethod = "GET"
+            conn.connectTimeout = 15_000
+            conn.readTimeout = 15_000
+            conn.setRequestProperty("Accept", "application/json")
+            val status = conn.responseCode
+            if (status !in 200..299) {
+                return emptyList()
+            }
+            val body = conn.inputStream.bufferedReader().use { it.readText() }
+            val json = JSONObject(body)
+            val dataArray: JSONArray = json.optJSONArray("models") ?: JSONArray()
+
+            val results = mutableListOf<ModelEntry>()
+            for (i in 0 until dataArray.length()) {
+                val item = dataArray.optJSONObject(i) ?: continue
+                val id = item.optString("name").trim().ifBlank {
+                    item.optString("model", "").trim()
+                }
+                if (id.isBlank()) continue
+                val details = item.optJSONObject("details")
+                val detailsFamily = details?.optString("family").orEmpty().lowercase()
+                val detailsFamilies = details?.optJSONArray("families")
+                val families = buildList {
+                    if (detailsFamily.isNotBlank()) add(detailsFamily)
+                    if (detailsFamilies != null) {
+                        for (idx in 0 until detailsFamilies.length()) {
+                            val family = detailsFamilies.optString(idx).trim().lowercase()
+                            if (family.isNotBlank()) add(family)
+                        }
+                    }
+                }
+                val lowercaseId = id.lowercase()
+                val showDetails = queryOllamaModelDetails(apiBase, id)
+                if (showDetails == null || !showDetails.supportsTools) continue
+                val contextWindow = showDetails?.contextWindow ?: OLLAMA_DEFAULT_CONTEXT_WINDOW
+                val maxTokens = OLLAMA_DEFAULT_MAX_TOKENS
+                val supportsReasoning = showDetails?.supportsReasoning ?: (lowercaseId.contains("reason") || lowercaseId.contains("think") || lowercaseId.contains("r1"))
+                val supportsImages = showDetails?.supportsImages ?: (lowercaseId.contains("vision") || lowercaseId.contains("vl") || lowercaseId.contains("image") || families.any {
+                    it.contains("vision") || it.contains("vl") || it.contains("image")
+                })
+
+                results += ModelEntry(
+                    id = id,
+                    name = id,
+                    provider = "ollama",
+                    contextWindow = contextWindow,
+                    maxTokens = maxTokens,
+                    supportsReasoning = supportsReasoning,
+                    supportsImages = supportsImages,
+                )
+            }
+            results
+        } catch (_: Exception) {
+            emptyList()
+        } finally {
+            conn.disconnect()
+        }
+    }
+
+    private fun resolveOllamaApiBase(configuredBaseUrl: String): String {
+        return configuredBaseUrl.trim().removeSuffix("/").removeSuffix("/v1").ifBlank {
+            "http://127.0.0.1:11434"
+        }
+    }
+
+    private fun queryOllamaModelDetails(apiBase: String, modelName: String): OllamaModelDetails? {
+        val endpoint = "$apiBase/api/show"
+        val url = URL(endpoint)
+        val conn = url.openConnection() as HttpURLConnection
+        return try {
+            conn.requestMethod = "POST"
+            conn.connectTimeout = 3_000
+            conn.readTimeout = 3_000
+            conn.doOutput = true
+            conn.setRequestProperty("Accept", "application/json")
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.outputStream.bufferedWriter().use { writer ->
+                writer.write(JSONObject().put("name", modelName).toString())
+            }
+            val status = conn.responseCode
+            if (status !in 200..299) return null
+            val body = conn.inputStream.bufferedReader().use { it.readText() }
+            val json = JSONObject(body)
+            val capabilities = json.optJSONArray("capabilities")
+            val capabilityValues = buildList {
+                if (capabilities != null) {
+                    for (i in 0 until capabilities.length()) {
+                        val value = capabilities.optString(i).trim().lowercase()
+                        if (value.isNotBlank()) add(value)
+                    }
+                }
+            }
+            val supportsTools = capabilityValues.any {
+                it == "tools" || it == "tool" || it.contains("function")
+            }
+            val supportsReasoning = capabilityValues.takeIf { it.isNotEmpty() }?.any {
+                it == "thinking" || it == "reasoning" || it.contains("reason") || it.contains("think")
+            }
+            val supportsImages = capabilityValues.takeIf { it.isNotEmpty() }?.any {
+                it == "vision" || it.contains("image") || it.contains("vision") || it == "multimodal"
+            }
+            val modelInfo = json.optJSONObject("model_info")
+            val contextWindow = modelInfo?.keys()?.asSequence()?.mapNotNull { key ->
+                if (!key.endsWith(".context_length")) return@mapNotNull null
+                val value = modelInfo.opt(key)
+                if (value is Number) value.toInt().takeIf { it > 0 } else null
+            }?.firstOrNull()
+            OllamaModelDetails(
+                contextWindow = contextWindow,
+                supportsTools = supportsTools,
+                supportsReasoning = supportsReasoning,
+                supportsImages = supportsImages,
+            )
+        } catch (_: Exception) {
+            null
+        } finally {
+            conn.disconnect()
+        }
+    }
 
     fun findRuntimeModelCatalogFile(rootfsDir: File?): File? {
         return findRuntimeModelCatalogFiles(rootfsDir).firstOrNull()

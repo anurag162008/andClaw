@@ -261,6 +261,7 @@
     <string name="settings_api_key_get_link">%1$s APIキーを取得 →</string>
     <string name="bug_report_included_gateway_logs">- Gateway UIログ（サニタイズ済み）: %1$d 行</string>
     <string name="onboarding_provider_openai_compatible">カスタムOpenAI API</string>
+    <string name="onboarding_provider_ollama">Ollama（ローカル）</string>
     <string name="onboarding_provider_zai">Z.ai</string>
     <string name="onboarding_provider_kimi_coding">Kimi Code</string>
     <string name="onboarding_provider_minimax">MiniMax</string>
@@ -269,7 +270,10 @@
     <string name="onboarding_provider_nvidia">NVIDIA</string>
     <string name="settings_openai_compatible_base_url">ベースURL（OpenAI互換）</string>
     <string name="settings_openai_compatible_model_id">モデルID</string>
-
+    <string name="settings_ollama_base_url">ベースURL（Ollama）</string>
+    <string name="settings_ollama_model_id">モデルID</string>
+    <string name="settings_ollama_host_address">ホストアドレス</string>
+    <string name="settings_ollama_docs_link">Ollama ドキュメントを開く →</string>
     <string name="settings_openclaw_update_action">OpenClawを更新</string>
     <string name="settings_openclaw_update_running">OpenClawを更新中…</string>
     <string name="settings_openclaw_update_available_version">更新あり: %1$s → %2$s</string>

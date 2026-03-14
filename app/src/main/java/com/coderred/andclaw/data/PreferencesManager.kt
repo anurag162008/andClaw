@@ -13,6 +13,8 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.coderred.andclaw.proot.OpenClawModelCatalogReader
 import com.coderred.andclaw.proot.ProotManager
 import java.io.IOException
+import java.net.HttpURLConnection
+import java.net.URL
 import java.net.URI
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -125,6 +127,29 @@ internal fun hasOpenClawModelsStatusAuth(output: String?, providerId: String): B
 }
 
 class PreferencesManager(private val context: Context) {
+
+    suspend fun hasOllamaServerModelsAvailable(): Boolean {
+        // Read base URL from preferences (default to localhost Ollama port)
+        val baseUrl = kotlin.runCatching {
+            context.dataStore.data.first()[KEY_OLLAMA_BASE_URL] ?: "http://127.0.0.1:11434"
+        }.getOrDefault("http://127.0.0.1:11434")
+
+        val normalized = baseUrl.trim().trimEnd('/')
+        val endpoint = "$normalized/api/tags"
+        return try {
+            val url = URL(endpoint)
+            val conn = url.openConnection() as HttpURLConnection
+            conn.requestMethod = "GET"
+            conn.connectTimeout = 5_000
+            conn.readTimeout = 5_000
+            conn.setRequestProperty("Accept", "application/json")
+            val code = conn.responseCode
+            conn.disconnect()
+            code == 200
+        } catch (_: Exception) {
+            false
+        }
+    }
 
     private fun resolveDefaultModelMetadata(
         provider: String,
@@ -245,6 +270,11 @@ class PreferencesManager(private val context: Context) {
         private val KEY_API_KEY_OPENAI_COMPATIBLE = stringPreferencesKey("api_key_openai_compatible")
         private val KEY_OPENAI_COMPATIBLE_BASE_URL = stringPreferencesKey("openai_compatible_base_url")
         private val KEY_OPENAI_COMPATIBLE_MODEL_ID = stringPreferencesKey("openai_compatible_model_id")
+        private val KEY_API_KEY_OLLAMA = stringPreferencesKey("api_key_ollama")
+private val KEY_OLLAMA_BASE_URL = stringPreferencesKey("ollama_base_url")
+private val KEY_OLLAMA_MODEL_ID = stringPreferencesKey("ollama_model_id")
+private val OLLAMA_SERVER_PREFERRED_KEY = booleanPreferencesKey("ollama_server_preferred")
+private val OLLAMA_MANUAL_FALLBACK_KEY = booleanPreferencesKey("ollama_manual_fallback")
         private val KEY_AUTO_START_ON_BOOT = booleanPreferencesKey("auto_start_on_boot")
         private val KEY_CHARGE_ONLY_MODE = booleanPreferencesKey("charge_only_mode")
         private val KEY_OPENCLAW_VERSION = stringPreferencesKey("openclaw_version")
@@ -348,6 +378,7 @@ class PreferencesManager(private val context: Context) {
             "kimi-coding",
             "minimax",
             "openai-compatible",
+            "ollama",
         )
         private val BARE_CODEX_MODEL_IDS = setOf(
             "gpt-5.1",
@@ -365,7 +396,8 @@ class PreferencesManager(private val context: Context) {
                 "zai" -> "glm-5"
                 "kimi-coding" -> "k2p5"
                 "minimax" -> "MiniMax-M2.5"
-                "openai-compatible" -> "gpt-4o-mini"
+            "openai-compatible" -> ""
+            "ollama" -> ""
                 "google" -> "gemini-2.5-flash"
                 else -> "openrouter/free"
             }
@@ -390,6 +422,7 @@ class PreferencesManager(private val context: Context) {
                 "openai-codex",
                 "github-copilot",
                 "openai-compatible",
+                "ollama",
                 "google",
                 "zai",
                 "kimi-coding",
@@ -403,6 +436,7 @@ class PreferencesManager(private val context: Context) {
             if (trimmedModelId.isBlank()) return ""
             return when (normalizeProvider(provider)) {
                 "openai-compatible" -> trimmedModelId.removePrefix("openai-compatible/").trim()
+                "ollama" -> trimmedModelId.removePrefix("ollama/").removeSuffix(":latest").trim()
                 else -> trimmedModelId
             }
         }
@@ -562,6 +596,7 @@ class PreferencesManager(private val context: Context) {
                     "kimi-coding" -> lowerModelId == "k2p5" || lowerModelId.startsWith("kimi-")
                     "minimax" -> lowerModelId.startsWith("minimax-")
                     "openai-compatible" -> true
+                    "ollama" -> true
                     "google" -> lowerModelId.startsWith("gemini")
                     else -> false
                 }
@@ -574,6 +609,7 @@ class PreferencesManager(private val context: Context) {
                             trimmedModelId.substringAfter("openai/").lowercase().contains("codex"))
                 }
                 "openai-compatible" -> providerPrefix == "openai-compatible" || providerPrefix == "openai"
+                "ollama" -> providerPrefix == "ollama"
                 else -> providerPrefix == normalizedProvider
             }
         }
@@ -752,6 +788,26 @@ class PreferencesManager(private val context: Context) {
         }
     }
 
+        // Server preference: whether to prefer server-based Ollama models when available
+        suspend fun shouldUseServerOllamaModels(): Boolean {
+            val prefs = context.dataStore.data.first()
+            return prefs[OLLAMA_SERVER_PREFERRED_KEY] ?: true
+        }
+
+        // Allow toggling server-based Ollama usage (default true for backward compatibility)
+        suspend fun setOllamaServerPreference(useServer: Boolean) {
+            context.dataStore.edit { prefs -> prefs[OLLAMA_SERVER_PREFERRED_KEY] = useServer }
+        }
+
+        suspend fun shouldUseOllamaManualFallbackModels(): Boolean {
+            val prefs = context.dataStore.data.first()
+            return prefs[OLLAMA_MANUAL_FALLBACK_KEY] ?: false
+        }
+
+        suspend fun setOllamaManualFallbackEnabled(useManualFallback: Boolean) {
+            context.dataStore.edit { prefs -> prefs[OLLAMA_MANUAL_FALLBACK_KEY] = useManualFallback }
+        }
+
     val isSetupComplete: Flow<Boolean> = context.dataStore.data.map { prefs ->
         prefs[KEY_SETUP_COMPLETE] ?: false
     }.catch { error ->
@@ -798,9 +854,18 @@ class PreferencesManager(private val context: Context) {
             "minimax" -> prefs[KEY_API_KEY_MINIMAX] ?: ""
             "openai-compatible" -> activeProfile?.apiKey?.trim().orEmpty()
                 .ifBlank { prefs[KEY_API_KEY_OPENAI_COMPATIBLE].orEmpty() }
+            "ollama" -> prefs[KEY_API_KEY_OLLAMA] ?: ""
             "google" -> prefs[KEY_API_KEY_GOOGLE] ?: ""
             else -> legacy
         }
+    }
+
+    val ollamaBaseUrl: Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[KEY_OLLAMA_BASE_URL] ?: "http://127.0.0.1:11434"
+    }
+
+    val ollamaModelId: Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[KEY_OLLAMA_MODEL_ID]?.trim()?.removePrefix("ollama/")?.removeSuffix(":latest").orEmpty()
     }
 
     val openAiCompatibleBaseUrl: Flow<String> = context.dataStore.data.map { prefs ->
@@ -1278,6 +1343,7 @@ class PreferencesManager(private val context: Context) {
                     }
                     it[KEY_OPENAI_COMPATIBLE_PROFILES_JSON] = encodeOpenAiCompatibleProfiles(profiles)
                 }
+                "ollama" -> it[KEY_API_KEY_OLLAMA] = key
                 "google" -> it[KEY_API_KEY_GOOGLE] = key
                 else -> { /* no-op */ }
             }
@@ -1302,6 +1368,7 @@ class PreferencesManager(private val context: Context) {
                 activeProfile?.apiKey?.trim().orEmpty()
                     .ifBlank { snapshot[KEY_API_KEY_OPENAI_COMPATIBLE].orEmpty() }
             }
+            "ollama" -> snapshot[KEY_API_KEY_OLLAMA].orEmpty()
             "google" -> snapshot[KEY_API_KEY_GOOGLE].orEmpty()
             else -> legacy
         }
@@ -1325,6 +1392,7 @@ class PreferencesManager(private val context: Context) {
                 activeProfile?.apiKey?.trim().orEmpty()
                     .ifBlank { snapshot[KEY_API_KEY_OPENAI_COMPATIBLE].orEmpty() }
             }
+            "ollama" -> snapshot[KEY_API_KEY_OLLAMA].orEmpty()
             "google" -> snapshot[KEY_API_KEY_GOOGLE].orEmpty()
             else -> legacy
         }
@@ -1356,6 +1424,7 @@ class PreferencesManager(private val context: Context) {
                 launchConfig.apiKey.isBlank() &&
                     !isKnownKeylessOpenAiCompatibleBaseUrl(launchConfig.openAiCompatibleBaseUrl)
             }
+            "ollama" -> false
             else -> launchConfig.apiKey.isBlank()
         }
         return LaunchApiKeyWarning(
@@ -1412,6 +1481,23 @@ class PreferencesManager(private val context: Context) {
                 primaryModel = normalizedModelId.ifBlank { null },
             )
             prefs[KEY_OPENAI_COMPATIBLE_PROFILES_JSON] = encodeOpenAiCompatibleProfiles(profiles)
+        }
+    }
+
+    suspend fun setOllamaBaseUrl(baseUrl: String) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_OLLAMA_BASE_URL] = baseUrl.trim().ifBlank { "http://127.0.0.1:11434" }
+        }
+    }
+
+    suspend fun setOllamaModelId(modelId: String) {
+        context.dataStore.edit { prefs ->
+            val normalizedModelId = modelId.trim().removePrefix("ollama/").removeSuffix(":latest")
+            if (normalizedModelId.isBlank()) {
+                prefs.remove(KEY_OLLAMA_MODEL_ID)
+            } else {
+                prefs[KEY_OLLAMA_MODEL_ID] = normalizedModelId
+            }
         }
     }
 
@@ -1670,6 +1756,8 @@ class PreferencesManager(private val context: Context) {
                     }
                     if (normalizedProvider == "openai-compatible") {
                         prefs[KEY_OPENAI_COMPATIBLE_MODEL_ID] = explicitPrimary
+                    } else if (normalizedProvider == "ollama") {
+                        prefs[KEY_OLLAMA_MODEL_ID] = explicitPrimary
                     }
                 } else if (hasExplicitPrimaryDirective) {
                     if (globalPrimaryProvider == normalizedProvider) {
@@ -1686,6 +1774,8 @@ class PreferencesManager(private val context: Context) {
                     }
                     if (normalizedProvider == "openai-compatible") {
                         prefs.remove(KEY_OPENAI_COMPATIBLE_MODEL_ID)
+                    } else if (normalizedProvider == "ollama") {
+                        prefs.remove(KEY_OLLAMA_MODEL_ID)
                     }
                 }
             }
@@ -1756,6 +1846,8 @@ class PreferencesManager(private val context: Context) {
                         prefs[KEY_OPENAI_COMPATIBLE_PROFILES_JSON] = encodeOpenAiCompatibleProfiles(profiles)
                     }
                 }
+            } else if (normalizedProvider == "ollama") {
+                prefs[KEY_OLLAMA_MODEL_ID] = normalizedModelId
             }
         }
     }
@@ -1920,12 +2012,14 @@ class PreferencesManager(private val context: Context) {
             "minimax" -> snapshot[KEY_API_KEY_MINIMAX].orEmpty()
             "openai-compatible" -> activeProfile?.apiKey?.trim().orEmpty()
                 .ifBlank { snapshot[KEY_API_KEY_OPENAI_COMPATIBLE].orEmpty() }
+            "ollama" -> snapshot[KEY_API_KEY_OLLAMA].orEmpty()
             "google" -> snapshot[KEY_API_KEY_GOOGLE].orEmpty()
             else -> legacyApiKey
         }
 
         val openAiCompatibleBaseUrl = activeProfile?.baseUrl
             ?: (snapshot[KEY_OPENAI_COMPATIBLE_BASE_URL] ?: "https://api.openai.com/v1")
+        val ollamaBaseUrl = snapshot[KEY_OLLAMA_BASE_URL] ?: "http://127.0.0.1:11434"
 
         val legacySelectedModel = canonicalizeModelIdForProvider(
             provider,
@@ -1956,7 +2050,17 @@ class PreferencesManager(private val context: Context) {
         } else {
             ""
         }
-        val effectivePrimary = globalPrimary.ifBlank { profilePrimary }
+        val ollamaPrimary = if (provider == "ollama") {
+            snapshot[KEY_OLLAMA_MODEL_ID]
+                .orEmpty()
+                .trim()
+                .removePrefix("ollama/")
+                .takeIf { it.isNotBlank() && selectedModelIds.contains(it) }
+                .orEmpty()
+        } else {
+            ""
+        }
+        val effectivePrimary = globalPrimary.ifBlank { profilePrimary.ifBlank { ollamaPrimary } }
 
         val legacyEntry = legacySelectedModel
             .takeIf { it.isNotBlank() }
@@ -2002,6 +2106,7 @@ class PreferencesManager(private val context: Context) {
             selectedModelEntries = selectedEntries,
             primaryModelId = effectivePrimary,
             openAiCompatibleBaseUrl = openAiCompatibleBaseUrl,
+            ollamaBaseUrl = ollamaBaseUrl,
             modelReasoning = selectedModelEntryForRuntime?.supportsReasoning
                 ?: (snapshot[KEY_SELECTED_MODEL_REASONING] ?: false),
             modelImages = selectedModelEntryForRuntime?.supportsImages
@@ -2761,6 +2866,7 @@ data class GatewayLaunchConfigSnapshot(
     val selectedModelEntries: List<SelectedModelConfigEntry>,
     val primaryModelId: String,
     val openAiCompatibleBaseUrl: String,
+    val ollamaBaseUrl: String = "",
     val modelReasoning: Boolean,
     val modelImages: Boolean,
     val modelContext: Int,

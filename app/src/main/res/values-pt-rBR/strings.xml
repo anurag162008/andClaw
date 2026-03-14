@@ -260,6 +260,7 @@ Não feche nem force a parada do app enquanto a recuperação estiver em andamen
     <string name="settings_api_key_get_link">Obter chave de API do %1$s →</string>
     <string name="bug_report_included_gateway_logs">- Logs da UI do gateway (sanitizados): %1$d linhas</string>
     <string name="onboarding_provider_openai_compatible">API OpenAI personalizada</string>
+    <string name="onboarding_provider_ollama">Ollama (local)</string>
     <string name="onboarding_provider_zai">Z.ai</string>
     <string name="onboarding_provider_kimi_coding">Kimi Code</string>
     <string name="onboarding_provider_minimax">MiniMax</string>
@@ -268,7 +269,10 @@ Não feche nem force a parada do app enquanto a recuperação estiver em andamen
     <string name="onboarding_provider_nvidia">NVIDIA</string>
     <string name="settings_openai_compatible_base_url">URL base (compatível com OpenAI)</string>
     <string name="settings_openai_compatible_model_id">ID do modelo</string>
-
+    <string name="settings_ollama_base_url">URL base (Ollama)</string>
+    <string name="settings_ollama_model_id">ID do modelo</string>
+    <string name="settings_ollama_host_address">Endereço do host</string>
+    <string name="settings_ollama_docs_link">Abrir documentação do Ollama →</string>
     <string name="settings_openclaw_update_action">Atualizar OpenClaw</string>
     <string name="settings_openclaw_update_running">Atualizando OpenClaw…</string>
     <string name="settings_openclaw_update_available_version">Atualização disponível: %1$s → %2$s</string>

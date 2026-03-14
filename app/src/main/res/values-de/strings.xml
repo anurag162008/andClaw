@@ -266,6 +266,7 @@ Schließen Sie die App nicht und erzwingen Sie keinen Stopp, solange die Wiederh
     <string name="settings_api_key_get_link">%1$s API-Schlüssel erhalten →</string>
     <string name="bug_report_included_gateway_logs">- Gateway-UI-Protokolle (bereinigt): %1$d Zeilen</string>
     <string name="onboarding_provider_openai_compatible">Benutzerdefinierte OpenAI-API</string>
+    <string name="onboarding_provider_ollama">Ollama (Lokal)</string>
     <string name="onboarding_provider_zai">Z.ai</string>
     <string name="onboarding_provider_kimi_coding">Kimi Code</string>
     <string name="onboarding_provider_minimax">MiniMax</string>
@@ -274,7 +275,10 @@ Schließen Sie die App nicht und erzwingen Sie keinen Stopp, solange die Wiederh
     <string name="onboarding_provider_nvidia">NVIDIA</string>
     <string name="settings_openai_compatible_base_url">Basis-URL (OpenAI-kompatibel)</string>
     <string name="settings_openai_compatible_model_id">Modell-ID</string>
-
+    <string name="settings_ollama_base_url">Basis-URL (Ollama)</string>
+    <string name="settings_ollama_model_id">Modell-ID</string>
+    <string name="settings_ollama_host_address">Host-Adresse</string>
+    <string name="settings_ollama_docs_link">Ollama-Dokumentation öffnen →</string>
     <string name="settings_openclaw_update_action">OpenClaw aktualisieren</string>
     <string name="settings_openclaw_update_running">OpenClaw wird aktualisiert…</string>
     <string name="settings_openclaw_update_available_version">Update verfügbar: %1$s → %2$s</string>

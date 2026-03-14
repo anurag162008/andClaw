@@ -260,6 +260,7 @@
     <string name="settings_api_key_get_link">Получить API-ключ %1$s →</string>
     <string name="bug_report_included_gateway_logs">- Логи UI шлюза (очищенные): %1$d строк</string>
     <string name="onboarding_provider_openai_compatible">Пользовательский API OpenAI</string>
+    <string name="onboarding_provider_ollama">Ollama (локальный)</string>
     <string name="onboarding_provider_zai">Z.ai</string>
     <string name="onboarding_provider_kimi_coding">Kimi Code</string>
     <string name="onboarding_provider_minimax">MiniMax</string>
@@ -268,7 +269,10 @@
     <string name="onboarding_provider_nvidia">NVIDIA</string>
     <string name="settings_openai_compatible_base_url">Базовый URL (совместимо с OpenAI)</string>
     <string name="settings_openai_compatible_model_id">ID модели</string>
-
+    <string name="settings_ollama_base_url">Базовый URL (Ollama)</string>
+    <string name="settings_ollama_model_id">ID модели</string>
+    <string name="settings_ollama_host_address">Адрес хоста</string>
+    <string name="settings_ollama_docs_link">Открыть документацию Ollama →</string>
     <string name="settings_openclaw_update_action">Обновить OpenClaw</string>
     <string name="settings_openclaw_update_running">Обновление OpenClaw…</string>
     <string name="settings_openclaw_update_available_version">Доступно обновление: %1$s → %2$s</string>

@@ -437,6 +437,7 @@ class ProcessManager(
         selectedModels: List<ModelSelectionEntry> = emptyList(),
         primaryModelId: String = "",
         openAiCompatibleBaseUrl: String = "",
+        ollamaBaseUrl: String = "",
         channelConfig: ChannelConfig = ChannelConfig(),
         modelReasoning: Boolean = false,
         modelImages: Boolean = false,
@@ -547,6 +548,7 @@ class ProcessManager(
                     selectedModels = selectedModels,
                     primaryModelId = primaryModelId,
                     openAiCompatibleBaseUrl = openAiCompatibleBaseUrl,
+                    ollamaBaseUrl = ollamaBaseUrl,
                     modelReasoning = modelReasoning,
                     modelImages = modelImages,
                     modelContext = modelContext,
@@ -593,6 +595,7 @@ class ProcessManager(
                             }
                             "minimax" -> put("MINIMAX_API_KEY", apiKey)
                             "openai-compatible" -> put("OPENAI_COMPAT_API_KEY", apiKey)
+                            "ollama" -> put("OLLAMA_API_KEY", apiKey)
                             "openrouter" -> put("OPENROUTER_API_KEY", apiKey)
                             "google" -> {
                                 put("GEMINI_API_KEY", apiKey)
@@ -787,6 +790,7 @@ class ProcessManager(
         selectedModels: List<ModelSelectionEntry> = emptyList(),
         primaryModelId: String = "",
         openAiCompatibleBaseUrl: String = "",
+        ollamaBaseUrl: String = "",
         channelConfig: ChannelConfig = ChannelConfig(),
         modelReasoning: Boolean = false,
         modelImages: Boolean = false,
@@ -808,6 +812,7 @@ class ProcessManager(
             selectedModels = selectedModels,
             primaryModelId = primaryModelId,
             openAiCompatibleBaseUrl = openAiCompatibleBaseUrl,
+            ollamaBaseUrl = ollamaBaseUrl,
             channelConfig = channelConfig,
             modelReasoning = modelReasoning,
             modelImages = modelImages,
@@ -950,6 +955,7 @@ class ProcessManager(
         selectedModels: List<ModelSelectionEntry> = emptyList(),
         primaryModelId: String = "",
         openAiCompatibleBaseUrl: String = "",
+        ollamaBaseUrl: String = "",
         modelReasoning: Boolean = false,
         modelImages: Boolean = false,
         modelContext: Int = 200000,
@@ -1030,7 +1036,8 @@ class ProcessManager(
                     "zai" -> "glm-5"
                     "kimi-coding" -> "k2p5"
                     "minimax" -> "MiniMax-M2.5"
-                    "openai-compatible" -> "gpt-4o-mini"
+                "openai-compatible" -> ""
+                "ollama" -> ""
                     "google" -> "gemini-2.5-flash"
                     else -> "openrouter/free"
                 }
@@ -1108,6 +1115,10 @@ class ProcessManager(
                         val id = modelId.removePrefix("openai-compatible/")
                         "openai-compatible/$id"
                     }
+                    "ollama" -> {
+                        val id = modelId.removePrefix("ollama/").removeSuffix(":latest")
+                        "ollama/$id"
+                    }
                     "google" -> {
                         val id = when {
                             modelId.startsWith("google/") -> modelId.removePrefix("google/")
@@ -1140,6 +1151,7 @@ class ProcessManager(
                 "kimi-coding" -> setOf("kimi-coding/")
                 "minimax" -> setOf("minimax/")
                 "openai-compatible" -> setOf("openai-compatible/")
+                "ollama" -> setOf("ollama/")
                 "google" -> setOf("google/")
                 else -> setOf("${provider.trim().lowercase()}/")
             }
@@ -1174,6 +1186,12 @@ class ProcessManager(
                         val id = modelKey.removePrefix("nvidia/")
                         builtInOpenRouterModelIds.contains(id) ||
                             registeredCustomModelIds["openrouter"].orEmpty().contains(id)
+                    }
+
+                    modelKey.startsWith("ollama/") -> {
+                        val id = modelKey.removePrefix("ollama/").removeSuffix(":latest")
+                        val currentTarget = apiProvider == "ollama" && modelKey in targetModels
+                        currentTarget || registeredCustomModelIds["ollama"].orEmpty().contains(id)
                     }
 
                     else -> true
@@ -1365,6 +1383,32 @@ class ProcessManager(
                 addLog(
                     "[andClaw] OpenAI-compatible provider configured: " +
                         "models=${compatEntries.map { it.id }}, baseUrl='$normalizedBaseUrl'"
+                )
+                changed = true
+            } else if (apiProvider == "ollama") {
+                val ollamaEntries = normalizedSelectedEntries
+                    .map { entry -> entry.copy(id = entry.id.removePrefix("ollama/").removeSuffix(":latest")) }
+                val normalizedBaseUrl = ollamaBaseUrl.trim().trimEnd('/').ifBlank { "http://127.0.0.1:11434" }
+                val models = json.optJSONObject("models") ?: JSONObject().also { json.put("models", it) }
+                val providers = models.optJSONObject("providers") ?: JSONObject().also { models.put("providers", it) }
+                providers.put("ollama", JSONObject().apply {
+                    put("baseUrl", normalizedBaseUrl)
+                    put("api", "ollama")
+                    put("apiKey", if (apiKey.isNotBlank()) "ollama-local" else "ollama-local")
+                    put("models", org.json.JSONArray().apply {
+                        ollamaEntries.forEach { entry ->
+                            put(buildModelEntryJson(entry, api = "ollama"))
+                        }
+                    })
+                })
+                writeOllamaModelsJson(
+                    modelEntries = ollamaEntries,
+                    baseUrl = normalizedBaseUrl,
+                    apiKey = apiKey,
+                )
+                addLog(
+                    "[andClaw] Ollama provider configured: " +
+                        "models=${ollamaEntries.map { it.id }}, baseUrl='$normalizedBaseUrl'"
                 )
                 changed = true
             }
@@ -1786,6 +1830,7 @@ class ProcessManager(
                 provider = "openai-compatible",
                 providerConfig = JSONObject().apply {
                     put("baseUrl", baseUrl)
+                    put("api", "openai-completions")
                     if (apiKey.isNotBlank()) {
                         put("apiKey", "\${OPENAI_COMPAT_API_KEY}")
                     }
@@ -1802,6 +1847,46 @@ class ProcessManager(
             )
         } catch (e: Exception) {
             addLog("[andClaw] Failed to write openai-compatible models.json: ${e.message}")
+        }
+    }
+
+    private fun writeOllamaModelsJson(
+        modelEntries: List<ModelSelectionEntry>,
+        baseUrl: String,
+        apiKey: String,
+    ) {
+        try {
+            val providerConfig = JSONObject().apply {
+                put("baseUrl", baseUrl)
+                put("api", "ollama")
+                put("apiKey", if (apiKey.isNotBlank()) "\${OLLAMA_API_KEY}" else "ollama-local")
+                put("models", org.json.JSONArray().apply {
+                    modelEntries
+                        .map { it.copy(id = it.id.trim()) }
+                        .filter { it.id.isNotBlank() }
+                        .distinctBy { it.id }
+                        .forEach { entry ->
+                            put(buildModelEntryJson(entry, api = "ollama"))
+                        }
+                })
+            }
+            upsertProviderModelsJson(
+                provider = "ollama",
+                providerConfig = providerConfig,
+            )
+            val configPath = File(prootManager.rootfsDir, "root/.openclaw/openclaw.json")
+            val config = if (configPath.exists()) {
+                runCatching { JSONObject(configPath.readText()) }.getOrElse { JSONObject() }
+            } else {
+                JSONObject()
+            }
+            val models = config.optJSONObject("models") ?: JSONObject().also { config.put("models", it) }
+            val providers = models.optJSONObject("providers") ?: JSONObject().also { models.put("providers", it) }
+            providers.put("ollama", JSONObject(providerConfig.toString()))
+            configPath.parentFile?.mkdirs()
+            configPath.writeText(config.toString(2))
+        } catch (e: Exception) {
+            addLog("[andClaw] Failed to write ollama models.json: ${e.message}")
         }
     }
 
@@ -1868,7 +1953,7 @@ class ProcessManager(
         }
     }
 
-    private fun buildModelEntryJson(entry: ModelSelectionEntry): JSONObject {
+    private fun buildModelEntryJson(entry: ModelSelectionEntry, api: String = "openai-completions"): JSONObject {
         val inputTypes = org.json.JSONArray().apply {
             put("text")
             if (entry.supportsImages) put("image")
@@ -1876,7 +1961,7 @@ class ProcessManager(
         return JSONObject().apply {
             put("id", entry.id)
             put("name", entry.id)
-            put("api", "openai-completions")
+            put("api", api)
             put("reasoning", entry.supportsReasoning)
             put("input", inputTypes)
             put("cost", JSONObject().apply {
@@ -2176,6 +2261,7 @@ class ProcessManager(
             put("OPENROUTER_API_KEY", "__andclaw_env_placeholder__")
             put("OPENAI_API_KEY", "__andclaw_env_placeholder__")
             put("OPENAI_COMPAT_API_KEY", "__andclaw_env_placeholder__")
+            put("OLLAMA_API_KEY", "__andclaw_env_placeholder__")
             put("ANTHROPIC_API_KEY", "__andclaw_env_placeholder__")
             put("GOOGLE_API_KEY", "__andclaw_env_placeholder__")
             put("GEMINI_API_KEY", "__andclaw_env_placeholder__")
@@ -2213,6 +2299,7 @@ class ProcessManager(
                     }
                     "minimax" -> put("MINIMAX_API_KEY", lastApiKey)
                     "openai-compatible" -> put("OPENAI_COMPAT_API_KEY", lastApiKey)
+                    "ollama" -> put("OLLAMA_API_KEY", lastApiKey)
                     "openrouter" -> put("OPENROUTER_API_KEY", lastApiKey)
                     "google" -> {
                         put("GOOGLE_API_KEY", lastApiKey)

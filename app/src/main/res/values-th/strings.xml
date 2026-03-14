@@ -260,6 +260,7 @@
     <string name="settings_api_key_get_link">รับคีย์ API ของ %1$s →</string>
     <string name="bug_report_included_gateway_logs">- บันทึก UI ของเกตเวย์ (ลบข้อมูลสำคัญแล้ว): %1$d บรรทัด</string>
     <string name="onboarding_provider_openai_compatible">OpenAI API แบบกำหนดเอง</string>
+    <string name="onboarding_provider_ollama">Ollama (โลคัล)</string>
     <string name="onboarding_provider_zai">Z.ai</string>
     <string name="onboarding_provider_kimi_coding">Kimi Code</string>
     <string name="onboarding_provider_minimax">MiniMax</string>
@@ -268,7 +269,10 @@
     <string name="onboarding_provider_nvidia">NVIDIA</string>
     <string name="settings_openai_compatible_base_url">URL พื้นฐาน (รองรับ OpenAI)</string>
     <string name="settings_openai_compatible_model_id">รหัสโมเดล</string>
-
+    <string name="settings_ollama_base_url">URL พื้นฐาน (Ollama)</string>
+    <string name="settings_ollama_model_id">รหัสโมเดล</string>
+    <string name="settings_ollama_host_address">ที่อยู่โฮสต์</string>
+    <string name="settings_ollama_docs_link">เปิดเอกสาร Ollama →</string>
     <string name="settings_openclaw_update_action">อัปเดต OpenClaw</string>
     <string name="settings_openclaw_update_running">กำลังอัปเดต OpenClaw…</string>
     <string name="settings_openclaw_update_available_version">มีอัปเดต: %1$s → %2$s</string>

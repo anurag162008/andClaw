@@ -112,6 +112,8 @@ fun SettingsScreen(
     val apiKey by viewModel.apiKey.collectAsState()
     val openAiCompatibleBaseUrl by viewModel.openAiCompatibleBaseUrl.collectAsState()
     val openAiCompatibleModelId by viewModel.openAiCompatibleModelId.collectAsState()
+    val ollamaBaseUrl by viewModel.ollamaBaseUrl.collectAsState()
+    val ollamaModelId by viewModel.ollamaModelId.collectAsState()
     val selectedModel by viewModel.selectedModel.collectAsState()
     val selectedModelProvider by viewModel.selectedModelProvider.collectAsState()
     val selectedModelIds by viewModel.currentProviderSelectedModelIds.collectAsState()
@@ -169,6 +171,7 @@ fun SettingsScreen(
             "zai" -> context.getString(R.string.onboarding_provider_zai)
             "kimi-coding" -> context.getString(R.string.onboarding_provider_kimi_coding)
             "minimax" -> context.getString(R.string.onboarding_provider_minimax)
+            "ollama" -> context.getString(R.string.onboarding_provider_ollama)
             "openai-compatible" -> context.getString(R.string.onboarding_provider_openai_compatible)
             "google" -> context.getString(R.string.onboarding_provider_google)
             else -> provider
@@ -476,6 +479,7 @@ fun SettingsScreen(
                                 "zai" -> stringResource(R.string.onboarding_provider_zai)
                                 "kimi-coding" -> stringResource(R.string.onboarding_provider_kimi_coding)
                                 "minimax" -> stringResource(R.string.onboarding_provider_minimax)
+                                "ollama" -> stringResource(R.string.onboarding_provider_ollama)
                                 "openai-compatible" -> stringResource(R.string.onboarding_provider_openai_compatible)
                                 "google" -> stringResource(R.string.onboarding_provider_google)
                                 else -> apiProvider.replaceFirstChar { it.uppercase() }
@@ -489,18 +493,39 @@ fun SettingsScreen(
                         )
 
                         if (shouldUseApiKeyDialog(apiProvider)) {
+                            val customProviderBaseUrlValue = customProviderBaseUrl(
+                                provider = apiProvider,
+                                openAiCompatibleBaseUrl = openAiCompatibleBaseUrl,
+                                ollamaBaseUrl = ollamaBaseUrl,
+                            )
                             val apiKeyRowState = resolveApiKeyRowState(
                                 provider = apiProvider,
                                 apiKey = apiKey,
-                                baseUrl = openAiCompatibleBaseUrl,
+                                baseUrl = customProviderBaseUrlValue,
                                 configuredLabel = stringResource(R.string.settings_api_key_configured),
                                 notConfiguredLabel = stringResource(R.string.settings_api_key_not_configured),
                                 notRequiredLabel = stringResource(R.string.settings_api_key_not_required),
                             )
                             SettingClickableRow(
-                                title = stringResource(R.string.settings_api_key),
-                                value = apiKeyRowState.value,
-                                valueColor = if (apiKeyRowState.isError) MaterialTheme.colorScheme.error else null,
+                                title = if (apiProvider == "ollama") {
+                                    stringResource(R.string.settings_ollama_host_address)
+                                } else {
+                                    stringResource(R.string.settings_api_key)
+                                },
+                                value = if (apiProvider == "ollama") {
+                                    customProviderBaseUrlValue.ifBlank {
+                                        stringResource(R.string.settings_api_key_not_configured)
+                                    }
+                                } else {
+                                    apiKeyRowState.value
+                                },
+                                valueColor = if (apiProvider == "ollama") {
+                                    if (customProviderBaseUrlValue.isBlank()) MaterialTheme.colorScheme.error else null
+                                } else if (apiKeyRowState.isError) {
+                                    MaterialTheme.colorScheme.error
+                                } else {
+                                    null
+                                },
                                 onClick = { showApiKeyDialog = true },
                             )
                         } else if (apiProvider == "openai-codex") {
@@ -1014,10 +1039,15 @@ fun SettingsScreen(
         ApiKeyInputDialog(
             currentKey = apiKeyDialogCurrentKeyOverride ?: if (dialogProvider == apiProvider) apiKey else "",
             provider = dialogProvider,
-            currentBaseUrl = openAiCompatibleBaseUrl,
+            currentBaseUrl = customProviderBaseUrl(
+                provider = dialogProvider,
+                openAiCompatibleBaseUrl = openAiCompatibleBaseUrl,
+                ollamaBaseUrl = ollamaBaseUrl,
+            ),
             currentModelId = resolveApiKeyDialogModelId(
                 provider = dialogProvider,
                 openAiCompatibleModelId = openAiCompatibleModelId,
+                ollamaModelId = ollamaModelId,
                 selectedModel = selectedModel,
             ),
             onSave = { key ->
@@ -1043,7 +1073,25 @@ fun SettingsScreen(
                     apiKey = key,
                     baseUrl = baseUrl,
                     modelId = modelId,
-                    activateProvider = shouldActivateOpenAiCompatibleApiSave(
+                    activateProvider = shouldActivateCustomProviderApiSave(
+                        dialogProvider = dialogProvider,
+                        globalPrimaryProvider = selectedModelProvider,
+                    ),
+                    onApplied = { changed ->
+                        viewModel.shouldShowRestartPromptForRuntimeChange(changed) { shouldShow ->
+                            showRestartHint = shouldShow
+                        }
+                    },
+                )
+                showApiKeyDialog = false
+                apiKeyDialogProviderOverride = null
+                apiKeyDialogCurrentKeyOverride = null
+            },
+            onSaveOllama = { key, baseUrl ->
+                viewModel.saveOllamaConfig(
+                    apiKey = key,
+                    baseUrl = baseUrl,
+                    activateProvider = shouldActivateCustomProviderApiSave(
                         dialogProvider = dialogProvider,
                         globalPrimaryProvider = selectedModelProvider,
                     ),
@@ -1691,35 +1739,53 @@ private fun ChannelDisconnectProgressDialog(channelLabel: String) {
 internal fun resolveApiKeyDialogModelId(
     provider: String,
     openAiCompatibleModelId: String,
+    ollamaModelId: String,
     selectedModel: String,
 ): String {
-    return if (provider == "openai-compatible") {
-        openAiCompatibleModelId.removePrefix("openai-compatible/")
-    } else {
-        selectedModel
+    return when (provider) {
+        "openai-compatible" -> openAiCompatibleModelId.removePrefix("openai-compatible/")
+        "ollama" -> ollamaModelId.removePrefix("ollama/")
+        else -> selectedModel
     }
 }
 
-internal fun shouldActivateOpenAiCompatibleApiSave(
+internal fun shouldActivateCustomProviderApiSave(
     dialogProvider: String,
     globalPrimaryProvider: String,
 ): Boolean {
-    return dialogProvider == "openai-compatible" && globalPrimaryProvider == "openai-compatible"
+    return dialogProvider == globalPrimaryProvider &&
+        (dialogProvider == "openai-compatible" || dialogProvider == "ollama")
+}
+
+internal fun customProviderBaseUrl(
+    provider: String,
+    openAiCompatibleBaseUrl: String,
+    ollamaBaseUrl: String,
+): String {
+    return when (provider) {
+        "openai-compatible" -> openAiCompatibleBaseUrl
+        "ollama" -> ollamaBaseUrl
+        else -> ""
+    }
 }
 
 internal fun canSaveApiKeyDialog(
     provider: String,
     apiKey: String,
     baseUrl: String,
+    modelId: String = "",
 ): Boolean {
-    return if (provider == "openai-compatible") {
-        baseUrl.isNotBlank() &&
-            (
-                apiKey.isNotBlank() ||
-                    PreferencesManager.isKnownKeylessOpenAiCompatibleBaseUrl(baseUrl)
-            )
-    } else {
-        apiKey.isNotBlank()
+    return when (provider) {
+        "openai-compatible" -> {
+            baseUrl.isNotBlank() &&
+                modelId.isNotBlank() &&
+                (
+                    apiKey.isNotBlank() ||
+                        PreferencesManager.isKnownKeylessOpenAiCompatibleBaseUrl(baseUrl)
+                )
+        }
+        "ollama" -> baseUrl.isNotBlank()
+        else -> apiKey.isNotBlank()
     }
 }
 
@@ -1742,6 +1808,7 @@ internal fun resolveApiKeyRowState(
         trimmedProvider == "openai-compatible" &&
             trimmedApiKey.isBlank() &&
             PreferencesManager.isKnownKeylessOpenAiCompatibleBaseUrl(baseUrl)
+    val isKeylessOllama = trimmedProvider == "ollama" && trimmedApiKey.isBlank()
     return when {
         trimmedApiKey.isNotBlank() ->
             ApiKeyRowState(
@@ -1750,6 +1817,12 @@ internal fun resolveApiKeyRowState(
             )
 
         isKeylessCompat ->
+            ApiKeyRowState(
+                value = notRequiredLabel,
+                isError = false,
+            )
+
+        isKeylessOllama ->
             ApiKeyRowState(
                 value = notRequiredLabel,
                 isError = false,
@@ -1770,10 +1843,10 @@ internal fun formatCanonicalSelectedModelId(
     val trimmedProvider = provider.trim().lowercase(Locale.US)
     val trimmedModelId = modelId.trim()
     if (trimmedModelId.isBlank()) return ""
-    return if (trimmedProvider == "openai-compatible") {
-        trimmedModelId.removePrefix("openai-compatible/").trim()
-    } else {
-        trimmedModelId
+    return when (trimmedProvider) {
+        "openai-compatible" -> trimmedModelId.removePrefix("openai-compatible/").trim()
+        "ollama" -> trimmedModelId.removePrefix("ollama/").trim()
+        else -> trimmedModelId
     }
 }
 
@@ -1792,6 +1865,7 @@ internal fun formatSelectedModelLabel(
         "zai" -> canonicalModelId.removePrefix("zai/")
         "kimi-coding" -> canonicalModelId.removePrefix("kimi-coding/")
         "minimax" -> canonicalModelId.removePrefix("minimax/")
+        "ollama" -> canonicalModelId.removePrefix("ollama/")
         else -> canonicalModelId
     }
 }
@@ -1931,6 +2005,7 @@ private fun ProviderSelectionDialog(
         "zai" to stringResource(R.string.onboarding_provider_zai),
         "kimi-coding" to stringResource(R.string.onboarding_provider_kimi_coding),
         "minimax" to stringResource(R.string.onboarding_provider_minimax),
+        "ollama" to stringResource(R.string.onboarding_provider_ollama),
         "openai-compatible" to stringResource(R.string.onboarding_provider_openai_compatible),
     )
 
@@ -2030,6 +2105,7 @@ private fun ApiKeyInputDialog(
     currentModelId: String,
     onSave: (String) -> Unit,
     onSaveOpenAiCompatible: (String, String, String) -> Unit,
+    onSaveOllama: (String, String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var keyText by remember { mutableStateOf(currentKey) }
@@ -2038,6 +2114,9 @@ private fun ApiKeyInputDialog(
     var passwordVisible by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val isOpenAiCompatible = provider == "openai-compatible"
+    val isOllama = provider == "ollama"
+    val isCustomProvider = isOpenAiCompatible || isOllama
+    val needsModelIdInput = isOpenAiCompatible
     val providerDisplayName = when (provider) {
         "openrouter" -> stringResource(R.string.onboarding_provider_openrouter)
         "anthropic" -> stringResource(R.string.onboarding_provider_anthropic)
@@ -2048,6 +2127,7 @@ private fun ApiKeyInputDialog(
         "zai" -> stringResource(R.string.onboarding_provider_zai)
         "kimi-coding" -> stringResource(R.string.onboarding_provider_kimi_coding)
         "minimax" -> stringResource(R.string.onboarding_provider_minimax)
+        "ollama" -> stringResource(R.string.onboarding_provider_ollama)
         "openai-compatible" -> stringResource(R.string.onboarding_provider_openai_compatible)
         else -> provider.replaceFirstChar { it.uppercase() }
     }
@@ -2061,55 +2141,80 @@ private fun ApiKeyInputDialog(
         "zai" -> "https://docs.z.ai/guides/overview/quick-start"
         "kimi-coding" -> "https://www.kimi.com/coding/docs/en/"
         "minimax" -> "https://platform.minimax.io/document/Quickstart"
+        "ollama" -> "https://docs.openclaw.ai/providers/ollama"
         else -> null
     }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         shape = RoundedCornerShape(24.dp),
-        title = { Text(stringResource(R.string.settings_api_key)) },
+        title = {
+            Text(
+                if (isOllama) {
+                    stringResource(R.string.settings_ollama_host_address)
+                } else {
+                    stringResource(R.string.settings_api_key)
+                }
+            )
+        },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = keyText,
-                    onValueChange = { keyText = it },
-                    label = { Text(stringResource(R.string.settings_api_key_hint)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    visualTransformation = if (passwordVisible) {
-                        VisualTransformation.None
-                    } else {
-                        PasswordVisualTransformation()
-                    },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    trailingIcon = {
-                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                            Icon(
-                                if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                contentDescription = null,
-                            )
-                        }
-                    },
-                )
-                if (isOpenAiCompatible) {
+                if (!isOllama) {
+                    OutlinedTextField(
+                        value = keyText,
+                        onValueChange = { keyText = it },
+                        label = { Text(stringResource(R.string.settings_api_key_hint)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        visualTransformation = if (passwordVisible) {
+                            VisualTransformation.None
+                        } else {
+                            PasswordVisualTransformation()
+                        },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        trailingIcon = {
+                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                Icon(
+                                    if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = null,
+                                )
+                            }
+                        },
+                    )
+                }
+                if (isCustomProvider) {
                     OutlinedTextField(
                         value = baseUrlText,
                         onValueChange = { baseUrlText = it },
-                        label = { Text(stringResource(R.string.settings_openai_compatible_base_url)) },
+                        label = {
+                            Text(
+                                if (isOllama) {
+                                    stringResource(R.string.settings_ollama_base_url)
+                                } else {
+                                    stringResource(R.string.settings_openai_compatible_base_url)
+                                }
+                            )
+                        },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    OutlinedTextField(
-                        value = modelIdText,
-                        onValueChange = { modelIdText = it },
-                        label = { Text(stringResource(R.string.settings_openai_compatible_model_id)) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                    if (needsModelIdInput) {
+                        OutlinedTextField(
+                            value = modelIdText,
+                            onValueChange = { modelIdText = it },
+                            label = { Text(stringResource(R.string.settings_openai_compatible_model_id)) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
                 }
                 if (settingsUrl != null) {
                     Text(
-                        text = stringResource(R.string.settings_api_key_get_link, providerDisplayName),
+                        text = if (isOllama) {
+                            stringResource(R.string.settings_ollama_docs_link)
+                        } else {
+                            stringResource(R.string.settings_api_key_get_link, providerDisplayName)
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.clickable {
@@ -2128,6 +2233,11 @@ private fun ApiKeyInputDialog(
                             baseUrlText.trim(),
                             modelIdText.trim(),
                         )
+                    } else if (isOllama) {
+                        onSaveOllama(
+                            keyText.trim(),
+                            baseUrlText.trim(),
+                        )
                     } else {
                         onSave(keyText.trim())
                     }
@@ -2136,6 +2246,7 @@ private fun ApiKeyInputDialog(
                     provider = provider,
                     apiKey = keyText.trim(),
                     baseUrl = baseUrlText.trim(),
+                    modelId = modelIdText.trim(),
                 ),
             ) {
                 Text(stringResource(R.string.settings_api_key_save))
