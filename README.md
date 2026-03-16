@@ -1,72 +1,61 @@
 # andClaw
 
 andClaw turns an Android phone into an on-device AI gateway host.
-It runs OpenClaw inside a `proot` Ubuntu arm64 environment and provides a Compose-based mobile UI for setup, onboarding, and runtime control.
+It runs OpenClaw inside a `proot` Ubuntu arm64 environment and provides a Jetpack Compose UI for setup, onboarding, pairing, and runtime control.
 
 Google Play: https://play.google.com/store/apps/details?id=com.coderred.andclaw
 
 ## Features
 
-- One-tap setup flow for rootfs, Node.js, tools, OpenClaw, and Playwright Chromium
-- Gateway lifecycle management (start/stop/restart) from Android UI
-- Provider/model configuration (OpenRouter, OpenAI, Anthropic, Google, Codex mode)
-- Channel support (WhatsApp, Telegram, Discord)
+- One-tap setup for rootfs, Node.js, system tools, OpenClaw, and Playwright Chromium
+- OpenRouter OAuth onboarding or manual API-key setup
+- Gateway lifecycle control from the Android UI
+- Provider and model configuration for OpenRouter, OpenAI, Anthropic, Google, and OpenAI Codex mode
+- Messaging channel integration for WhatsApp, Telegram, and Discord
+- WhatsApp QR pairing flow from inside the app
+- Runtime recovery support through foreground service, boot auto-start, app-update restart, and watchdog recovery
 - Play Asset Delivery support for large install-time assets
 
 ## Requirements
 
 - Android Studio / Gradle environment
 - Java 11
-- Docker (for asset preparation script)
+- Docker for `scripts/setup-assets.sh`
 - arm64 Android device (minimum SDK 26)
 
 ## Project Layout
 
 - `app/` - Android app module (Kotlin + Jetpack Compose)
-- `install_time_assets/` - install-time asset pack
-- `scripts/setup-assets.sh` - prepares `jniLibs` and large bundled assets
+- `app/src/main/java/com/coderred/andclaw/` - app code by feature area (`ui/`, `data/`, `proot/`, `service/`, `receiver/`, `auth/`)
+- `app/src/test/` - JVM unit tests
+- `app/src/androidTest/` - instrumentation tests
+- `install_time_assets/` - Play Asset Delivery install-time asset pack
+- `scripts/setup-assets.sh` - prepares `jniLibs` and bundled runtime assets
+- `sync-public.sh` - syncs curated files to the public mirror repo
 
 ## Build
 
 ```bash
 # 1) Prepare assets (required on first build or when refreshing bundles)
+# Run this outside the sandbox because it needs Docker and network access.
 ./scripts/setup-assets.sh
 
-# 2) Debug APK
+# 2) Debug APK (compat alias for prod debug flow)
 ./gradlew assembleDebug
 
-# 3) Release AAB
-./gradlew bundleRelease
+# 3) Recommended production release AAB
+./gradlew bundleProdRelease
 ```
 
 Artifacts:
 
-- Debug APK: `app/build/outputs/apk/debug/app-debug.apk`
-- Release AAB: `app/build/outputs/bundle/release/app-release.aab`
-
-## 16KB Page-Size Compatibility
-
-Google Play requires 16KB page-size compatibility for Android 15+ targets. This project now enforces a 16KB check for bundled native binaries during `setup-assets.sh`.
-
-- `scripts/setup-assets.sh` verifies `app/src/main/jniLibs/arm64-v8a/*.so` LOAD segment alignments.
-- If `libproot-loader32.so` is missing or 4KB-aligned, it auto-builds a 16KB-compatible replacement from `termux/proot` source via Docker.
-
-Manual loader32 build only:
-
-```bash
-./scripts/build-proot-loader32-16kb.sh
-```
-
-After release build, verify native libs in AAB before upload:
-
-```bash
-./gradlew bundleRelease
-```
+- Recommended release AAB: `app/build/outputs/bundle/prodRelease/app-prod-release.aab`
+- Legacy release path still supported by helper scripts: `app/build/outputs/bundle/release/app-release.aab`
 
 ## Install (Debug)
 
 ```bash
-adb install -r app/build/outputs/apk/debug/app-debug.apk
+./gradlew installProdDebug
 ```
 
 ## Tests
@@ -74,7 +63,27 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```bash
 ./gradlew testDebugUnitTest
 ./gradlew connectedDebugAndroidTest
+./gradlew lintDebug
 ```
+
+## 16KB Page-Size Compatibility
+
+Google Play requires 16KB page-size compatibility for Android 15+ targets. `scripts/setup-assets.sh` verifies bundled native binaries before packaging.
+
+- `scripts/setup-assets.sh` checks `app/src/main/jniLibs/arm64-v8a/*.so` LOAD segment alignments.
+- If `libproot-loader32.so` is missing or still 4KB-aligned, it auto-builds a 16KB-compatible replacement from `termux/proot` source via Docker.
+
+Manual `loader32` rebuild only:
+
+```bash
+./scripts/build-proot-loader32-16kb.sh
+```
+
+## Release Notes
+
+- Prefer `./gradlew bundleProdRelease` for Play uploads.
+- `scripts/upload-play-aab.sh` resolves the default AAB from the `prodRelease` path first.
+- If you update public-facing docs or app resources here, sync the public mirror with `./sync-public.sh sync` and verify with `./sync-public.sh check`.
 
 ## Open-Source Notices
 
