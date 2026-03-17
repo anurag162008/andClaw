@@ -281,6 +281,32 @@ Ne fermez pas l’application et ne forcez pas son arrêt tant que la récupéra
     <string name="settings_openclaw_update_result_incremental">OpenClaw mis à jour (copiés : %1$d, supprimés : %2$d, ignorés : %3$d)</string>
     <string name="settings_openclaw_update_result_reinstall">OpenClaw a été réinstallé depuis les assets intégrés.</string>
     <string name="settings_openclaw_update_skip_until_next_version">Ne plus afficher jusqu’à la prochaine version</string>
+    <string name="settings_transfer_export_title">Exporter vers un autre appareil</string>
+    <string name="settings_transfer_export_desc">Transfère les paramètres, l\'historique des sessions, les identifiants et les données d\'agent vers un autre appareil.\nCompatible uniquement avec la même version d\'andClaw — ne peut pas servir de sauvegarde.</string>
+    <string name="settings_transfer_import_title">Importer depuis un autre appareil</string>
+    <string name="settings_transfer_import_desc">Restaurer les données depuis un fichier de transfert chiffré</string>
+    <string name="settings_transfer_export_dialog_title">Exporter vers un autre appareil</string>
+    <string name="settings_transfer_import_dialog_title">Importer depuis un autre appareil</string>
+    <string name="settings_transfer_password_label">Mot de passe de transfert</string>
+    <string name="settings_transfer_export_confirm">Exporter</string>
+    <string name="settings_transfer_import_confirm">Importer</string>
+    <string name="settings_transfer_overwrite_title">Remplacer les données actuelles de cet appareil ?</string>
+    <string name="settings_transfer_overwrite_message">Cette action importe les données d’un autre appareil et remplace l’état actuel de cet appareil.</string>
+    <string name="settings_transfer_progress_export">Création du fichier de transfert chiffré…</string>
+    <string name="settings_transfer_progress_import">Importation du fichier de transfert chiffré…</string>
+    <string name="settings_transfer_success_title">Transfert vers un autre appareil terminé</string>
+    <string name="settings_transfer_import_success">Le fichier de transfert a été appliqué à cet appareil.</string>
+    <string name="settings_transfer_share">Partager le fichier</string>
+    <string name="settings_transfer_import_copy_failed">Impossible de lire le fichier de transfert sélectionné.</string>
+    <string name="settings_transfer_error_export_password_required">Le mot de passe d’exportation est requis.</string>
+    <string name="settings_transfer_error_password_too_short">Le mot de passe doit contenir au moins %1$d caractères.</string>
+    <string name="settings_transfer_error_import_password_required">Le mot de passe d’importation est requis.</string>
+    <string name="settings_transfer_error_wrong_password">Mot de passe incorrect ou fichier de transfert endommagé.</string>
+    <string name="settings_transfer_error_version_mismatch">Les versions de l\’application ne correspondent pas. Mettez à jour les deux appareils vers la même version et réessayez.</string>
+    <string name="settings_transfer_error_export_failed">Échec de l’export du fichier de transfert.</string>
+    <string name="settings_transfer_error_import_failed">Échec de l’import du fichier de transfert.</string>
+    <string name="settings_transfer_export_success">Export du fichier de transfert terminé.</string>
+    <string name="settings_transfer_share_failed">Impossible de partager le fichier de transfert.</string>
 </resources>
 
 

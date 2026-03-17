@@ -280,6 +280,32 @@
     <string name="settings_openclaw_update_result_incremental">อัปเดต OpenClaw แล้ว (คัดลอก: %1$d, ลบ: %2$d, ข้าม: %3$d)</string>
     <string name="settings_openclaw_update_result_reinstall">ติดตั้ง OpenClaw ใหม่จากแอสเซ็ตที่มากับแอปแล้ว</string>
     <string name="settings_openclaw_update_skip_until_next_version">เวอร์ชันถัดไปค่อยแสดงอีกครั้ง</string>
+    <string name="settings_transfer_export_title">ส่งออกไปยังอุปกรณ์อื่น</string>
+    <string name="settings_transfer_export_desc">ถ่ายโอนการตั้งค่า ประวัติเซสชัน ข้อมูลรับรอง และข้อมูลเอเจนต์ไปยังอุปกรณ์อื่น\nใช้งานได้เฉพาะ andClaw เวอร์ชันเดียวกันเท่านั้น — ไม่สามารถใช้เป็นข้อมูลสำรองได้</string>
+    <string name="settings_transfer_import_title">นำเข้าจากอุปกรณ์อื่น</string>
+    <string name="settings_transfer_import_desc">กู้คืนจากไฟล์ถ่ายโอนที่เข้ารหัส</string>
+    <string name="settings_transfer_export_dialog_title">ส่งออกไปยังอุปกรณ์อื่น</string>
+    <string name="settings_transfer_import_dialog_title">นำเข้าจากอุปกรณ์อื่น</string>
+    <string name="settings_transfer_password_label">รหัสผ่านการถ่ายโอน</string>
+    <string name="settings_transfer_export_confirm">ส่งออก</string>
+    <string name="settings_transfer_import_confirm">นำเข้า</string>
+    <string name="settings_transfer_overwrite_title">เขียนทับข้อมูลอุปกรณ์ปัจจุบันหรือไม่?</string>
+    <string name="settings_transfer_overwrite_message">การดำเนินการนี้จะนำเข้าข้อมูลจากอุปกรณ์อื่นและเขียนทับสถานะปัจจุบันของอุปกรณ์นี้</string>
+    <string name="settings_transfer_progress_export">กำลังสร้างไฟล์ถ่ายโอนที่เข้ารหัส…</string>
+    <string name="settings_transfer_progress_import">กำลังนำเข้าไฟล์ถ่ายโอนที่เข้ารหัส…</string>
+    <string name="settings_transfer_success_title">ถ่ายโอนอุปกรณ์เสร็จสิ้น</string>
+    <string name="settings_transfer_import_success">ไฟล์ถ่ายโอนถูกนำมาใช้กับอุปกรณ์นี้แล้ว</string>
+    <string name="settings_transfer_share">แชร์ไฟล์</string>
+    <string name="settings_transfer_import_copy_failed">ไม่สามารถอ่านไฟล์ถ่ายโอนที่เลือกได้</string>
+    <string name="settings_transfer_error_export_password_required">ต้องใส่รหัสผ่านสำหรับการส่งออก</string>
+    <string name="settings_transfer_error_password_too_short">รหัสผ่านต้องมีอย่างน้อย %1$d ตัวอักษร</string>
+    <string name="settings_transfer_error_import_password_required">ต้องใส่รหัสผ่านสำหรับการนำเข้า</string>
+    <string name="settings_transfer_error_wrong_password">รหัสผ่านไม่ถูกต้องหรือไฟล์ถ่ายโอนเสียหาย</string>
+    <string name="settings_transfer_error_version_mismatch">เวอร์ชันแอปไม่ตรงกัน อัปเดตทั้งสองอุปกรณ์ให้เป็นเวอร์ชันเดียวกันแล้วลองอีกครั้ง</string>
+    <string name="settings_transfer_error_export_failed">ส่งออกไฟล์ถ่ายโอนไม่สำเร็จ</string>
+    <string name="settings_transfer_error_import_failed">นำเข้าไฟล์ถ่ายโอนไม่สำเร็จ</string>
+    <string name="settings_transfer_export_success">ส่งออกไฟล์ถ่ายโอนเสร็จแล้ว</string>
+    <string name="settings_transfer_share_failed">ไม่สามารถแชร์ไฟล์ถ่ายโอนได้</string>
 </resources>
 
 

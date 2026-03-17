@@ -280,6 +280,32 @@ Trong khi khôi phục đang chạy, đừng đóng hoặc buộc dừng ứng d
     <string name="settings_openclaw_update_result_incremental">Đã cập nhật OpenClaw (chép: %1$d, xóa: %2$d, bỏ qua: %3$d)</string>
     <string name="settings_openclaw_update_result_reinstall">Đã cài lại OpenClaw từ assets đi kèm.</string>
     <string name="settings_openclaw_update_skip_until_next_version">Không hiển thị lại cho đến phiên bản tiếp theo</string>
+    <string name="settings_transfer_export_title">Xuất sang thiết bị khác</string>
+    <string name="settings_transfer_export_desc">Chuyển cài đặt, lịch sử phiên, thông tin xác thực và dữ liệu tác nhân sang thiết bị khác.\nChỉ tương thích với cùng phiên bản andClaw — không thể dùng làm bản sao lưu.</string>
+    <string name="settings_transfer_import_title">Nhập từ thiết bị khác</string>
+    <string name="settings_transfer_import_desc">Khôi phục từ tệp chuyển thiết bị đã mã hóa</string>
+    <string name="settings_transfer_export_dialog_title">Xuất sang thiết bị khác</string>
+    <string name="settings_transfer_import_dialog_title">Nhập từ thiết bị khác</string>
+    <string name="settings_transfer_password_label">Mật khẩu chuyển thiết bị</string>
+    <string name="settings_transfer_export_confirm">Xuất</string>
+    <string name="settings_transfer_import_confirm">Nhập</string>
+    <string name="settings_transfer_overwrite_title">Ghi đè dữ liệu hiện tại của thiết bị?</string>
+    <string name="settings_transfer_overwrite_message">Thao tác này sẽ nhập dữ liệu từ thiết bị khác và ghi đè trạng thái hiện tại của thiết bị này.</string>
+    <string name="settings_transfer_progress_export">Đang tạo tệp chuyển thiết bị đã mã hóa…</string>
+    <string name="settings_transfer_progress_import">Đang nhập tệp chuyển thiết bị đã mã hóa…</string>
+    <string name="settings_transfer_success_title">Chuyển thiết bị hoàn tất</string>
+    <string name="settings_transfer_import_success">Tệp chuyển thiết bị đã được áp dụng cho thiết bị này.</string>
+    <string name="settings_transfer_share">Chia sẻ tệp</string>
+    <string name="settings_transfer_import_copy_failed">Không thể đọc tệp chuyển thiết bị đã chọn.</string>
+    <string name="settings_transfer_error_export_password_required">Cần mật khẩu để xuất.</string>
+    <string name="settings_transfer_error_password_too_short">Mật khẩu phải có ít nhất %1$d ký tự.</string>
+    <string name="settings_transfer_error_import_password_required">Cần mật khẩu để nhập.</string>
+    <string name="settings_transfer_error_wrong_password">Sai mật khẩu hoặc tệp chuyển thiết bị bị hỏng.</string>
+    <string name="settings_transfer_error_version_mismatch">Phiên bản ứng dụng không khớp. Cập nhật cả hai thiết bị lên cùng phiên bản và thử lại.</string>
+    <string name="settings_transfer_error_export_failed">Không thể xuất tệp chuyển thiết bị.</string>
+    <string name="settings_transfer_error_import_failed">Không thể nhập tệp chuyển thiết bị.</string>
+    <string name="settings_transfer_export_success">Xuất tệp chuyển thiết bị hoàn tất.</string>
+    <string name="settings_transfer_share_failed">Không thể chia sẻ tệp chuyển thiết bị.</string>
 </resources>
 
 

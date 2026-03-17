@@ -281,6 +281,32 @@ Non chiudere né forzare l’arresto dell’app mentre il ripristino è in corso
     <string name="settings_openclaw_update_result_incremental">OpenClaw aggiornato (copiati: %1$d, eliminati: %2$d, saltati: %3$d)</string>
     <string name="settings_openclaw_update_result_reinstall">OpenClaw reinstallato dagli asset inclusi.</string>
     <string name="settings_openclaw_update_skip_until_next_version">Non mostrare più fino alla prossima versione</string>
+    <string name="settings_transfer_export_title">Esporta su un altro dispositivo</string>
+    <string name="settings_transfer_export_desc">Trasferisce impostazioni, cronologia sessioni, credenziali e dati agente su un altro dispositivo.\nCompatibile solo con la stessa versione di andClaw — non utilizzabile come backup.</string>
+    <string name="settings_transfer_import_title">Importa da un altro dispositivo</string>
+    <string name="settings_transfer_import_desc">Ripristina da un file di trasferimento crittografato</string>
+    <string name="settings_transfer_export_dialog_title">Esporta su un altro dispositivo</string>
+    <string name="settings_transfer_import_dialog_title">Importa da un altro dispositivo</string>
+    <string name="settings_transfer_password_label">Password di trasferimento</string>
+    <string name="settings_transfer_export_confirm">Esporta</string>
+    <string name="settings_transfer_import_confirm">Importa</string>
+    <string name="settings_transfer_overwrite_title">Sovrascrivere i dati attuali del dispositivo?</string>
+    <string name="settings_transfer_overwrite_message">Questa operazione importa i dati di un altro dispositivo e sovrascrive lo stato attuale di questo dispositivo.</string>
+    <string name="settings_transfer_progress_export">Creazione del file di trasferimento crittografato…</string>
+    <string name="settings_transfer_progress_import">Importazione del file di trasferimento crittografato…</string>
+    <string name="settings_transfer_success_title">Trasferimento del dispositivo completato</string>
+    <string name="settings_transfer_import_success">Il file di trasferimento è stato applicato a questo dispositivo.</string>
+    <string name="settings_transfer_share">Condividi file</string>
+    <string name="settings_transfer_import_copy_failed">Impossibile leggere il file di trasferimento selezionato.</string>
+    <string name="settings_transfer_error_export_password_required">La password di esportazione è obbligatoria.</string>
+    <string name="settings_transfer_error_password_too_short">La password deve contenere almeno %1$d caratteri.</string>
+    <string name="settings_transfer_error_import_password_required">La password di importazione è obbligatoria.</string>
+    <string name="settings_transfer_error_wrong_password">Password errata o file di trasferimento danneggiato.</string>
+    <string name="settings_transfer_error_version_mismatch">Versione dell\'app non corrispondente. Aggiorna entrambi i dispositivi alla stessa versione e riprova.</string>
+    <string name="settings_transfer_error_export_failed">Impossibile esportare il file di trasferimento.</string>
+    <string name="settings_transfer_error_import_failed">Impossibile importare il file di trasferimento.</string>
+    <string name="settings_transfer_export_success">Esportazione del trasferimento completata.</string>
+    <string name="settings_transfer_share_failed">Impossibile condividere il file di trasferimento.</string>
 </resources>
 
 

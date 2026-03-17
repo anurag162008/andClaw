@@ -474,12 +474,6 @@ class ProcessManager(
             errorMessage = null,
         )
         addLog("[andClaw] Starting gateway...")
-        if (apiProvider == "openai-compatible") {
-            addLog(
-                "[andClaw][Debug] OpenAI-compatible start params: " +
-                    "selectedModel='$selectedModel', baseUrl='$openAiCompatibleBaseUrl'"
-            )
-        }
 
         // 새 scope 생성
         invalidateStartupAttemptGeneration()
@@ -1198,13 +1192,6 @@ class ProcessManager(
                 }
             }
             val resolvedModelKeys = mergedModelKeys.filter(::isResolvableModelKey)
-            if (apiProvider == "openai-compatible") {
-                addLog(
-                    "[andClaw][Debug] OpenAI-compatible target model resolved: " +
-                        "selected=${normalizedSelectedEntries.map { it.id }} -> primary='$targetModel'"
-                )
-            }
-
             var changed = sanitizeKnownIncompatibleConfigKeys(json)
 
             val shouldApplyMemorySearchConfig =

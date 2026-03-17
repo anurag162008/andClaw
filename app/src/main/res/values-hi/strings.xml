@@ -280,6 +280,32 @@
     <string name="settings_openclaw_update_result_incremental">OpenClaw अपडेट हुआ (कॉपी: %1$d, हटाए गए: %2$d, छोड़े गए: %3$d)</string>
     <string name="settings_openclaw_update_result_reinstall">बंडल किए गए एसेट्स से OpenClaw फिर से इंस्टॉल किया गया।</string>
     <string name="settings_openclaw_update_skip_until_next_version">अगले संस्करण तक फिर से न दिखाएँ</string>
+    <string name="settings_transfer_export_title">दूसरे डिवाइस पर निर्यात करें</string>
+    <string name="settings_transfer_export_desc">सेटिंग, सत्र इतिहास, क्रेडेंशियल और एजेंट डेटा को दूसरे डिवाइस पर स्थानांतरित करता है।\nकेवल समान andClaw संस्करण के साथ संगत — बैकअप के रूप में उपयोग नहीं किया जा सकता।</string>
+    <string name="settings_transfer_import_title">दूसरे डिवाइस से आयात करें</string>
+    <string name="settings_transfer_import_desc">एन्क्रिप्टेड ट्रांसफर फ़ाइल से पुनर्स्थापित करता है</string>
+    <string name="settings_transfer_export_dialog_title">दूसरे डिवाइस पर निर्यात करें</string>
+    <string name="settings_transfer_import_dialog_title">दूसरे डिवाइस से आयात करें</string>
+    <string name="settings_transfer_password_label">ट्रांसफर पासवर्ड</string>
+    <string name="settings_transfer_export_confirm">निर्यात करें</string>
+    <string name="settings_transfer_import_confirm">आयात करें</string>
+    <string name="settings_transfer_overwrite_title">क्या वर्तमान डिवाइस डेटा अधिलेखित करें?</string>
+    <string name="settings_transfer_overwrite_message">यह दूसरे डिवाइस का डेटा आयात करता है और इस डिवाइस की वर्तमान स्थिति को अधिलेखित करता है।</string>
+    <string name="settings_transfer_progress_export">एन्क्रिप्टेड ट्रांसफर फ़ाइल बनाई जा रही है…</string>
+    <string name="settings_transfer_progress_import">एन्क्रिप्टेड ट्रांसफर फ़ाइल आयात की जा रही है…</string>
+    <string name="settings_transfer_success_title">डिवाइस ट्रांसफर पूरा हुआ</string>
+    <string name="settings_transfer_import_success">ट्रांसफर फ़ाइल इस डिवाइस पर लागू कर दी गई है।</string>
+    <string name="settings_transfer_share">फ़ाइल साझा करें</string>
+    <string name="settings_transfer_import_copy_failed">चयनित ट्रांसफर फ़ाइल पढ़ी नहीं जा सकी।</string>
+    <string name="settings_transfer_error_export_password_required">निर्यात पासवर्ड आवश्यक है।</string>
+    <string name="settings_transfer_error_password_too_short">पासवर्ड कम से कम %1$d अक्षरों का होना चाहिए।</string>
+    <string name="settings_transfer_error_import_password_required">आयात पासवर्ड आवश्यक है।</string>
+    <string name="settings_transfer_error_wrong_password">गलत पासवर्ड या क्षतिग्रस्त ट्रांसफर फ़ाइल।</string>
+    <string name="settings_transfer_error_version_mismatch">ऐप संस्करण मेल नहीं खाता। दोनों डिवाइस को एक ही संस्करण में अपडेट करें और पुनः प्रयास करें।</string>
+    <string name="settings_transfer_error_export_failed">ट्रांसफर फ़ाइल निर्यात नहीं की जा सकी।</string>
+    <string name="settings_transfer_error_import_failed">ट्रांसफर फ़ाइल आयात नहीं की जा सकी।</string>
+    <string name="settings_transfer_export_success">ट्रांसफर निर्यात पूरा हुआ।</string>
+    <string name="settings_transfer_share_failed">ट्रांसफर फ़ाइल साझा नहीं की जा सकी।</string>
 </resources>
 
 

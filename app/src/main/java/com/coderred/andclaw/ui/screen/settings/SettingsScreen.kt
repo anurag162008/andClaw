@@ -6,7 +6,10 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.provider.OpenableColumns
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -76,6 +79,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.content.FileProvider
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
@@ -93,6 +97,9 @@ import com.coderred.andclaw.ui.component.KeepScreenOnEffect
 import com.coderred.andclaw.ui.component.ModelSelectionDialog
 import com.coderred.andclaw.ui.component.WhatsAppQrDialog
 import com.coderred.andclaw.ui.screen.dashboard.WhatsAppQrState
+import java.io.File
+import java.io.InputStream
+import java.io.OutputStream
 import java.util.Locale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -159,6 +166,7 @@ fun SettingsScreen(
     val gitHubCopilotAuthDebugLine by viewModel.gitHubCopilotAuthDebugLine.collectAsState()
     val gitHubCopilotAuthRestartHintNonce by viewModel.gitHubCopilotAuthRestartHintNonce.collectAsState()
     val bugReportUiState by viewModel.bugReportUiState.collectAsState()
+    val transferUiState by viewModel.transferUiState.collectAsState()
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val providerLabelFor: (String) -> String = { provider ->
@@ -220,13 +228,21 @@ fun SettingsScreen(
     var showRecoveryInstallConfirmDialog by remember { mutableStateOf(false) }
     var showOpenClawUpdateConfirmDialog by remember { mutableStateOf(false) }
     var showWhatsAppActionDialog by remember { mutableStateOf(false) }
+    var showTransferExportPasswordDialog by remember { mutableStateOf(false) }
+    var showTransferImportPasswordDialog by remember { mutableStateOf(false) }
+    var pendingTransferImportFile by remember { mutableStateOf<File?>(null) }
     var pendingApiKeyProvider by remember(initialApiProvider, openApiKeyDialogOnLaunch) {
         mutableStateOf(initialApiProvider?.takeIf { openApiKeyDialogOnLaunch })
     }
     var apiKeyDialogProviderOverride by remember { mutableStateOf<String?>(null) }
     var apiKeyDialogCurrentKeyOverride by remember { mutableStateOf<String?>(null) }
     var selectedSettingsTabIndex by remember { mutableStateOf(0) }
-    val isMaintenanceBusy = isDoctorFixRunning || isRecoveryInstallRunning || isOpenClawUpdateRunning
+    val isMaintenanceBusy =
+        isDoctorFixRunning ||
+            isRecoveryInstallRunning ||
+            isOpenClawUpdateRunning ||
+            isCodexAuthInProgress ||
+            isGitHubCopilotAuthInProgress
     val openClawVersionInfoText = if (!installedOpenClawVersion.isNullOrBlank() && !bundledOpenClawVersion.isNullOrBlank()) {
         if (isOpenClawUpdateAvailable) {
             context.getString(
@@ -249,6 +265,20 @@ fun SettingsScreen(
                 .bufferedReader()
                 .use { it.readText() }
         }.getOrElse { "Failed to load OSS license notices." }
+    }
+    val transferImportPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val importedFile = copyTransferUriToCache(context, uri)
+        if (importedFile == null) {
+            Toast.makeText(
+                context,
+                context.getString(R.string.settings_transfer_import_copy_failed),
+                Toast.LENGTH_SHORT,
+            ).show()
+            return@rememberLauncherForActivityResult
+        }
+        pendingTransferImportFile = importedFile
+        showTransferImportPasswordDialog = true
     }
 
     LaunchedEffect(codexAuthUrl) {
@@ -924,6 +954,25 @@ fun SettingsScreen(
                             } ?: stringResource(R.string.bug_report_consent_required),
                             onClick = { viewModel.openBugReportDialog() },
                         )
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                        )
+                        SettingClickableRow(
+                            title = stringResource(R.string.settings_transfer_export_title),
+                            value = stringResource(R.string.settings_transfer_export_desc),
+                            enabled = !isMaintenanceBusy,
+                            valueMaxLines = 3,
+                            onClick = { showTransferExportPasswordDialog = true },
+                        )
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                        )
+                        SettingClickableRow(
+                            title = stringResource(R.string.settings_transfer_import_title),
+                            value = stringResource(R.string.settings_transfer_import_desc),
+                            enabled = !isMaintenanceBusy,
+                            onClick = { transferImportPicker.launch(arrayOf("*/*")) },
+                        )
                     }
                 }
             }
@@ -1357,6 +1406,218 @@ fun SettingsScreen(
                 }
             },
         )
+    }
+
+    if (showTransferExportPasswordDialog) {
+        TransferPasswordDialog(
+            title = stringResource(R.string.settings_transfer_export_dialog_title),
+            password = transferUiState.passwords.exportPassword,
+            confirmLabel = stringResource(R.string.settings_transfer_export_confirm),
+            onPasswordChange = viewModel::setTransferExportPassword,
+            onConfirm = {
+                showTransferExportPasswordDialog = false
+                viewModel.startTransferExport()
+            },
+            onDismiss = {
+                showTransferExportPasswordDialog = false
+                viewModel.clearTransferExportPassword()
+            },
+        )
+    }
+
+    if (showTransferImportPasswordDialog) {
+        TransferPasswordDialog(
+            title = stringResource(R.string.settings_transfer_import_dialog_title),
+            password = transferUiState.passwords.importPassword,
+            supportingText = pendingTransferImportFile?.name,
+            confirmLabel = stringResource(R.string.settings_transfer_import_confirm),
+            onPasswordChange = viewModel::setTransferImportPassword,
+            onConfirm = {
+                val importFile = pendingTransferImportFile ?: return@TransferPasswordDialog
+                showTransferImportPasswordDialog = false
+                viewModel.requestTransferImport(importFile)
+            },
+            onDismiss = {
+                showTransferImportPasswordDialog = false
+                pendingTransferImportFile = null
+                viewModel.clearTransferImportPassword()
+            },
+        )
+    }
+
+    if (transferUiState.overwriteConfirmation.isRequired) {
+        AlertDialog(
+            onDismissRequest = {
+                pendingTransferImportFile = null
+                viewModel.cancelTransferImportOverwriteConfirmation()
+                viewModel.clearTransferImportPassword()
+            },
+            shape = RoundedCornerShape(24.dp),
+            title = { Text(stringResource(R.string.settings_transfer_overwrite_title)) },
+            text = {
+                Text(
+                    text = stringResource(R.string.settings_transfer_overwrite_message),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.confirmTransferImportOverwrite() }) {
+                    Text(stringResource(R.string.settings_transfer_import_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        pendingTransferImportFile = null
+                        viewModel.cancelTransferImportOverwriteConfirmation()
+                        viewModel.clearTransferImportPassword()
+                    },
+                ) {
+                    Text(stringResource(android.R.string.cancel))
+                }
+            },
+        )
+    }
+
+    when (transferUiState.exportAction.phase) {
+        SettingsViewModel.TransferActionPhase.IN_PROGRESS -> {
+            TransferStatusDialog(
+                title = stringResource(R.string.settings_transfer_export_title),
+                message = stringResource(R.string.settings_transfer_progress_export),
+            )
+        }
+
+        SettingsViewModel.TransferActionPhase.SUCCESS -> {
+            AlertDialog(
+                onDismissRequest = { viewModel.clearTransferExportActionState() },
+                shape = RoundedCornerShape(24.dp),
+                title = { Text(stringResource(R.string.settings_transfer_success_title)) },
+                text = {
+                    Text(
+                        text = transferUiState.exportAction.artifactPath
+                            ?: stringResource(R.string.settings_transfer_export_desc),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            val path = transferUiState.exportAction.artifactPath
+                            if (path != null) {
+                                shareTransferArtifact(context, File(path))
+                            }
+                        },
+                    ) {
+                        Text(stringResource(R.string.settings_transfer_share))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { viewModel.clearTransferExportActionState() }) {
+                        Text(stringResource(android.R.string.ok))
+                    }
+                },
+            )
+        }
+
+        SettingsViewModel.TransferActionPhase.ERROR -> {
+            AlertDialog(
+                onDismissRequest = { viewModel.clearTransferExportActionState() },
+                shape = RoundedCornerShape(24.dp),
+                title = { Text(stringResource(R.string.dashboard_status_error)) },
+                text = {
+                    Text(
+                        text = transferUiState.exportAction.message
+                            ?: stringResource(R.string.settings_transfer_export_desc),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = { viewModel.clearTransferExportActionState() }) {
+                        Text(stringResource(android.R.string.ok))
+                    }
+                },
+            )
+        }
+
+        else -> Unit
+    }
+
+    when (transferUiState.importAction.phase) {
+        SettingsViewModel.TransferActionPhase.IN_PROGRESS -> {
+            TransferStatusDialog(
+                title = stringResource(R.string.settings_transfer_import_title),
+                message = stringResource(R.string.settings_transfer_progress_import),
+            )
+        }
+
+        SettingsViewModel.TransferActionPhase.SUCCESS -> {
+            AlertDialog(
+                onDismissRequest = {
+                    pendingTransferImportFile = null
+                    viewModel.clearTransferImportActionState()
+                },
+                shape = RoundedCornerShape(24.dp),
+                title = { Text(stringResource(R.string.settings_transfer_success_title)) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = stringResource(R.string.settings_transfer_import_success),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            pendingTransferImportFile = null
+                            viewModel.clearTransferImportActionState()
+                        },
+                    ) {
+                        Text(stringResource(android.R.string.ok))
+                    }
+                },
+            )
+        }
+
+        SettingsViewModel.TransferActionPhase.ERROR -> {
+            val isTransientRuntimeFailure =
+                transferUiState.importAction.failureReason == SettingsViewModel.TransferFailureUiReason.TRANSIENT_RUNTIME
+            AlertDialog(
+                onDismissRequest = {
+                    pendingTransferImportFile = null
+                    viewModel.clearTransferImportActionState()
+                },
+                shape = RoundedCornerShape(24.dp),
+                title = {
+                    Text(
+                        if (isTransientRuntimeFailure) {
+                            stringResource(R.string.settings_transfer_success_title)
+                        } else {
+                            stringResource(R.string.dashboard_status_error)
+                        },
+                    )
+                },
+                text = {
+                    Text(
+                        text = transferUiState.importAction.message
+                            ?: stringResource(R.string.settings_transfer_import_desc),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            pendingTransferImportFile = null
+                            viewModel.clearTransferImportActionState()
+                        },
+                    ) {
+                        Text(stringResource(android.R.string.ok))
+                    }
+                },
+            )
+        }
+
+        else -> Unit
     }
 
     if (doctorFixResult != null) {
@@ -1870,6 +2131,187 @@ internal fun formatSelectedModelLabel(
     }
 }
 
+private fun copyTransferUriToCache(context: android.content.Context, uri: Uri): File? {
+    return runCatching {
+        val metadata = readTransferImportMetadata(context, uri)
+        if (!isValidTransferImportCandidate(metadata)) {
+            return null
+        }
+        val targetDir = context.cacheDir.resolve("shared").apply { mkdirs() }
+        val targetFile = targetDir.resolve("imported-transfer.atf")
+        context.contentResolver.openInputStream(uri)?.use { input ->
+            targetFile.outputStream().use { output ->
+                copyTransferStreamWithLimit(input, output)
+            }
+        } ?: return null
+        targetFile
+    }.getOrNull()
+}
+
+internal data class TransferImportMetadata(
+    val displayName: String?,
+    val sizeBytes: Long?,
+)
+
+private const val MAX_TRANSFER_IMPORT_BYTES = 512L * 1024L * 1024L
+
+private fun readTransferImportMetadata(context: android.content.Context, uri: Uri): TransferImportMetadata {
+    val projection = arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE)
+    return runCatching {
+        context.contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
+            val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+            if (cursor.moveToFirst()) {
+                TransferImportMetadata(
+                    displayName = if (nameIndex >= 0) cursor.getString(nameIndex) else null,
+                    sizeBytes = if (sizeIndex >= 0 && !cursor.isNull(sizeIndex)) cursor.getLong(sizeIndex) else null,
+                )
+            } else {
+                TransferImportMetadata(displayName = null, sizeBytes = null)
+            }
+        } ?: TransferImportMetadata(displayName = null, sizeBytes = null)
+    }.getOrDefault(TransferImportMetadata(displayName = null, sizeBytes = null))
+}
+
+internal fun isValidTransferImportCandidate(metadata: TransferImportMetadata): Boolean {
+    val sizeBytes = metadata.sizeBytes
+    if (sizeBytes != null && (sizeBytes <= 0L || sizeBytes > MAX_TRANSFER_IMPORT_BYTES)) {
+        return false
+    }
+    val displayName = metadata.displayName?.trim().orEmpty()
+    if (displayName.isBlank()) {
+        return true
+    }
+    return displayName.lowercase(Locale.US).endsWith(".transfer")
+}
+
+internal fun copyTransferStreamWithLimit(
+    input: InputStream,
+    output: OutputStream,
+    maxBytes: Long = MAX_TRANSFER_IMPORT_BYTES,
+) {
+    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+    var totalBytes = 0L
+    while (true) {
+        val read = input.read(buffer)
+        if (read < 0) break
+        totalBytes += read
+        if (totalBytes > maxBytes) {
+            throw IllegalArgumentException("Transfer file is too large")
+        }
+        output.write(buffer, 0, read)
+    }
+}
+
+private fun shareTransferArtifact(context: android.content.Context, artifactFile: File) {
+    runCatching {
+        val shareDir = context.cacheDir.resolve("shared").apply { mkdirs() }
+        val sharedFile = shareDir.resolve(artifactFile.name)
+        artifactFile.copyTo(sharedFile, overwrite = true)
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", sharedFile)
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "application/octet-stream"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(Intent.createChooser(intent, context.getString(R.string.settings_transfer_share)))
+    }.onFailure {
+        Toast.makeText(context, context.getString(R.string.settings_transfer_share_failed), Toast.LENGTH_SHORT).show()
+    }
+}
+
+@Composable
+private fun TransferStatusDialog(
+    title: String,
+    message: String,
+) {
+    Dialog(
+        onDismissRequest = { },
+        properties = DialogProperties(
+            dismissOnBackPress = false,
+            dismissOnClickOutside = false,
+        ),
+    ) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(42.dp))
+                Text(text = title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TransferPasswordDialog(
+    title: String,
+    password: String,
+    confirmLabel: String,
+    supportingText: String? = null,
+    onPasswordChange: (String) -> Unit,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var passwordVisible by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(24.dp),
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                supportingText?.takeIf { it.isNotBlank() }?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = onPasswordChange,
+                    label = { Text(stringResource(R.string.settings_transfer_password_label)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    trailingIcon = {
+                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            Icon(
+                                if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = null,
+                            )
+                        }
+                    },
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm, enabled = password.isNotBlank()) {
+                Text(confirmLabel)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(android.R.string.cancel))
+            }
+        },
+    )
+}
+
 @Composable
 private fun SectionHeader(
     title: String,
@@ -1936,6 +2378,7 @@ private fun SettingClickableRow(
     valueColor: androidx.compose.ui.graphics.Color? = null,
     indent: Boolean = false,
     enabled: Boolean = true,
+    valueMaxLines: Int = 1,
 ) {
     val titleColor = if (enabled) {
         MaterialTheme.colorScheme.onSurface
@@ -1973,7 +2416,7 @@ private fun SettingClickableRow(
                 text = value,
                 style = MaterialTheme.typography.bodySmall,
                 color = resolvedValueColor,
-                maxLines = 1,
+                maxLines = valueMaxLines,
                 overflow = TextOverflow.Ellipsis,
             )
         }

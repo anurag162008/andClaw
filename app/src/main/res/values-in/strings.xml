@@ -280,6 +280,32 @@ Jangan tutup atau paksa hentikan aplikasi selama pemulihan masih berlangsung.</s
     <string name="settings_openclaw_update_result_incremental">OpenClaw diperbarui (salin: %1$d, hapus: %2$d, lewati: %3$d)</string>
     <string name="settings_openclaw_update_result_reinstall">OpenClaw dipasang ulang dari aset bawaan.</string>
     <string name="settings_openclaw_update_skip_until_next_version">Jangan tampilkan lagi sampai versi berikutnya</string>
+    <string name="settings_transfer_export_title">Ekspor ke perangkat lain</string>
+    <string name="settings_transfer_export_desc">Mentransfer pengaturan, riwayat sesi, kredensial, dan data agen ke perangkat lain.\nHanya kompatibel dengan versi andClaw yang sama — tidak dapat digunakan sebagai cadangan.</string>
+    <string name="settings_transfer_import_title">Impor dari perangkat lain</string>
+    <string name="settings_transfer_import_desc">Memulihkan dari file transfer terenkripsi</string>
+    <string name="settings_transfer_export_dialog_title">Ekspor ke perangkat lain</string>
+    <string name="settings_transfer_import_dialog_title">Impor dari perangkat lain</string>
+    <string name="settings_transfer_password_label">Kata sandi transfer</string>
+    <string name="settings_transfer_export_confirm">Ekspor</string>
+    <string name="settings_transfer_import_confirm">Impor</string>
+    <string name="settings_transfer_overwrite_title">Timpa data perangkat saat ini?</string>
+    <string name="settings_transfer_overwrite_message">Ini akan mengimpor data dari perangkat lain dan menimpa keadaan perangkat saat ini.</string>
+    <string name="settings_transfer_progress_export">Membuat file transfer terenkripsi…</string>
+    <string name="settings_transfer_progress_import">Mengimpor file transfer terenkripsi…</string>
+    <string name="settings_transfer_success_title">Transfer perangkat selesai</string>
+    <string name="settings_transfer_import_success">File transfer telah diterapkan ke perangkat ini.</string>
+    <string name="settings_transfer_share">Bagikan file</string>
+    <string name="settings_transfer_import_copy_failed">File transfer yang dipilih tidak dapat dibaca.</string>
+    <string name="settings_transfer_error_export_password_required">Kata sandi ekspor diperlukan.</string>
+    <string name="settings_transfer_error_password_too_short">Kata sandi harus minimal %1$d karakter.</string>
+    <string name="settings_transfer_error_import_password_required">Kata sandi impor diperlukan.</string>
+    <string name="settings_transfer_error_wrong_password">Kata sandi salah atau file transfer rusak.</string>
+    <string name="settings_transfer_error_version_mismatch">Versi aplikasi tidak cocok. Perbarui kedua perangkat ke versi yang sama dan coba lagi.</string>
+    <string name="settings_transfer_error_export_failed">Gagal mengekspor file transfer.</string>
+    <string name="settings_transfer_error_import_failed">Gagal mengimpor file transfer.</string>
+    <string name="settings_transfer_export_success">Ekspor transfer selesai.</string>
+    <string name="settings_transfer_share_failed">File transfer tidak dapat dibagikan.</string>
 </resources>
 
 

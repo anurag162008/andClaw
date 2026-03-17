@@ -5,6 +5,7 @@ package com.coderred.andclaw.ui.screen.settings
 import android.app.Application
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.PowerManager
 import android.os.SystemClock
@@ -26,6 +27,20 @@ import com.coderred.andclaw.data.SelectedModelConfigEntry
 import com.coderred.andclaw.data.SessionLogEntry
 import com.coderred.andclaw.data.SetupState
 import com.coderred.andclaw.data.GlobalDefaultModelOption
+import com.coderred.andclaw.data.transfer.DefaultSettingsTransferManager
+import com.coderred.andclaw.data.transfer.SettingsTransferExportRequest
+import com.coderred.andclaw.data.transfer.SettingsTransferExportResult
+import com.coderred.andclaw.data.transfer.SettingsTransferFailureReason
+import com.coderred.andclaw.data.transfer.SettingsTransferImportRequest
+import com.coderred.andclaw.data.transfer.SettingsTransferImportResult
+import com.coderred.andclaw.data.transfer.SettingsTransferManager
+import com.coderred.andclaw.data.transfer.TransferExportRequest
+import com.coderred.andclaw.data.transfer.TransferGatewayQuiesceController
+import com.coderred.andclaw.data.transfer.TransferGatewayRestoreVerification
+import com.coderred.andclaw.data.transfer.TransferPreferencesRestoreData
+import com.coderred.andclaw.data.transfer.TransferPreferencesRestorer
+import com.coderred.andclaw.data.transfer.TransferRestoreRequest
+import com.coderred.andclaw.data.transfer.TransferVersionExpectation
 import com.coderred.andclaw.data.hasGitHubCopilotEnvAuth
 import com.coderred.andclaw.data.hasOpenClawModelsStatusAuth
 import com.coderred.andclaw.data.hasOpenClawSecretRef
@@ -67,7 +82,13 @@ import java.security.SecureRandom
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
 
-class SettingsViewModel(application: Application) : AndroidViewModel(application) {
+class SettingsViewModel(
+    application: Application,
+    private val transferManager: SettingsTransferManager = DefaultSettingsTransferManager(),
+) : AndroidViewModel(application) {
+
+    constructor(application: Application) : this(application, DefaultSettingsTransferManager())
+
     data class DoctorFixResult(
         val success: Boolean,
         val output: String,
@@ -105,6 +126,44 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         val generationErrorMessage: String? = null,
     )
 
+    enum class TransferFailureUiReason {
+        WRONG_PASSWORD,
+        VERSION_MISMATCH,
+        TRANSIENT_RUNTIME,
+        UNKNOWN,
+    }
+
+    enum class TransferActionPhase {
+        IDLE,
+        IN_PROGRESS,
+        SUCCESS,
+        ERROR,
+    }
+
+    data class TransferActionUiState(
+        val phase: TransferActionPhase = TransferActionPhase.IDLE,
+        val message: String? = null,
+        val failureReason: TransferFailureUiReason? = null,
+        val artifactPath: String? = null,
+    )
+
+    data class TransferPasswordUiState(
+        val exportPassword: String = "",
+        val importPassword: String = "",
+    )
+
+    data class TransferOverwriteConfirmationState(
+        val isRequired: Boolean = false,
+        val pendingArtifactPath: String? = null,
+    )
+
+    data class TransferUiState(
+        val passwords: TransferPasswordUiState = TransferPasswordUiState(),
+        val overwriteConfirmation: TransferOverwriteConfirmationState = TransferOverwriteConfirmationState(),
+        val exportAction: TransferActionUiState = TransferActionUiState(),
+        val importAction: TransferActionUiState = TransferActionUiState(),
+    )
+
     companion object {
         private const val TAG = "AndClawCodexAuth"
         private const val GITHUB_COPILOT_CLIENT_ID = "Iv1.b507a08c87ecfe98"
@@ -129,6 +188,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         private const val WHATSAPP_QR_FORCE_TIMEOUT_MS = 70_000L
         private const val WHATSAPP_GATEWAY_RESTART_READY_TIMEOUT_MS = 20_000L
         private const val WHATSAPP_GATEWAY_RESTART_RETRY_INTERVAL_MS = 250L
+        private const val TRANSFER_EXPORT_DIR = "transfers"
+        private const val MIN_TRANSFER_PASSWORD_LENGTH = 4
+        private const val TRANSFER_IMPORT_VERIFY_TIMEOUT_MS = 20_000L
+        private const val TRANSFER_IMPORT_VERIFY_POLL_MS = 250L
 
     }
     private val prefs = (application as AndClawApp).preferencesManager
@@ -287,6 +350,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     val bundledOpenClawVersion: StateFlow<String?> = _bundledOpenClawVersion.asStateFlow()
     private val _bugReportUiState = MutableStateFlow(BugReportUiState())
     val bugReportUiState: StateFlow<BugReportUiState> = _bugReportUiState.asStateFlow()
+    private val _transferUiState = MutableStateFlow(TransferUiState())
+    val transferUiState: StateFlow<TransferUiState> = _transferUiState.asStateFlow()
     private val codexAuthRunning = AtomicBoolean(false)
     private val gitHubCopilotAuthRunning = AtomicBoolean(false)
     private var gitHubCopilotAuthJob: Job? = null
@@ -303,6 +368,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private var wasGatewayActiveAtWhatsAppLoginStart: Boolean = false
     private var logUnlockTapCount: Int = 0
     private var lastLogUnlockTapAtMs: Long = 0L
+    private var pendingTransferImportArtifact: File? = null
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
@@ -1094,11 +1160,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    private suspend fun waitForGatewayStopped(timeoutMs: Long = 10_000L): Boolean {
+    private suspend fun waitForGatewayStopped(
+        timeoutMs: Long = 10_000L,
+        allowErrorAsStopped: Boolean = true,
+    ): Boolean {
         val startAt = System.currentTimeMillis()
         while (System.currentTimeMillis() - startAt < timeoutMs) {
             val status = processManager.gatewayState.value.status
-            if (status == GatewayStatus.STOPPED || status == GatewayStatus.ERROR) {
+            if (status == GatewayStatus.STOPPED || (allowErrorAsStopped && status == GatewayStatus.ERROR)) {
                 return true
             }
             delay(250)
@@ -1137,6 +1206,421 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun consumeRecoveryInstallResult() {
         _recoveryInstallResult.value = null
+    }
+
+    fun setTransferExportPassword(password: String) {
+        _transferUiState.value = _transferUiState.value.copy(
+            passwords = _transferUiState.value.passwords.copy(exportPassword = password),
+        )
+    }
+
+    fun setTransferImportPassword(password: String) {
+        _transferUiState.value = _transferUiState.value.copy(
+            passwords = _transferUiState.value.passwords.copy(importPassword = password),
+        )
+    }
+
+    fun clearTransferExportActionState() {
+        _transferUiState.value = _transferUiState.value.copy(
+            passwords = _transferUiState.value.passwords.copy(exportPassword = ""),
+            exportAction = TransferActionUiState(),
+        )
+    }
+
+    fun clearTransferImportActionState() {
+        _transferUiState.value = _transferUiState.value.copy(
+            passwords = _transferUiState.value.passwords.copy(importPassword = ""),
+            importAction = TransferActionUiState(),
+        )
+    }
+
+    fun clearTransferExportPassword() {
+        _transferUiState.value = _transferUiState.value.copy(
+            passwords = _transferUiState.value.passwords.copy(exportPassword = ""),
+        )
+    }
+
+    fun clearTransferImportPassword() {
+        _transferUiState.value = _transferUiState.value.copy(
+            passwords = _transferUiState.value.passwords.copy(importPassword = ""),
+        )
+    }
+
+    fun startTransferExport() {
+        val currentState = _transferUiState.value
+        if (currentState.exportAction.phase == TransferActionPhase.IN_PROGRESS) return
+        if (isTransferBlockedByMaintenance()) return
+
+        val password = currentState.passwords.exportPassword
+        if (password.isBlank()) {
+            _transferUiState.value = currentState.copy(
+                exportAction = TransferActionUiState(
+                    phase = TransferActionPhase.ERROR,
+                    message = appString(R.string.settings_transfer_error_export_password_required),
+                    failureReason = TransferFailureUiReason.UNKNOWN,
+                ),
+            )
+            return
+        }
+        if (password.length < MIN_TRANSFER_PASSWORD_LENGTH) {
+            _transferUiState.value = currentState.copy(
+                exportAction = TransferActionUiState(
+                    phase = TransferActionPhase.ERROR,
+                    message = getApplication<Application>().getString(
+                        R.string.settings_transfer_error_password_too_short,
+                        MIN_TRANSFER_PASSWORD_LENGTH,
+                    ),
+                    failureReason = TransferFailureUiReason.UNKNOWN,
+                ),
+            )
+            return
+        }
+
+        _transferUiState.value = currentState.copy(
+            exportAction = TransferActionUiState(
+                phase = TransferActionPhase.IN_PROGRESS,
+                message = appString(R.string.settings_transfer_progress_export),
+            ),
+        )
+
+        viewModelScope.launch(Dispatchers.IO) {
+            val app = getApplication<Application>()
+            val outputDir = app.filesDir.resolve(TRANSFER_EXPORT_DIR)
+            outputDir.listFiles()?.forEach { it.delete() }
+            val request = TransferExportRequest(
+                outputDir = outputDir,
+                rootfsDir = prootManager.rootfsDir ?: throw IllegalStateException("rootfsDir is not available"),
+                approvedPreferencesSnapshot = snapshotTransferPreferences(),
+                applicationId = app.packageName,
+                versionCode = resolveCurrentVersionCode(app),
+                versionName = BuildConfig.VERSION_NAME,
+                createdAtEpochMs = System.currentTimeMillis(),
+                password = password.toCharArray(),
+            )
+            val result = transferManager.export(SettingsTransferExportRequest(request = request))
+            withContext(Dispatchers.Main) {
+                _transferUiState.value = when (result) {
+                    is SettingsTransferExportResult.Success -> {
+                        _transferUiState.value.copy(
+                            passwords = _transferUiState.value.passwords.copy(exportPassword = ""),
+                            exportAction = TransferActionUiState(
+                                phase = TransferActionPhase.SUCCESS,
+                                message = appString(R.string.settings_transfer_export_success),
+                                artifactPath = result.artifact.file.absolutePath,
+                            ),
+                        )
+                    }
+
+                    is SettingsTransferExportResult.Error -> {
+                        _transferUiState.value.copy(
+                            passwords = _transferUiState.value.passwords.copy(exportPassword = ""),
+                            exportAction = TransferActionUiState(
+                                phase = TransferActionPhase.ERROR,
+                                message = exportFailureMessage(result),
+                                failureReason = result.reason.toTransferFailureUiReason(),
+                            ),
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    fun requestTransferImport(artifactFile: File) {
+        val currentState = _transferUiState.value
+        if (currentState.importAction.phase == TransferActionPhase.IN_PROGRESS) return
+        if (isTransferBlockedByMaintenance()) return
+        pendingTransferImportArtifact = artifactFile
+        _transferUiState.value = currentState.copy(
+            overwriteConfirmation = TransferOverwriteConfirmationState(
+                isRequired = true,
+                pendingArtifactPath = artifactFile.absolutePath,
+            ),
+            importAction = TransferActionUiState(),
+        )
+    }
+
+    fun cancelTransferImportOverwriteConfirmation() {
+        pendingTransferImportArtifact = null
+        _transferUiState.value = _transferUiState.value.copy(
+            passwords = _transferUiState.value.passwords.copy(importPassword = ""),
+            overwriteConfirmation = TransferOverwriteConfirmationState(),
+        )
+    }
+
+    fun confirmTransferImportOverwrite() {
+        val currentState = _transferUiState.value
+        if (!currentState.overwriteConfirmation.isRequired) return
+        if (currentState.importAction.phase == TransferActionPhase.IN_PROGRESS) return
+        if (isTransferBlockedByMaintenance()) return
+
+        val artifactFile = pendingTransferImportArtifact
+            ?: currentState.overwriteConfirmation.pendingArtifactPath?.let(::File)
+            ?: return
+        // Import does not enforce MIN_TRANSFER_PASSWORD_LENGTH — the user must be able
+        // to enter any password that was used during export (including from older versions
+        // that had no minimum length requirement).
+        val importPassword = currentState.passwords.importPassword
+        if (importPassword.isBlank()) {
+            _transferUiState.value = currentState.copy(
+                importAction = TransferActionUiState(
+                    phase = TransferActionPhase.ERROR,
+                    message = appString(R.string.settings_transfer_error_import_password_required),
+                    failureReason = TransferFailureUiReason.UNKNOWN,
+                ),
+            )
+            return
+        }
+
+        _transferUiState.value = currentState.copy(
+            overwriteConfirmation = TransferOverwriteConfirmationState(),
+            importAction = TransferActionUiState(
+                phase = TransferActionPhase.IN_PROGRESS,
+                message = appString(R.string.settings_transfer_progress_import),
+            ),
+        )
+
+        pendingTransferImportArtifact = null
+
+        viewModelScope.launch(Dispatchers.IO) {
+            val app = getApplication<Application>()
+            val rootfsDir = prootManager.rootfsDir ?: app.filesDir
+            val importRequest = TransferRestoreRequest(
+                artifactFile = artifactFile,
+                password = importPassword.toCharArray(),
+                expectedVersion = TransferVersionExpectation(
+                    applicationId = app.packageName,
+                    versionCode = resolveCurrentVersionCode(app),
+                    versionName = BuildConfig.VERSION_NAME,
+                ),
+                rootfsDir = rootfsDir,
+                preferencesRestorer = createTransferPreferencesRestorer(),
+                gatewayController = createTransferGatewayController(app),
+            )
+            val result = transferManager.import(SettingsTransferImportRequest(request = importRequest))
+            withContext(Dispatchers.Main) {
+                _transferUiState.value = when (result) {
+                    is SettingsTransferImportResult.Success -> {
+                        refreshCodexAuthStatus()
+                        refreshGitHubCopilotAuthStatus()
+                        _transferUiState.value.copy(
+                            passwords = _transferUiState.value.passwords.copy(importPassword = ""),
+                            importAction = TransferActionUiState(
+                                phase = TransferActionPhase.SUCCESS,
+                                message = appString(R.string.settings_transfer_import_success),
+                            ),
+                        )
+                    }
+
+                    is SettingsTransferImportResult.Error -> {
+                        if (result.reason == SettingsTransferFailureReason.TRANSIENT_RUNTIME) {
+                            refreshCodexAuthStatus()
+                            refreshGitHubCopilotAuthStatus()
+                            _transferUiState.value.copy(
+                                passwords = _transferUiState.value.passwords.copy(importPassword = ""),
+                                importAction = TransferActionUiState(
+                                    phase = TransferActionPhase.SUCCESS,
+                                    message = appString(R.string.settings_transfer_import_success),
+                                ),
+                            )
+                        } else {
+                            _transferUiState.value.copy(
+                                passwords = _transferUiState.value.passwords.copy(importPassword = ""),
+                                importAction = TransferActionUiState(
+                                    phase = TransferActionPhase.ERROR,
+                                    message = importFailureMessage(result),
+                                    failureReason = result.reason.toTransferFailureUiReason(),
+                                ),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend fun snapshotTransferPreferences(): Map<String, String> {
+        val fullSnapshot = prefs.getTransferCandidatePreferencesSnapshot()
+        return fullSnapshot.filterKeys { key -> PreferencesManager.TRANSFER_EXPORTABLE_KEYS.contains(key) }
+    }
+
+    private fun createTransferPreferencesRestorer(): TransferPreferencesRestorer {
+        return object : TransferPreferencesRestorer {
+            override suspend fun snapshotCurrentState(): TransferPreferencesRestoreData {
+                return TransferPreferencesRestoreData(values = snapshotTransferPreferences())
+            }
+
+            override suspend fun restore(restoreData: TransferPreferencesRestoreData) {
+                prefs.applyTransferCandidatePreferencesSnapshot(restoreData.values)
+            }
+        }
+    }
+
+    private fun createTransferGatewayController(context: Context): TransferGatewayQuiesceController {
+        return object : TransferGatewayQuiesceController {
+            override suspend fun quiesceForRestore(): Boolean {
+                val status = processManager.gatewayState.value.status
+                return when (status) {
+                    GatewayStatus.RUNNING,
+                    GatewayStatus.STARTING -> {
+                        GatewayService.stop(context, source = "settings:transfer_import_quiesce")
+                    val stopped = waitForGatewayStopped(allowErrorAsStopped = true)
+                        if (!stopped) {
+                            val currentStatus = processManager.gatewayState.value.status
+                            throw IllegalStateException(
+                                "Gateway stop timed out before import (status=$currentStatus)."
+                            )
+                        }
+                        true
+                    }
+                    GatewayStatus.STOPPING -> {
+                        val stopped = waitForGatewayStopped(allowErrorAsStopped = true)
+                        if (!stopped) {
+                            val currentStatus = processManager.gatewayState.value.status
+                            throw IllegalStateException(
+                                "Gateway stop timed out before import (status=$currentStatus)."
+                            )
+                        }
+                        false
+                    }
+                    else -> false
+                }
+            }
+
+            override suspend fun verifyRestoredGatewayStartable(
+                wasGatewayActiveBeforeRestore: Boolean,
+            ): TransferGatewayRestoreVerification {
+                GatewayService.start(context, source = "settings:transfer_import_verify")
+                val started = waitForGatewayStatus(
+                    expectedStatus = GatewayStatus.RUNNING,
+                    timeoutMs = TRANSFER_IMPORT_VERIFY_TIMEOUT_MS,
+                )
+                if (started) {
+                    if (!wasGatewayActiveBeforeRestore) {
+                        GatewayService.stop(context, source = "settings:transfer_import_restore_prior_state")
+                        val stopped = waitForGatewayStopped()
+                        if (!stopped) {
+                            val currentStatus = processManager.gatewayState.value.status
+                            return TransferGatewayRestoreVerification.TransientRuntimeFailure(
+                                message = "Gateway stop timed out after verification (status=$currentStatus).",
+                            )
+                        }
+                    }
+                    return TransferGatewayRestoreVerification.Success
+                }
+
+                val status = processManager.gatewayState.value.status
+                val errorMessage = processManager.gatewayState.value.errorMessage.orEmpty()
+                return if (
+                    status == GatewayStatus.ERROR && isStructuralGatewayRestoreFailure(errorMessage)
+                ) {
+                    TransferGatewayRestoreVerification.StructuralFailure(
+                        message = errorMessage.ifBlank { "Gateway failed to start with structural configuration error." },
+                    )
+                } else {
+                    if (!wasGatewayActiveBeforeRestore) {
+                        GatewayService.stop(context, source = "settings:transfer_import_verify_cleanup")
+                        val stopped = waitForGatewayStopped(allowErrorAsStopped = true)
+                        if (!stopped) {
+                            val currentStatus = processManager.gatewayState.value.status
+                            return TransferGatewayRestoreVerification.TransientRuntimeFailure(
+                                message = "Gateway stop timed out after verification (status=$currentStatus).",
+                            )
+                        }
+                    }
+                    TransferGatewayRestoreVerification.TransientRuntimeFailure(
+                        message = if (errorMessage.isNotBlank()) errorMessage else "Gateway start verification timed out.",
+                    )
+                }
+            }
+
+            override suspend fun restorePreRestoreGatewayState(wasGatewayActiveBeforeRestore: Boolean) {
+                if (wasGatewayActiveBeforeRestore) {
+                    GatewayService.start(context, source = "settings:transfer_import_restore_previous_state")
+                } else {
+                    GatewayService.stop(context, source = "settings:transfer_import_restore_inactive_state")
+                }
+            }
+        }
+    }
+
+    private fun exportFailureMessage(result: SettingsTransferExportResult.Error): String {
+        return when (result.reason) {
+            SettingsTransferFailureReason.WRONG_PASSWORD -> appString(R.string.settings_transfer_error_wrong_password)
+            SettingsTransferFailureReason.VERSION_MISMATCH -> appString(R.string.settings_transfer_error_version_mismatch)
+            SettingsTransferFailureReason.TRANSIENT_RUNTIME -> appString(R.string.settings_transfer_error_export_failed)
+            SettingsTransferFailureReason.UNKNOWN -> appString(R.string.settings_transfer_error_export_failed)
+        }
+    }
+
+    private fun importFailureMessage(result: SettingsTransferImportResult.Error): String {
+        return when (result.reason) {
+            SettingsTransferFailureReason.WRONG_PASSWORD -> appString(R.string.settings_transfer_error_wrong_password)
+            SettingsTransferFailureReason.VERSION_MISMATCH -> appString(R.string.settings_transfer_error_version_mismatch)
+            SettingsTransferFailureReason.TRANSIENT_RUNTIME,
+            SettingsTransferFailureReason.UNKNOWN -> appString(R.string.settings_transfer_error_import_failed)
+        }
+    }
+
+    private fun appString(resId: Int): String = getApplication<Application>().getString(resId)
+
+    private fun isTransferBlockedByMaintenance(): Boolean {
+        return _isDoctorFixRunning.value ||
+            _isRecoveryInstallRunning.value ||
+            _isOpenClawUpdateRunning.value ||
+            _isCodexAuthInProgress.value ||
+            _isGitHubCopilotAuthInProgress.value
+    }
+
+    private fun isStructuralGatewayRestoreFailure(errorMessage: String): Boolean {
+        if (errorMessage.isBlank()) return false
+        val normalized = errorMessage.lowercase(Locale.US)
+        return normalized.contains("config") ||
+            normalized.contains("invalid") ||
+            normalized.contains("json") ||
+            normalized.contains("parse") ||
+            normalized.contains("missingenvvar") ||
+            normalized.contains("missing env") ||
+            normalized.contains("missing environment") ||
+            normalized.contains("schema") ||
+            normalized.contains("required")
+    }
+
+    private suspend fun waitForGatewayStatus(
+        expectedStatus: GatewayStatus,
+        timeoutMs: Long,
+    ): Boolean {
+        val startAt = System.currentTimeMillis()
+        while (System.currentTimeMillis() - startAt < timeoutMs) {
+            if (processManager.gatewayState.value.status == expectedStatus) {
+                return true
+            }
+            delay(TRANSFER_IMPORT_VERIFY_POLL_MS)
+        }
+        return false
+    }
+
+    private fun resolveCurrentVersionCode(context: Context): Long {
+        return try {
+            val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                packageInfo.longVersionCode
+            } else {
+                @Suppress("DEPRECATION")
+                packageInfo.versionCode.toLong()
+            }
+        } catch (_: PackageManager.NameNotFoundException) {
+            1L
+        }
+    }
+
+    private fun SettingsTransferFailureReason.toTransferFailureUiReason(): TransferFailureUiReason {
+        return when (this) {
+            SettingsTransferFailureReason.WRONG_PASSWORD -> TransferFailureUiReason.WRONG_PASSWORD
+            SettingsTransferFailureReason.VERSION_MISMATCH -> TransferFailureUiReason.VERSION_MISMATCH
+            SettingsTransferFailureReason.TRANSIENT_RUNTIME -> TransferFailureUiReason.TRANSIENT_RUNTIME
+            SettingsTransferFailureReason.UNKNOWN -> TransferFailureUiReason.UNKNOWN
+        }
     }
 
     fun openBugReportDialog() {
@@ -3409,6 +3893,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     override fun onCleared() {
         super.onCleared()
         cancelWhatsAppQr()
+        clearTransferExportPassword()
+        clearTransferImportPassword()
     }
 
     fun isBatteryOptimizationIgnored(): Boolean {

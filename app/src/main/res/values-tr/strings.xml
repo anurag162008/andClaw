@@ -280,6 +280,32 @@ Kurtarma sürerken uygulamayı kapatmayın veya zorla durdurmayın.</string>
     <string name="settings_openclaw_update_result_incremental">OpenClaw güncellendi (kopya: %1$d, silinen: %2$d, atlanan: %3$d)</string>
     <string name="settings_openclaw_update_result_reinstall">OpenClaw, paketlenmiş varlıklardan yeniden kuruldu.</string>
     <string name="settings_openclaw_update_skip_until_next_version">Sonraki sürüme kadar tekrar gösterme</string>
+    <string name="settings_transfer_export_title">Başka cihaza aktar</string>
+    <string name="settings_transfer_export_desc">Ayarları, oturum geçmişini, kimlik bilgilerini ve ajan verilerini başka bir cihaza aktarır.\nYalnızca aynı andClaw sürümüyle uyumludur — yedekleme olarak kullanılamaz.</string>
+    <string name="settings_transfer_import_title">Başka cihazdan içe aktar</string>
+    <string name="settings_transfer_import_desc">Şifrelenmiş bir aktarım dosyasından geri yükler</string>
+    <string name="settings_transfer_export_dialog_title">Başka cihaza aktar</string>
+    <string name="settings_transfer_import_dialog_title">Başka cihazdan içe aktar</string>
+    <string name="settings_transfer_password_label">Aktarım parolası</string>
+    <string name="settings_transfer_export_confirm">Dışa aktar</string>
+    <string name="settings_transfer_import_confirm">İçe aktar</string>
+    <string name="settings_transfer_overwrite_title">Geçerli cihaz verileri üzerine yazılsın mı?</string>
+    <string name="settings_transfer_overwrite_message">Bu işlem başka bir cihazdan veri içe aktarır ve bu cihazın mevcut durumunun üzerine yazar.</string>
+    <string name="settings_transfer_progress_export">Şifrelenmiş aktarım dosyası oluşturuluyor…</string>
+    <string name="settings_transfer_progress_import">Şifrelenmiş aktarım dosyası içe aktarılıyor…</string>
+    <string name="settings_transfer_success_title">Cihaz aktarımı tamamlandı</string>
+    <string name="settings_transfer_import_success">Aktarım dosyası bu cihaza uygulandı.</string>
+    <string name="settings_transfer_share">Dosyayı paylaş</string>
+    <string name="settings_transfer_import_copy_failed">Seçilen aktarım dosyası okunamadı.</string>
+    <string name="settings_transfer_error_export_password_required">Dışa aktarma parolası gerekli.</string>
+    <string name="settings_transfer_error_password_too_short">Şifre en az %1$d karakter olmalıdır.</string>
+    <string name="settings_transfer_error_import_password_required">İçe aktarma parolası gerekli.</string>
+    <string name="settings_transfer_error_wrong_password">Parola yanlış veya aktarım dosyası bozuk.</string>
+    <string name="settings_transfer_error_version_mismatch">Uygulama sürümü uyuşmuyor. Her iki cihazı da aynı sürüme güncelleyip tekrar deneyin.</string>
+    <string name="settings_transfer_error_export_failed">Aktarım dosyası dışa aktarılamadı.</string>
+    <string name="settings_transfer_error_import_failed">Aktarım dosyası içe aktarılamadı.</string>
+    <string name="settings_transfer_export_success">Aktarım dışa aktarma tamamlandı.</string>
+    <string name="settings_transfer_share_failed">Aktarım dosyası paylaşılamadı.</string>
 </resources>
 
 

@@ -280,6 +280,32 @@
     <string name="settings_openclaw_update_result_incremental">OpenClaw обновлён (скопировано: %1$d, удалено: %2$d, пропущено: %3$d)</string>
     <string name="settings_openclaw_update_result_reinstall">OpenClaw переустановлен из встроенных assets.</string>
     <string name="settings_openclaw_update_skip_until_next_version">Не показывать снова до следующей версии</string>
+    <string name="settings_transfer_export_title">Экспорт на другое устройство</string>
+    <string name="settings_transfer_export_desc">Переносит настройки, историю сессий, учётные данные и данные агента на другое устройство.\nСовместим только с той же версией andClaw — не может использоваться как резервная копия.</string>
+    <string name="settings_transfer_import_title">Импорт с другого устройства</string>
+    <string name="settings_transfer_import_desc">Восстанавливает из зашифрованного файла переноса</string>
+    <string name="settings_transfer_export_dialog_title">Экспорт на другое устройство</string>
+    <string name="settings_transfer_import_dialog_title">Импорт с другого устройства</string>
+    <string name="settings_transfer_password_label">Пароль переноса</string>
+    <string name="settings_transfer_export_confirm">Экспортировать</string>
+    <string name="settings_transfer_import_confirm">Импортировать</string>
+    <string name="settings_transfer_overwrite_title">Перезаписать текущие данные устройства?</string>
+    <string name="settings_transfer_overwrite_message">Будут импортированы данные с другого устройства и перезаписано текущее состояние этого устройства.</string>
+    <string name="settings_transfer_progress_export">Создаётся зашифрованный файл переноса…</string>
+    <string name="settings_transfer_progress_import">Импортируется зашифрованный файл переноса…</string>
+    <string name="settings_transfer_success_title">Перенос устройства завершён</string>
+    <string name="settings_transfer_import_success">Файл переноса был применён к этому устройству.</string>
+    <string name="settings_transfer_share">Поделиться файлом</string>
+    <string name="settings_transfer_import_copy_failed">Не удалось прочитать выбранный файл переноса.</string>
+    <string name="settings_transfer_error_export_password_required">Требуется пароль для экспорта.</string>
+    <string name="settings_transfer_error_password_too_short">Пароль должен содержать не менее %1$d символов.</string>
+    <string name="settings_transfer_error_import_password_required">Требуется пароль для импорта.</string>
+    <string name="settings_transfer_error_wrong_password">Неверный пароль или поврежденный файл переноса.</string>
+    <string name="settings_transfer_error_version_mismatch">Версии приложения не совпадают. Обновите оба устройства до одной версии и повторите попытку.</string>
+    <string name="settings_transfer_error_export_failed">Не удалось экспортировать файл переноса.</string>
+    <string name="settings_transfer_error_import_failed">Не удалось импортировать файл переноса.</string>
+    <string name="settings_transfer_export_success">Экспорт файла переноса завершен.</string>
+    <string name="settings_transfer_share_failed">Не удалось поделиться файлом переноса.</string>
 </resources>
 
 

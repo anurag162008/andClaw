@@ -255,6 +255,50 @@ class PreferencesManager(private val context: Context) {
     }
 
     companion object {
+        // All preference keys eligible for device transfer export/import.
+        // Adding a key here automatically includes it in export, import, and pre-import clear.
+        // Device-specific settings (auto_start_on_boot, charge_only_mode, log_section_unlocked)
+        // are intentionally excluded.
+        val TRANSFER_EXPORTABLE_KEYS: Set<String> = setOf(
+            "api_provider",
+            "api_key",
+            "api_key_openrouter",
+            "api_key_openai",
+            "api_key_anthropic",
+            "api_key_google",
+            "api_key_zai",
+            "api_key_kimi_coding",
+            "api_key_minimax",
+            "api_key_openai_compatible",
+            "api_key_ollama",
+            "openai_compatible_base_url",
+            "openai_compatible_model_id",
+            "ollama_base_url",
+            "ollama_model_id",
+            "selected_model",
+            "selected_model_provider",
+            "selected_model_reasoning",
+            "selected_model_images",
+            "selected_model_context",
+            "selected_model_max_output",
+            "selected_models_by_provider_json",
+            "primary_model_by_provider_json",
+            "model_metadata_by_provider_json",
+            "openai_compatible_profiles_json",
+            "active_openai_compatible_profile_id",
+            "whatsapp_enabled",
+            "telegram_enabled",
+            "telegram_bot_token",
+            "discord_enabled",
+            "discord_bot_token",
+            "discord_guild_allowlist",
+            "discord_require_mention",
+            "brave_search_api_key",
+            "memory_search_enabled",
+            "memory_search_provider",
+            "memory_search_api_key",
+        )
+
         private val KEY_SETUP_COMPLETE = booleanPreferencesKey("setup_complete")
         private val KEY_ONBOARDING_COMPLETE = booleanPreferencesKey("onboarding_complete")
         private val KEY_API_PROVIDER = stringPreferencesKey("api_provider")
@@ -2801,6 +2845,86 @@ private val OLLAMA_MANUAL_FALLBACK_KEY = booleanPreferencesKey("ollama_manual_fa
             prefs.remove(KEY_BUNDLE_UPDATE_LAST_FAILURE_TYPE)
             prefs[KEY_BUNDLE_UPDATE_MANUAL_RETRY_USED] = false
             prefs.remove(KEY_BUNDLE_UPDATE_MANUAL_RETRY_VERSION)
+        }
+    }
+
+    suspend fun getTransferCandidatePreferencesSnapshot(): Map<String, String> {
+        val snapshot = context.dataStore.data.first()
+        val out = linkedMapOf<String, String>()
+        snapshot.asMap().forEach { (key, value) ->
+            when (value) {
+                is String -> out[key.name] = value
+                is Boolean -> out[key.name] = value.toString()
+                is Int -> out[key.name] = value.toString()
+                is Long -> out[key.name] = value.toString()
+                is Float -> out[key.name] = value.toString()
+                is Double -> out[key.name] = value.toString()
+            }
+        }
+        return out.toMap()
+    }
+
+    suspend fun applyTransferCandidatePreferencesSnapshot(snapshot: Map<String, String>) {
+        context.dataStore.edit { prefs ->
+            // Clear all transferable keys before applying snapshot.
+            // Uses the same TRANSFER_EXPORTABLE_KEYS set to stay in sync with export.
+            prefs.asMap().keys
+                .filter { it.name in TRANSFER_EXPORTABLE_KEYS }
+                .forEach { prefs.remove(it) }
+
+            snapshot.forEach { (key, rawValue) ->
+                when (key) {
+                    "api_provider" -> prefs[KEY_API_PROVIDER] = rawValue
+                    "api_key" -> prefs[KEY_API_KEY] = rawValue
+                    "api_key_openrouter" -> prefs[KEY_API_KEY_OPENROUTER] = rawValue
+                    "api_key_anthropic" -> prefs[KEY_API_KEY_ANTHROPIC] = rawValue
+                    "api_key_openai" -> prefs[KEY_API_KEY_OPENAI] = rawValue
+                    "api_key_google" -> prefs[KEY_API_KEY_GOOGLE] = rawValue
+                    "api_key_zai" -> prefs[KEY_API_KEY_ZAI] = rawValue
+                    "api_key_kimi_coding" -> prefs[KEY_API_KEY_KIMI_CODING] = rawValue
+                    "api_key_minimax" -> prefs[KEY_API_KEY_MINIMAX] = rawValue
+                    "api_key_openai_compatible" -> prefs[KEY_API_KEY_OPENAI_COMPATIBLE] = rawValue
+                    "api_key_ollama" -> prefs[KEY_API_KEY_OLLAMA] = rawValue
+                    "openai_compatible_base_url" -> prefs[KEY_OPENAI_COMPATIBLE_BASE_URL] = rawValue
+                    "openai_compatible_model_id" -> prefs[KEY_OPENAI_COMPATIBLE_MODEL_ID] = rawValue
+                    "ollama_base_url" -> prefs[KEY_OLLAMA_BASE_URL] = rawValue
+                    "ollama_model_id" -> prefs[KEY_OLLAMA_MODEL_ID] = rawValue
+                    "selected_model" -> prefs[KEY_SELECTED_MODEL] = rawValue
+                    "selected_model_provider" -> prefs[KEY_SELECTED_MODEL_PROVIDER] = rawValue
+                    "selected_model_reasoning" -> rawValue.toBooleanStrictOrNull()?.let {
+                        prefs[KEY_SELECTED_MODEL_REASONING] = it
+                    }
+                    "selected_model_images" -> rawValue.toBooleanStrictOrNull()?.let {
+                        prefs[KEY_SELECTED_MODEL_IMAGES] = it
+                    }
+                    "selected_model_context" -> if (rawValue.toLongOrNull() != null) {
+                        prefs[KEY_SELECTED_MODEL_CONTEXT] = rawValue
+                    }
+                    "selected_model_max_output" -> if (rawValue.toLongOrNull() != null) {
+                        prefs[KEY_SELECTED_MODEL_MAX_OUTPUT] = rawValue
+                    }
+                    "selected_models_by_provider_json" -> prefs[KEY_SELECTED_MODELS_BY_PROVIDER_JSON] = rawValue
+                    "primary_model_by_provider_json" -> prefs[KEY_PRIMARY_MODEL_BY_PROVIDER_JSON] = rawValue
+                    "model_metadata_by_provider_json" -> prefs[KEY_MODEL_METADATA_BY_PROVIDER_JSON] = rawValue
+                    "openai_compatible_profiles_json" -> prefs[KEY_OPENAI_COMPATIBLE_PROFILES_JSON] = rawValue
+                    "active_openai_compatible_profile_id" -> prefs[KEY_ACTIVE_OPENAI_COMPATIBLE_PROFILE_ID] = rawValue
+                    "telegram_bot_token" -> prefs[KEY_TELEGRAM_BOT_TOKEN] = rawValue
+                    "discord_bot_token" -> prefs[KEY_DISCORD_BOT_TOKEN] = rawValue
+                    "discord_guild_allowlist" -> prefs[KEY_DISCORD_GUILD_ALLOWLIST] = rawValue
+                    "brave_search_api_key" -> prefs[KEY_BRAVE_SEARCH_API_KEY] = rawValue
+                    "memory_search_provider" -> prefs[KEY_MEMORY_SEARCH_PROVIDER] = rawValue
+                    "memory_search_api_key" -> prefs[KEY_MEMORY_SEARCH_API_KEY] = rawValue
+                    "whatsapp_enabled" -> rawValue.toBooleanStrictOrNull()?.let { prefs[KEY_WHATSAPP_ENABLED] = it }
+                    "telegram_enabled" -> rawValue.toBooleanStrictOrNull()?.let { prefs[KEY_TELEGRAM_ENABLED] = it }
+                    "discord_enabled" -> rawValue.toBooleanStrictOrNull()?.let { prefs[KEY_DISCORD_ENABLED] = it }
+                    "discord_require_mention" -> rawValue.toBooleanStrictOrNull()?.let {
+                        prefs[KEY_DISCORD_REQUIRE_MENTION] = it
+                    }
+                    "memory_search_enabled" -> rawValue.toBooleanStrictOrNull()?.let {
+                        prefs[KEY_MEMORY_SEARCH_ENABLED] = it
+                    }
+                }
+            }
         }
     }
 

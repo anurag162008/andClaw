@@ -281,6 +281,32 @@
     <string name="settings_openclaw_update_result_incremental">OpenClawを更新しました（コピー: %1$d、削除: %2$d、スキップ: %3$d）</string>
     <string name="settings_openclaw_update_result_reinstall">同梱アセットからOpenClawを再インストールしました。</string>
     <string name="settings_openclaw_update_skip_until_next_version">次のバージョンまで表示しない</string>
+    <string name="settings_transfer_export_title">別の端末へ書き出す</string>
+    <string name="settings_transfer_export_desc">設定、セッション履歴、認証情報、エージェントデータを別の端末に転送します。\n同じandClawバージョン間でのみ互換性があり、バックアップとしては使用できません。</string>
+    <string name="settings_transfer_import_title">別の端末から取り込む</string>
+    <string name="settings_transfer_import_desc">暗号化された転送ファイルから復元します</string>
+    <string name="settings_transfer_export_dialog_title">別の端末へ書き出す</string>
+    <string name="settings_transfer_import_dialog_title">別の端末から取り込む</string>
+    <string name="settings_transfer_password_label">転送パスワード</string>
+    <string name="settings_transfer_export_confirm">書き出す</string>
+    <string name="settings_transfer_import_confirm">取り込む</string>
+    <string name="settings_transfer_overwrite_title">現在の端末データを上書きしますか？</string>
+    <string name="settings_transfer_overwrite_message">別の端末のデータを取り込み、現在の端末状態を上書きします。</string>
+    <string name="settings_transfer_progress_export">暗号化された転送ファイルを作成中…</string>
+    <string name="settings_transfer_progress_import">暗号化された転送ファイルを取り込み中…</string>
+    <string name="settings_transfer_success_title">端末転送が完了しました</string>
+    <string name="settings_transfer_import_success">転送ファイルがこの端末に適用されました。</string>
+    <string name="settings_transfer_share">ファイルを共有</string>
+    <string name="settings_transfer_import_copy_failed">選択した転送ファイルを読み込めませんでした。</string>
+    <string name="settings_transfer_error_export_password_required">書き出しパスワードが必要です。</string>
+    <string name="settings_transfer_error_password_too_short">パスワードは%1$d文字以上必要です。</string>
+    <string name="settings_transfer_error_import_password_required">取り込みパスワードが必要です。</string>
+    <string name="settings_transfer_error_wrong_password">パスワードが違うか、転送ファイルが壊れています。</string>
+    <string name="settings_transfer_error_version_mismatch">アプリのバージョンが一致しません。両方のデバイスを同じバージョンに更新してからもう一度お試しください。</string>
+    <string name="settings_transfer_error_export_failed">転送ファイルを書き出せませんでした。</string>
+    <string name="settings_transfer_error_import_failed">転送ファイルを取り込めませんでした。</string>
+    <string name="settings_transfer_export_success">転送ファイルの書き出しが完了しました。</string>
+    <string name="settings_transfer_share_failed">転送ファイルを共有できませんでした。</string>
 </resources>
 
 
