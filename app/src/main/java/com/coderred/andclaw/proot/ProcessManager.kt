@@ -590,6 +590,7 @@ class ProcessManager(
                             "minimax" -> put("MINIMAX_API_KEY", apiKey)
                             "openai-compatible" -> put("OPENAI_COMPAT_API_KEY", apiKey)
                             "ollama" -> put("OLLAMA_API_KEY", apiKey)
+                            "ollama-cloud" -> put("OLLAMA_API_KEY", apiKey)
                             "openrouter" -> put("OPENROUTER_API_KEY", apiKey)
                             "google" -> {
                                 put("GEMINI_API_KEY", apiKey)
@@ -1032,6 +1033,7 @@ class ProcessManager(
                     "minimax" -> "MiniMax-M2.5"
                 "openai-compatible" -> ""
                 "ollama" -> ""
+                "ollama-cloud" -> ""
                     "google" -> "gemini-2.5-flash"
                     else -> "openrouter/free"
                 }
@@ -1113,6 +1115,10 @@ class ProcessManager(
                         val id = modelId.removePrefix("ollama/").removeSuffix(":latest")
                         "ollama/$id"
                     }
+                    "ollama-cloud" -> {
+                        val id = modelId.removePrefix("ollama/").removePrefix("ollama-cloud/").removeSuffix(":latest")
+                        "ollama/$id"
+                    }
                     "google" -> {
                         val id = when {
                             modelId.startsWith("google/") -> modelId.removePrefix("google/")
@@ -1146,6 +1152,7 @@ class ProcessManager(
                 "minimax" -> setOf("minimax/")
                 "openai-compatible" -> setOf("openai-compatible/")
                 "ollama" -> setOf("ollama/")
+                "ollama-cloud" -> setOf("ollama/")
                 "google" -> setOf("google/")
                 else -> setOf("${provider.trim().lowercase()}/")
             }
@@ -1184,7 +1191,7 @@ class ProcessManager(
 
                     modelKey.startsWith("ollama/") -> {
                         val id = modelKey.removePrefix("ollama/").removeSuffix(":latest")
-                        val currentTarget = apiProvider == "ollama" && modelKey in targetModels
+                        val currentTarget = (apiProvider == "ollama" || apiProvider == "ollama-cloud") && modelKey in targetModels
                         currentTarget || registeredCustomModelIds["ollama"].orEmpty().contains(id)
                     }
 
@@ -1372,16 +1379,24 @@ class ProcessManager(
                         "models=${compatEntries.map { it.id }}, baseUrl='$normalizedBaseUrl'"
                 )
                 changed = true
-            } else if (apiProvider == "ollama") {
+            } else if (apiProvider == "ollama" || apiProvider == "ollama-cloud") {
                 val ollamaEntries = normalizedSelectedEntries
-                    .map { entry -> entry.copy(id = entry.id.removePrefix("ollama/").removeSuffix(":latest")) }
-                val normalizedBaseUrl = ollamaBaseUrl.trim().trimEnd('/').ifBlank { "http://127.0.0.1:11434" }
+                    .map { entry -> entry.copy(id = entry.id.removePrefix("ollama-cloud/").removePrefix("ollama/").removeSuffix(":latest")) }
+                val normalizedBaseUrl = if (apiProvider == "ollama-cloud") {
+                    "https://ollama.com"
+                } else {
+                    ollamaBaseUrl.trim().trimEnd('/').ifBlank { "http://127.0.0.1:11434" }
+                }
                 val models = json.optJSONObject("models") ?: JSONObject().also { json.put("models", it) }
                 val providers = models.optJSONObject("providers") ?: JSONObject().also { models.put("providers", it) }
                 providers.put("ollama", JSONObject().apply {
                     put("baseUrl", normalizedBaseUrl)
                     put("api", "ollama")
-                    put("apiKey", if (apiKey.isNotBlank()) "ollama-local" else "ollama-local")
+                    put("apiKey", when {
+                        apiProvider == "ollama-cloud" && apiKey.isNotBlank() -> "OLLAMA_API_KEY"
+                        apiProvider == "ollama-cloud" -> ""
+                        else -> "ollama-local"
+                    })
                     put("models", org.json.JSONArray().apply {
                         ollamaEntries.forEach { entry ->
                             put(buildModelEntryJson(entry, api = "ollama"))
@@ -1392,6 +1407,7 @@ class ProcessManager(
                     modelEntries = ollamaEntries,
                     baseUrl = normalizedBaseUrl,
                     apiKey = apiKey,
+                    apiProvider = apiProvider,
                 )
                 addLog(
                     "[andClaw] Ollama provider configured: " +
@@ -1553,10 +1569,10 @@ class ProcessManager(
                 dcPlugin.put("enabled", channelConfig.discordEnabled && channelConfig.discordBotToken.isNotBlank())
                 entries.put("discord", dcPlugin)
 
-                // WhatsApp
-                val waPlugin = entries.optJSONObject("whatsapp") ?: JSONObject()
-                waPlugin.put("enabled", channelConfig.whatsappEnabled)
-                entries.put("whatsapp", waPlugin)
+                // WhatsApp은 코어 채널이므로 plugins.entries 불필요 (stale entry 정리)
+                if (entries.has("whatsapp")) {
+                    entries.remove("whatsapp")
+                }
 
                 configFile.writeText(json.toString(2))
             } catch (e: Exception) {
@@ -1841,12 +1857,18 @@ class ProcessManager(
         modelEntries: List<ModelSelectionEntry>,
         baseUrl: String,
         apiKey: String,
+        apiProvider: String = "ollama",
     ) {
         try {
             val providerConfig = JSONObject().apply {
                 put("baseUrl", baseUrl)
                 put("api", "ollama")
-                put("apiKey", if (apiKey.isNotBlank()) "\${OLLAMA_API_KEY}" else "ollama-local")
+                put("apiKey", when {
+                    apiProvider == "ollama-cloud" && apiKey.isNotBlank() -> "OLLAMA_API_KEY"
+                    apiProvider == "ollama-cloud" -> ""
+                    apiKey.isNotBlank() -> "OLLAMA_API_KEY"
+                    else -> "ollama-local"
+                })
                 put("models", org.json.JSONArray().apply {
                     modelEntries
                         .map { it.copy(id = it.id.trim()) }
@@ -2287,6 +2309,7 @@ class ProcessManager(
                     "minimax" -> put("MINIMAX_API_KEY", lastApiKey)
                     "openai-compatible" -> put("OPENAI_COMPAT_API_KEY", lastApiKey)
                     "ollama" -> put("OLLAMA_API_KEY", lastApiKey)
+                    "ollama-cloud" -> put("OLLAMA_API_KEY", lastApiKey)
                     "openrouter" -> put("OPENROUTER_API_KEY", lastApiKey)
                     "google" -> {
                         put("GOOGLE_API_KEY", lastApiKey)
