@@ -90,7 +90,16 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { pathToFileURL } from "node:url";
 
-const [channelInput, codeInput] = process.argv.slice(1);
+// Inline os.networkInterfaces() patch for proot compatibility (Node.js v24+ --require + --input-type=module conflict)
+const _origNI = os.networkInterfaces;
+os.networkInterfaces = function() {
+  try { return _origNI.call(this); } catch {
+    return { lo: [{ address: "127.0.0.1", netmask: "255.0.0.0", family: "IPv4", mac: "00:00:00:00:00:00", internal: true, cidr: "127.0.0.1/8" }] };
+  }
+};
+
+const channelInput = process.env.DENY_CHANNEL || process.argv.slice(1).filter(a => a !== "-")[0];
+const codeInput = process.env.DENY_CODE || process.argv.slice(1).filter(a => a !== "-")[1];
 
 function normalizeChannel(value) {
   const normalized = String(value ?? "").trim().toLowerCase();
@@ -170,36 +179,42 @@ function resolveDistDir() {
   return envDir || "/usr/local/lib/node_modules/openclaw/dist";
 }
 
-async function importDistModule(prefix, requiredExports) {
+function findExportByName(moduleExports, targetName) {
+  // minified export에서 원본 이름으로 re-export된 경우 (export { x as originalName })
+  if (typeof moduleExports[targetName] === "function") return moduleExports[targetName];
+  // minified: export 이름을 모르니 모든 function export를 검사하여 .name으로 매칭
+  for (const key of Object.keys(moduleExports)) {
+    const val = moduleExports[key];
+    if (typeof val === "function" && val.name === targetName) return val;
+  }
+  return null;
+}
+
+async function importDistExport(prefix, exportName) {
   const distDir = resolveDistDir();
   const candidates = fs.readdirSync(distDir).filter((name) => name.startsWith(prefix) && name.endsWith(".js")).sort();
   if (candidates.length === 0) {
     throw new Error("missing openclaw module: " + prefix);
   }
-  const incompatibles = [];
+  const errors = [];
   for (const fileName of candidates) {
     const modulePath = path.join(distDir, fileName);
     let loaded;
     try {
       loaded = await import(pathToFileURL(modulePath).href);
     } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error);
-      incompatibles.push(fileName + " import failed: " + reason);
+      errors.push(fileName + " import failed: " + (error instanceof Error ? error.message : String(error)));
       continue;
     }
-    const missing = requiredExports.filter((key) => typeof loaded[key] !== "function");
-    if (missing.length === 0) {
-      return loaded;
-    }
-    incompatibles.push(fileName + " missing exports: " + missing.join(","));
+    const fn = findExportByName(loaded, exportName);
+    if (fn) return fn;
+    errors.push(fileName + " missing: " + exportName);
   }
-  throw new Error("no compatible module for " + prefix + ": " + incompatibles.join("; "));
+  throw new Error("no module for " + prefix + " with " + exportName + ": " + errors.join("; "));
 }
 
-const pairingStoreModule = await importDistModule("pairing-store-", ["o"]);
-const authProfilesModule = await importDistModule("auth-profiles-", ["D"]);
-const removeChannelAllowFromStoreEntry = pairingStoreModule.o;
-const withFileLock = authProfilesModule.D;
+const removeChannelAllowFromStoreEntry = await importDistExport("pairing-store-", "removeChannelAllowFromStoreEntry");
+const withFileLock = await importDistExport("file-lock-", "withFileLock");
 
 const lockOptions = {
   retries: {
@@ -2196,9 +2211,10 @@ class ProcessManager(
                     return@withContext false
                 }
 
-                val command = "export NODE_OPTIONS='--require /root/.openclaw-patch.js' && " +
-                    "node --input-type=module -e '${escapeSingleQuotedShell(openClawPairingDenyScript)}' " +
-                    "'${escapeSingleQuotedShell(normalizedChannel)}' '${escapeSingleQuotedShell(normalizedCode)}' 2>&1"
+                // heredoc + 환경변수로 stdin 전달 (파일 생성 없이 ESM 스크립트 실행)
+                val command = "DENY_CHANNEL='${escapeSingleQuotedShell(normalizedChannel)}' " +
+                    "DENY_CODE='${escapeSingleQuotedShell(normalizedCode)}' " +
+                    "node --input-type=module 2>&1 <<'__DENY_EOF__'\n${openClawPairingDenyScript}\n__DENY_EOF__"
                 val result = prootManager.executeWithResult(
                     command = command,
                     timeoutMs = 120_000,
@@ -2207,9 +2223,14 @@ class ProcessManager(
 
                 val success = !result.timedOut && result.exitCode == 0
                 if (!success) {
-                    val reason = result.output.lineSequence().lastOrNull { it.isNotBlank() }
+                    val output = result.output.trim()
+                    val reason = output.lineSequence().lastOrNull { it.isNotBlank() && !it.startsWith("Node.js v") }
+                        ?: output.lineSequence().lastOrNull { it.isNotBlank() }
                         ?: "exit=${result.exitCode}"
                     addLog("[andClaw] Pairing deny failed: $reason")
+                    if (output.lines().size > 1) {
+                        addLog("[andClaw] Pairing deny output: ${output.take(500)}")
+                    }
                     return@withContext false
                 }
 
