@@ -1029,7 +1029,7 @@ private val OLLAMA_MANUAL_FALLBACK_KEY = booleanPreferencesKey("ollama_manual_fa
             ?: decodeStringListMap(snapshot[KEY_SELECTED_MODELS_BY_PROVIDER_JSON])
         val selectedFromProvider = selectedByProvider[normalizedProvider].orEmpty()
             .map { canonicalizeModelIdForProvider(normalizedProvider, it) }
-            .filter { isLegacyModelCompatibleWithProvider(normalizedProvider, it) }
+            .filter { it.isNotBlank() }
             .distinct()
         if (selectedFromProvider.isNotEmpty()) {
             return selectedFromProvider
