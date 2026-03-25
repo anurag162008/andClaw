@@ -1,0 +1,79 @@
+name: Build Windows EXE (andClaw)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'windows/**'
+      - '.github/workflows/windows-app-build.yml'
+  pull_request:
+    paths:
+      - 'windows/**'
+      - '.github/workflows/windows-app-build.yml'
+
+jobs:
+  build-windows-exe:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore windows/AndClaw.Windows/AndClaw.Windows.csproj
+
+      - name: Publish self-contained single-file EXE (win-x64)
+        shell: pwsh
+        run: |
+          dotnet publish windows/AndClaw.Windows/AndClaw.Windows.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            /p:PublishSingleFile=true `
+            /p:IncludeNativeLibrariesForSelfExtract=true `
+            /p:EnableCompressionInSingleFile=true `
+            -o out/win-x64
+
+      - name: Create zip package
+        shell: pwsh
+        run: |
+          Compress-Archive -Path out/win-x64/* -DestinationPath out/andclaw-windows-win-x64.zip -Force
+          Get-FileHash out/andclaw-windows-win-x64.zip -Algorithm SHA256 | ForEach-Object {
+            "$($_.Hash)  andclaw-windows-win-x64.zip" | Out-File -FilePath out/andclaw-windows-win-x64.zip.sha256 -Encoding ascii
+          }
+
+      - name: Upload artifact (zip)
+        uses: actions/upload-artifact@v4
+        with:
+          name: andclaw-windows-win-x64
+          path: |
+            out/andclaw-windows-win-x64.zip
+            out/andclaw-windows-win-x64.zip.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+  release-on-tag:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build-windows-exe
+    runs-on: windows-latest
+
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: andclaw-windows-win-x64
+          path: out
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            out/andclaw-windows-win-x64.zip
+            out/andclaw-windows-win-x64.zip.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

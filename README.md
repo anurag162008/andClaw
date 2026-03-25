@@ -5,6 +5,16 @@ It runs OpenClaw inside a `proot` Ubuntu arm64 environment and provides a Jetpac
 
 Google Play: https://play.google.com/store/apps/details?id=com.coderred.andclaw
 
+## Windows Equivalent
+
+A Windows desktop parity track is available in `windows/`.
+It now includes mapped implementations for setup, onboarding, dashboard/runtime control, settings, diagnostics, and transfer workflows via WSL-backed runtime execution.
+
+See: `windows/README.md`.
+
+Windows EXE CI build: `.github/workflows/windows-app-build.yml` (Actions artifact + tag release asset).
+
+
 ## Features
 
 - One-tap setup for rootfs, Node.js, system tools, OpenClaw, and Playwright Chromium

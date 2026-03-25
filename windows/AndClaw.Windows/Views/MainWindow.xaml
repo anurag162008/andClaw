@@ -1,0 +1,188 @@
+<Window x:Class="AndClaw.Windows.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="andClaw for Windows"
+        Height="860"
+        Width="1260"
+        MinWidth="1000"
+        MinHeight="680">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,10">
+            <TextBlock Text="andClaw — Windows parity build" FontSize="26" FontWeight="SemiBold" />
+            <TextBlock Text="Feature parity target: setup, onboarding, runtime control, channels, diagnostics, transfer" />
+            <TextBlock Text="{Binding OsSupportNote}" Foreground="#0D5EA8" />
+        </StackPanel>
+
+        <TabControl Grid.Row="1">
+            <TabItem Header="Setup">
+                <Grid Margin="16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="Run Full Setup (Rootfs + Node + OpenClaw + Chromium)" Width="390" Command="{Binding RunSetupCommand}" />
+                        <Button Content="Install Runtime" Width="140" Margin="10,0,0,0" Command="{Binding InstallRuntimeCommand}" />
+                        <Button Content="Run Runtime Doctor" Width="170" Margin="10,0,0,0" Command="{Binding RunRuntimeDoctorCommand}" />
+                    </StackPanel>
+                    <ProgressBar Grid.Row="1" Height="18" Margin="0,12,0,12" Minimum="0" Maximum="100" Value="{Binding SetupProgress}" />
+
+                    <UniformGrid Grid.Row="2" Columns="2" Margin="0,0,0,12">
+                        <CheckBox Content="Rootfs installed" IsChecked="{Binding RootfsInstalled}" IsEnabled="False" Margin="0,4" />
+                        <CheckBox Content="Node installed" IsChecked="{Binding NodeInstalled}" IsEnabled="False" Margin="0,4" />
+                        <CheckBox Content="OpenClaw installed" IsChecked="{Binding OpenClawInstalled}" IsEnabled="False" Margin="0,4" />
+                        <CheckBox Content="Chromium installed" IsChecked="{Binding ChromiumInstalled}" IsEnabled="False" Margin="0,4" />
+                    </UniformGrid>
+                    <Grid Grid.Row="3" Margin="0,8,0,0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <TextBox Grid.Row="0" Margin="0,0,0,6" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" Text="{Binding RuntimeDoctorReport}" IsReadOnly="True" />
+                        <TextBox Grid.Row="1" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" Text="{Binding RuntimeInstallOutput}" IsReadOnly="True" />
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Onboarding">
+                <Grid Margin="16" MaxWidth="700">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Text="API Provider" />
+                    <TextBox Grid.Row="1" Text="{Binding ApiProvider}" Margin="0,4,0,8" />
+                    <TextBlock Grid.Row="2" Text="Model ID" />
+                    <TextBox Grid.Row="3" Text="{Binding SelectedModel}" Margin="0,4,0,8" />
+                    <TextBlock Grid.Row="4" Text="API Key / OAuth token" />
+                    <TextBox Grid.Row="5" Text="{Binding ApiKey}" Margin="0,4,0,8" />
+
+                    <StackPanel Grid.Row="6" Orientation="Horizontal" Margin="0,4,0,0">
+                        <Button Content="Open OAuth" Width="130" Command="{Binding OpenOAuthCommand}" />
+                        <TextBox Width="260" Margin="12,0,0,0" Text="{Binding OauthTokenInput}" />
+                        <Button Content="Complete OAuth" Width="130" Margin="12,0,0,0" Command="{Binding CompleteOAuthCommand}" />
+                        <Button Content="Refresh Models" Width="140" Margin="12,0,0,0" Command="{Binding RefreshModelsCommand}" />
+                        <Button Content="Save Onboarding" Width="150" Margin="12,0,0,0" Command="{Binding SaveOnboardingCommand}" />
+                    </StackPanel>
+                    <TextBox Grid.Row="7" Margin="0,10,0,0" Text="{Binding AvailableModelsText}" IsReadOnly="True" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"/>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Dashboard">
+                <Grid Margin="16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Text="Gateway lifecycle + runtime logs" FontWeight="SemiBold" FontSize="16" />
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,12,0,8">
+                        <Button Content="Start" Width="120" Command="{Binding StartGatewayCommand}" />
+                        <Button Content="Stop" Width="120" Margin="8,0,0,0" Command="{Binding StopGatewayCommand}" />
+                        <Button Content="Restart" Width="120" Margin="8,0,0,0" Command="{Binding RestartGatewayCommand}" />
+                        <Button Content="Open Dashboard" Width="150" Margin="8,0,0,0" Command="{Binding OpenDashboardCommand}" />
+                    </StackPanel>
+
+                    <TextBlock Grid.Row="2" Text="{Binding GatewayStatus, StringFormat=Gateway State: {0}}" Margin="0,0,0,8" />
+
+                    <ListView Grid.Row="3" ItemsSource="{Binding SessionLogs}">
+                        <ListView.View>
+                            <GridView>
+                                <GridViewColumn Header="Time (UTC)" Width="210" DisplayMemberBinding="{Binding TimestampUtc}" />
+                                <GridViewColumn Header="Category" Width="120" DisplayMemberBinding="{Binding Category}" />
+                                <GridViewColumn Header="Message" Width="760" DisplayMemberBinding="{Binding Message}" />
+                            </GridView>
+                        </ListView.View>
+                    </ListView>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Settings">
+                <Grid Margin="16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Orientation="Horizontal">
+                        <CheckBox Content="Auto start on launch" IsChecked="{Binding AutoStartOnBoot}" Margin="0,0,18,0" />
+                        <CheckBox Content="Charge-only mode" IsChecked="{Binding ChargeOnlyMode}" Margin="0,0,18,0" />
+                        <CheckBox Content="Memory search enabled" IsChecked="{Binding MemorySearchEnabled}" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,10,0,0">
+                        <TextBlock Text="Memory Search Provider:" VerticalAlignment="Center" />
+                        <TextBox Width="160" Margin="8,0,0,0" Text="{Binding MemorySearchProvider}" />
+                        <TextBlock Text="API Key:" VerticalAlignment="Center" Margin="12,0,0,0" />
+                        <TextBox Width="220" Margin="8,0,0,0" Text="{Binding MemorySearchApiKey}" />
+                    </StackPanel>
+
+                    <TextBlock Grid.Row="2" Text="Channels" FontWeight="SemiBold" Margin="0,12,0,4" />
+                    <TextBlock Grid.Row="2" Text="{Binding WhatsAppCapabilityNote}" Margin="90,12,0,4" Foreground="#A35A00" />
+                    <StackPanel Grid.Row="3" Orientation="Horizontal">
+                        <CheckBox Content="WhatsApp" IsChecked="{Binding WhatsAppEnabled}" Margin="0,0,18,0" />
+                        <CheckBox Content="Telegram" IsChecked="{Binding TelegramEnabled}" Margin="0,0,18,0" />
+                        <CheckBox Content="Discord" IsChecked="{Binding DiscordEnabled}" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,8,0,0">
+                        <TextBlock Text="Telegram Bot Token:" VerticalAlignment="Center" />
+                        <TextBox Width="260" Margin="8,0,0,0" Text="{Binding TelegramBotToken}" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Row="5" Orientation="Horizontal" Margin="0,8,0,0">
+                        <TextBlock Text="Discord Bot Token:" VerticalAlignment="Center" />
+                        <TextBox Width="260" Margin="8,0,0,0" Text="{Binding DiscordBotToken}" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Row="6" Orientation="Horizontal" Margin="0,12,0,0">
+                        <Button Content="Save Settings" Width="130" Command="{Binding SaveSettingsCommand}" />
+                        <Button Content="Generate Bug Report" Width="170" Margin="12,0,0,0" Command="{Binding GenerateBugReportCommand}" />
+                        <Button Content="Export Transfer" Width="130" Margin="12,0,0,0" Command="{Binding ExportTransferCommand}" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Row="7" Orientation="Horizontal" Margin="0,8,0,0">
+                        <TextBox Width="500" Text="{Binding TransferImportPath}" />
+                        <Button Content="Import Transfer" Width="130" Margin="12,0,0,0" Command="{Binding ImportTransferCommand}" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Row="8" Margin="0,10,0,0">
+                        <TextBlock Text="{Binding BootCapabilityNote}" Foreground="#A35A00" TextWrapping="Wrap"/>
+                        <TextBlock Text="{Binding BugReportPath, StringFormat=Bug Report: {0}}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding TransferArtifactPath, StringFormat=Transfer Artifact: {0}}" TextWrapping="Wrap" Margin="0,6,0,0" />
+                    </StackPanel>
+                    <TextBox Grid.Row="7" Margin="0,10,0,0" Text="{Binding AvailableModelsText}" IsReadOnly="True" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"/>
+                </Grid>
+            </TabItem>
+        </TabControl>
+
+        <Border Grid.Row="2" Margin="0,12,0,0" Padding="10" BorderBrush="#22000000" BorderThickness="1" CornerRadius="8">
+            <TextBlock Text="{Binding Status}" />
+        </Border>
+    </Grid>
+</Window>
