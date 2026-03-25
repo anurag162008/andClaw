@@ -2099,8 +2099,7 @@ private val OLLAMA_MANUAL_FALLBACK_KEY = booleanPreferencesKey("ollama_manual_fa
             .takeIf {
                 it.isNotBlank() &&
                     globalPrimaryProvider == provider &&
-                    selectedModelIds.contains(it) &&
-                    isLegacyModelCompatibleWithProvider(provider, it)
+                    selectedModelIds.contains(it)
             }
             .orEmpty()
         val profilePrimary = if (provider == "openai-compatible") {
