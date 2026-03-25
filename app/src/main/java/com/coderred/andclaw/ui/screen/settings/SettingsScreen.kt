@@ -2449,7 +2449,7 @@ private fun ProviderSelectionDialog(
         shape = RoundedCornerShape(24.dp),
         title = { Text(stringResource(R.string.settings_change_provider)) },
         text = {
-            Column {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 providers.forEach { (id, label) ->
                     Row(
                         modifier = Modifier

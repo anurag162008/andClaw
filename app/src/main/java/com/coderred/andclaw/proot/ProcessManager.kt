@@ -2001,9 +2001,21 @@ class ProcessManager(
 
     private fun ensurePatchFile() {
         val patchFile = File(prootManager.rootfsDir, "root/.openclaw-patch.js")
-        if (!patchFile.exists()) {
+        val needsUpdate = !patchFile.exists() ||
+            !patchFile.readText().contains("uncaughtException")
+        if (needsUpdate) {
             addLog("[andClaw] Creating Node.js compatibility patch...")
             patchFile.writeText(buildString {
+                // Prevent undici TLS null-socket crash (e.g. Telegram fetch fallback)
+                appendLine("process.on('uncaughtException', function(err) {")
+                appendLine("  if (err && err.message && err.message.includes('setServername')) {")
+                appendLine("    console.error('[openclaw-patch] Suppressed TLS crash:', err.message);")
+                appendLine("    return;")
+                appendLine("  }")
+                appendLine("  console.error('[openclaw] Uncaught exception:', err);")
+                appendLine("  process.exit(1);")
+                appendLine("});")
+                appendLine()
                 appendLine("const os = require('os');")
                 appendLine("const _ni = os.networkInterfaces;")
                 appendLine("os.networkInterfaces = function() {")
