@@ -1,0 +1,53 @@
+name: Build Windows Transfer Decrypter EXE
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/windows-transfer-decrypter.yml'
+      - 'tools/windows-transfer-decrypter/**'
+  pull_request:
+    paths:
+      - '.github/workflows/windows-transfer-decrypter.yml'
+      - 'tools/windows-transfer-decrypter/**'
+
+jobs:
+  build-windows-exe:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install cryptography pyinstaller
+
+      - name: Build EXE
+        run: |
+          cd tools/windows-transfer-decrypter
+          python -m PyInstaller --noconfirm --onefile --windowed --name AndClawTransferDecrypter transfer_decrypter.py
+
+      - name: Verify EXE exists
+        shell: pwsh
+        run: |
+          $exePath = "tools/windows-transfer-decrypter/dist/AndClawTransferDecrypter.exe"
+          if (-not (Test-Path $exePath)) {
+            Write-Error "Build output missing: $exePath"
+            exit 1
+          }
+          Write-Host "Build output found: $exePath"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AndClawTransferDecrypter-windows
+          path: tools/windows-transfer-decrypter/dist/*.exe
+          if-no-files-found: error
