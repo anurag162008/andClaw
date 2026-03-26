@@ -7,6 +7,7 @@ This repository includes a workflow at:
 ## What it builds
 
 The workflow assembles a **prod debug APK** after preparing all runtime bundles via `scripts/setup-assets.sh`.
+It enables arm64 Docker emulation (QEMU) in CI so Docker `--platform linux/arm64` steps used by asset preparation run correctly on GitHub-hosted runners.
 
 Included runtime content comes from this project and setup script:
 
