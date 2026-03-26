@@ -66,6 +66,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.File
@@ -1061,6 +1062,10 @@ class SettingsViewModel(
                     }
                 }
 
+                // TODO: OpenClaw 쪽에서 doctor --fix가 plugins.load.paths를 자동 수정하게 되면
+                //  이 workaround 제거할 것 (관련: openclaw/openclaw#53649, #55054)
+                removeStalePluginLoadPaths()
+
                 val command = "export NODE_OPTIONS='--require /root/.openclaw-patch.js' && " +
                     "openclaw doctor --fix 2>&1"
                 val result = prootManager.executeWithResult(
@@ -1085,6 +1090,46 @@ class SettingsViewModel(
             } finally {
                 _isDoctorFixRunning.value = false
             }
+        }
+    }
+
+    /**
+     * openclaw.json의 plugins.load.paths에서 실제 파일시스템에 존재하지 않는 경로를 제거한다.
+     * OpenClaw 업그레이드 시 extensions/ → dist/extensions/ 경로 변경이 자동 마이그레이션되지
+     * 않아 게이트웨이가 시작 실패하는 문제의 workaround.
+     */
+    private fun removeStalePluginLoadPaths() {
+        val rootfsDir = prootManager.rootfsDir ?: return
+        val configFile = File(rootfsDir, "root/.openclaw/openclaw.json")
+        if (!configFile.exists()) return
+        try {
+            val json = JSONObject(configFile.readText())
+            val plugins = json.optJSONObject("plugins") ?: return
+            val load = plugins.optJSONObject("load") ?: return
+            val paths = load.optJSONArray("paths") ?: return
+
+            val cleaned = JSONArray()
+            var removed = false
+            for (i in 0 until paths.length()) {
+                val rawPath = paths.optString(i) ?: continue
+                val resolved = when {
+                    rawPath.startsWith("/") -> File(rootfsDir, rawPath.removePrefix("/"))
+                    rawPath.startsWith("~/") -> File(rootfsDir, "root/${rawPath.removePrefix("~/")}")
+                    else -> File(rootfsDir, "usr/local/lib/node_modules/openclaw/$rawPath")
+                }
+                if (resolved.exists()) {
+                    cleaned.put(rawPath)
+                } else {
+                    removed = true
+                    Log.d("SettingsVM", "Removing stale plugin path: $rawPath")
+                }
+            }
+            if (removed) {
+                load.put("paths", cleaned)
+                configFile.writeText(json.toString(2))
+            }
+        } catch (e: Exception) {
+            Log.w("SettingsVM", "Failed to clean stale plugin paths", e)
         }
     }
 
