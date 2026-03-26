@@ -376,7 +376,7 @@ else
             tar gzip gunzip bzip2 \\
             basename dirname readlink realpath \\
             date touch stat file md5sum sha256sum \\
-            diff patch \\
+            diff patch openssl \\
             ps kill top free \\
             ip ss ping nslookup dig host netstat \\
             id whoami hostname uname env printenv \\
@@ -436,7 +436,8 @@ else
             usr/lib/python3 \\
             usr/share/python3 \\
             usr/share/fonts/truetype/liberation \\
-            etc/ssl/certs \\
+            etc/ssl \\
+            usr/lib/ssl \\
             usr/share/ca-certificates
         do
             for abs_path in /\$pattern; do
