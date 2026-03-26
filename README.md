@@ -88,3 +88,21 @@ Manual `loader32` rebuild only:
 ## Open-Source Notices
 
 See `THIRD_PARTY_LICENSES.md` for key third-party runtime components and distribution notes.
+
+## Interactive Sandbox Terminal (New)
+
+A real PTY-based terminal stack is included under `terminal/` and integrates directly into this project.
+
+- Backend: `terminal/backend` (`node-pty` + WebSocket)
+- Frontend: `terminal/frontend` (`xterm.js`)
+- Keyboard support tuned for real terminal controls (arrows, esc, ctrl combos, resize)
+
+Quick start:
+
+```bash
+cd terminal/backend
+npm install
+OPENCLAW_DIR=/path/to/OpenClaw npm start
+```
+
+Then open `http://localhost:7681`.
