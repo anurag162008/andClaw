@@ -1,0 +1,261 @@
+name: Build full Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_asset_rebuild:
+        description: 'Delete cached prepared assets before build'
+        required: false
+        default: false
+        type: boolean
+      include_repo_snapshot:
+        description: 'Upload source snapshot artifact with this run'
+        required: false
+        default: true
+        type: boolean
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - 'app/**'
+      - 'install_time_assets/**'
+      - 'scripts/setup-assets.sh'
+      - 'scripts/build-proot-loader32-16kb.sh'
+      - 'terminal/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - 'gradle/**'
+      - 'README.md'
+      - '.github/workflows/build-full-apk.yml'
+
+concurrency:
+  group: build-full-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
+
+
+      - name: Set up QEMU for arm64 Docker emulation
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Verify arm64 Docker emulation
+        run: docker run --rm --platform linux/arm64 ubuntu:24.04 true
+
+      - name: Restore OpenClaw asset cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            install_time_assets/cache
+          key: andclaw-openclaw-cache-${{ runner.os }}-${{ hashFiles('scripts/setup-assets.sh') }}
+
+      - name: Restore prepared runtime assets cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            install_time_assets/src/main/assets
+            app/src/main/jniLibs/arm64-v8a
+          key: andclaw-runtime-assets-${{ runner.os }}-${{ hashFiles('scripts/setup-assets.sh', 'scripts/build-proot-loader32-16kb.sh') }}
+
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK components (API 35)
+        run: |
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
+
+
+      - name: Create local.properties for Android SDK
+        run: |
+          printf "sdk.dir=%s\n" "$ANDROID_SDK_ROOT" > local.properties
+
+      - name: Ensure debug.keystore exists
+        run: |
+          if [ ! -f debug.keystore ]; then
+            keytool -genkeypair \
+              -keystore debug.keystore \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -dname "CN=Android Debug,O=Android,C=US" \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000
+          fi
+
+      - name: Make scripts executable
+        run: chmod +x gradlew scripts/setup-assets.sh scripts/build-proot-loader32-16kb.sh
+
+      - name: Optionally clean prepared assets
+        if: github.event_name == 'workflow_dispatch' && inputs.force_asset_rebuild
+        run: |
+          rm -rf install_time_assets/src/main/assets
+          rm -rf app/src/main/jniLibs/arm64-v8a
+
+      - name: Prepare bundled runtime assets (proot + rootfs + Node + OpenClaw + Playwright)
+        run: ./scripts/setup-assets.sh
+
+      - name: Embed terminal stack sources into packaged assets
+        run: |
+          rm -rf install_time_assets/src/main/assets/terminal/*
+          mkdir -p install_time_assets/src/main/assets/terminal/root/andclaw-terminal
+          cp -r terminal/backend install_time_assets/src/main/assets/terminal/root/andclaw-terminal/backend
+          cp -r terminal/frontend install_time_assets/src/main/assets/terminal/root/andclaw-terminal/frontend
+          cp docs/terminal-integration.md install_time_assets/src/main/assets/terminal/root/andclaw-terminal/terminal-integration.md
+
+      - name: Verify required packaged files exist
+        run: |
+          test -f app/src/main/jniLibs/arm64-v8a/libproot.so
+          test -f app/src/main/jniLibs/arm64-v8a/libtalloc.so
+          test -f app/src/main/jniLibs/arm64-v8a/libproot-loader.so
+          test -f install_time_assets/src/main/assets/rootfs.tar.gz.bin
+          test -f install_time_assets/src/main/assets/node-arm64.tar.gz.bin
+          test -f install_time_assets/src/main/assets/system-tools-arm64.tar.gz.bin
+          test -d install_time_assets/src/main/assets/openclaw
+          test -f install_time_assets/src/main/assets/playwright-chromium-arm64.tar.gz.bin
+          test -f install_time_assets/src/main/assets/executable-manifest.json
+          test -f install_time_assets/src/main/assets/bundle-fingerprint.json
+          test -f install_time_assets/src/main/assets/terminal/root/andclaw-terminal/backend/src/server.js
+          test -f install_time_assets/src/main/assets/terminal/root/andclaw-terminal/frontend/app.js
+          test -f install_time_assets/src/main/assets/terminal/root/andclaw-terminal/terminal-integration.md
+
+      - name: Build prod debug APK (full installable package)
+        run: ./gradlew --no-daemon --stacktrace --info assembleProdDebug
+
+      - name: Verify runtime payload is embedded inside APK
+        run: |
+          APK_PATH="app/build/outputs/apk/prod/debug/app-prod-debug.apk"
+          test -f "$APK_PATH"
+          unzip -l "$APK_PATH" | grep -q "assets/rootfs.tar.gz.bin"
+          unzip -l "$APK_PATH" | grep -q "assets/node-arm64.tar.gz.bin"
+          unzip -l "$APK_PATH" | grep -q "assets/system-tools-arm64.tar.gz.bin"
+          unzip -l "$APK_PATH" | grep -q "assets/openclaw/usr/local/bin/openclaw"
+          unzip -l "$APK_PATH" | grep -q "assets/playwright-chromium-arm64.tar.gz.bin"
+          unzip -l "$APK_PATH" | grep -q "assets/terminal/root/andclaw-terminal/backend/src/server.js"
+          unzip -l "$APK_PATH" | grep -q "assets/terminal/root/andclaw-terminal/frontend/app.js"
+
+      - name: Collect Gradle diagnostics on failure
+        if: failure()
+        run: |
+          echo "=== app/build outputs tree ==="
+          find app/build -maxdepth 4 -type f 2>/dev/null | sort || true
+          echo "=== Gradle daemon logs ==="
+          find ~/.gradle/daemon -type f -name "*.log" 2>/dev/null | while read -r f; do
+            echo "--- $f (tail) ---"
+            tail -n 200 "$f" || true
+          done
+          echo "=== Build reports ==="
+          find . -path "*/build/reports/*" -type f 2>/dev/null | sort || true
+
+      - name: Upload Gradle failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: andclaw-gradle-failure-diagnostics
+          path: |
+            **/build/reports/**
+            **/build/outputs/logs/**
+            ${{ env.HOME }}/.gradle/daemon/**
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Build artifact manifest and checksums
+        run: |
+          mkdir -p dist/full-package
+          cp app/build/outputs/apk/prod/debug/app-prod-debug.apk dist/full-package/andclaw-prod-debug.apk
+          cp install_time_assets/src/main/assets/executable-manifest.json dist/full-package/executable-manifest.json
+          cp install_time_assets/src/main/assets/bundle-fingerprint.json dist/full-package/bundle-fingerprint.json
+          cp -r app/src/main/jniLibs/arm64-v8a dist/full-package/jniLibs-arm64-v8a
+          cp -r install_time_assets/src/main/assets dist/full-package/install-time-assets
+          sha256sum dist/full-package/andclaw-prod-debug.apk | tee dist/full-package/andclaw-prod-debug.apk.sha256
+
+          {
+            echo "# andClaw full APK package"
+            echo
+            echo "Commit: $GITHUB_SHA"
+            echo "Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            echo
+            echo "## Included files"
+            find dist/full-package -maxdepth 4 -mindepth 1 | sort
+            echo
+            echo "## Size report"
+            du -h dist/full-package/* | sort -h
+          } > dist/full-package/CONTENTS.txt
+
+          tar -czf dist/andclaw-full-app-package.tar.gz -C dist/full-package .
+
+      - name: Upload full app package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: andclaw-full-app-package
+          path: |
+            dist/andclaw-full-app-package.tar.gz
+            dist/full-package/CONTENTS.txt
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload APK-only artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: andclaw-prod-debug-apk
+          path: |
+            dist/full-package/andclaw-prod-debug.apk
+            dist/full-package/andclaw-prod-debug.apk.sha256
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload bundled assets snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: andclaw-install-time-assets
+          path: install_time_assets/src/main/assets
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload jni libs snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: andclaw-jni-libs-arm64
+          path: app/src/main/jniLibs/arm64-v8a
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload repository snapshot
+        if: github.event_name != 'workflow_dispatch' || inputs.include_repo_snapshot
+        run: |
+          mkdir -p dist
+          git archive --format=tar.gz --output dist/andclaw-repo-${GITHUB_SHA}.tar.gz HEAD
+
+      - name: Publish repository snapshot artifact
+        if: github.event_name != 'workflow_dispatch' || inputs.include_repo_snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: andclaw-repo-snapshot
+          path: dist/andclaw-repo-${{ github.sha }}.tar.gz
+          if-no-files-found: error
+          retention-days: 7

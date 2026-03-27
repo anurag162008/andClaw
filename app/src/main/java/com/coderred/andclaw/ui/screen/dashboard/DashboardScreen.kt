@@ -65,6 +65,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
@@ -219,6 +220,17 @@ fun DashboardScreen(
                 onStop = { viewModel.stopGateway() },
                 onRestart = { viewModel.restartGateway() },
                 onOpenDashboard = { viewModel.openDashboard(context) },
+                onOpenTerminal = {
+                    viewModel.openTerminal(context) { opened, message ->
+                        if (!opened) {
+                            Toast.makeText(
+                                context,
+                                message ?: context.getString(R.string.dashboard_terminal_open_failed),
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        }
+                    }
+                },
                 dashboardReady = gatewayUiState.dashboardReady,
             )
 
@@ -489,6 +501,7 @@ private fun StatusHero(
     onStop: () -> Unit,
     onRestart: () -> Unit,
     onOpenDashboard: () -> Unit,
+    onOpenTerminal: () -> Unit,
     dashboardReady: Boolean,
 ) {
     val statusColor by animateColorAsState(
@@ -637,8 +650,23 @@ private fun StatusHero(
                         Icon(Icons.Default.OpenInBrowser, contentDescription = null, modifier = Modifier.size(22.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            "Dashboard",
+                            stringResource(R.string.dashboard_btn_dashboard),
                             style = MaterialTheme.typography.titleMedium,
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = onOpenTerminal,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp),
+                        shape = RoundedCornerShape(14.dp),
+                    ) {
+                        Icon(Icons.Default.Cable, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            stringResource(R.string.dashboard_btn_terminal),
+                            style = MaterialTheme.typography.titleSmall,
                         )
                     }
                     Spacer(modifier = Modifier.height(8.dp))
