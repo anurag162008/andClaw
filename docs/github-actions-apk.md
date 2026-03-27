@@ -8,6 +8,7 @@ This repository includes a workflow at:
 
 The workflow assembles a **prod debug APK** after preparing all runtime bundles via `scripts/setup-assets.sh`.
 It enables arm64 Docker emulation (QEMU) in CI so Docker `--platform linux/arm64` steps used by asset preparation run correctly on GitHub-hosted runners.
+It installs Android SDK components for API 35 (`platforms;android-35`, `build-tools;35.0.0`, `platform-tools`) before Gradle build.
 
 Included runtime content comes from this project and setup script:
 

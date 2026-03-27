@@ -77,6 +77,18 @@ jobs:
             app/src/main/jniLibs/arm64-v8a
           key: andclaw-runtime-assets-${{ runner.os }}-${{ hashFiles('scripts/setup-assets.sh', 'scripts/build-proot-loader32-16kb.sh') }}
 
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK components (API 35)
+        run: |
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
+
       - name: Make scripts executable
         run: chmod +x gradlew scripts/setup-assets.sh scripts/build-proot-loader32-16kb.sh
 
