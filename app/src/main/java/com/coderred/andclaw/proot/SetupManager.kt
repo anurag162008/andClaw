@@ -194,6 +194,9 @@ class SetupManager(
                 updateStep(SetupStep.INSTALLING_CHROMIUM, 0.72f)
             }
 
+            // ─── Optional: Terminal stack 설치 ───
+            installTerminalAssetsIfPresent()
+
             // ─── Step 7: Playwright Chromium 설치 ───
             if (!prootManager.isChromiumInstalled || isPlaywrightOutdated()) {
                 installPlaywright()
@@ -1028,6 +1031,31 @@ class SetupManager(
         log(">> Playwright Chromium installation complete")
     }
 
+    private suspend fun installTerminalAssetsIfPresent() = withContext(Dispatchers.IO) {
+        val hasTerminalDir = context.assets.list(ProotManager.TERMINAL_ASSET_DIR)?.isNotEmpty() == true
+        if (!hasTerminalDir) {
+            log(">> Terminal assets not bundled, skipping")
+            return@withContext
+        }
+
+        log(">> Installing terminal stack...")
+        directoryInstaller.install(
+            DirectoryInstallSpec(
+                assetPath = ProotManager.TERMINAL_ASSET_DIR,
+                destinationDir = prootManager.rootfsDir,
+                permissionRootDir = prootManager.rootfsDir,
+                permissionKey = ProotManager.TERMINAL_ASSET_DIR,
+                cleanRelativePaths = listOf(ProotManager.TERMINAL_ROOT_DIR),
+            ),
+        )
+
+        val backendEntry = File(prootManager.rootfsDir, "${ProotManager.TERMINAL_ROOT_DIR}/backend/src/server.js")
+        if (!backendEntry.exists()) {
+            throw SetupException("Terminal backend entry not found after installation: ${backendEntry.path}")
+        }
+        log("   Terminal stack installed")
+    }
+
     // ── 번들 업데이트 (앱 업데이트 후 게이트웨이 시작 전 호출) ──
 
     /**
@@ -1604,6 +1632,12 @@ class SetupManager(
             log("   Chromium: installed")
         } else {
             log("   WARNING: Chromium not installed (browser tools disabled)")
+        }
+
+        if (prootManager.isTerminalInstalled) {
+            log("   Terminal stack: installed")
+        } else {
+            log("   WARNING: Terminal stack not installed")
         }
 
         log("   All checks passed!")
