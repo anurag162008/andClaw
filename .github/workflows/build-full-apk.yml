@@ -8,11 +8,6 @@ on:
         required: false
         default: false
         type: boolean
-      include_repo_snapshot:
-        description: 'Upload source snapshot artifact with this run'
-        required: false
-        default: true
-        type: boolean
   push:
     branches:
       - main
@@ -36,7 +31,6 @@ concurrency:
 
 jobs:
   build:
-    if: github.repository_owner == 'coderred' && github.event.repository.fork == false
     runs-on: ubuntu-24.04
     timeout-minutes: 180
 
@@ -53,7 +47,6 @@ jobs:
 
       - name: Validate Gradle wrapper
         uses: gradle/actions/wrapper-validation@v4
-
 
       - name: Set up QEMU for arm64 Docker emulation
         uses: docker/setup-qemu-action@v3
@@ -78,7 +71,6 @@ jobs:
             app/src/main/jniLibs/arm64-v8a
           key: andclaw-runtime-assets-${{ runner.os }}-${{ hashFiles('scripts/setup-assets.sh', 'scripts/build-proot-loader32-16kb.sh') }}
 
-
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
@@ -89,7 +81,6 @@ jobs:
             "platform-tools" \
             "platforms;android-35" \
             "build-tools;35.0.0"
-
 
       - name: Create local.properties for Android SDK
         run: |
@@ -118,16 +109,8 @@ jobs:
           rm -rf install_time_assets/src/main/assets
           rm -rf app/src/main/jniLibs/arm64-v8a
 
-      - name: Prepare bundled runtime assets (proot + rootfs + Node + OpenClaw + Playwright)
+      - name: Prepare bundled runtime assets (proot + rootfs + Node + OpenClaw + Playwright + terminal)
         run: ./scripts/setup-assets.sh
-
-      - name: Embed terminal stack sources into packaged assets
-        run: |
-          rm -rf install_time_assets/src/main/assets/terminal/*
-          mkdir -p install_time_assets/src/main/assets/terminal/root/andclaw-terminal
-          cp -r terminal/backend install_time_assets/src/main/assets/terminal/root/andclaw-terminal/backend
-          cp -r terminal/frontend install_time_assets/src/main/assets/terminal/root/andclaw-terminal/frontend
-          cp docs/terminal-integration.md install_time_assets/src/main/assets/terminal/root/andclaw-terminal/terminal-integration.md
 
       - name: Verify required packaged files exist
         run: |
@@ -139,11 +122,8 @@ jobs:
           test -f install_time_assets/src/main/assets/system-tools-arm64.tar.gz.bin
           test -d install_time_assets/src/main/assets/openclaw
           test -f install_time_assets/src/main/assets/playwright-chromium-arm64.tar.gz.bin
-          test -f install_time_assets/src/main/assets/executable-manifest.json
-          test -f install_time_assets/src/main/assets/bundle-fingerprint.json
           test -f install_time_assets/src/main/assets/terminal/root/andclaw-terminal/backend/src/server.js
           test -f install_time_assets/src/main/assets/terminal/root/andclaw-terminal/frontend/app.js
-          test -f install_time_assets/src/main/assets/terminal/root/andclaw-terminal/terminal-integration.md
 
       - name: Build prod debug APK (full installable package)
         run: ./gradlew --no-daemon --stacktrace --info assembleProdDebug
@@ -160,6 +140,13 @@ jobs:
           unzip -l "$APK_PATH" | grep -q "assets/terminal/root/andclaw-terminal/backend/src/server.js"
           unzip -l "$APK_PATH" | grep -q "assets/terminal/root/andclaw-terminal/frontend/app.js"
 
+      - name: Upload APK artifact only
+        uses: actions/upload-artifact@v4
+        with:
+          name: andclaw-prod-debug-apk
+          path: app/build/outputs/apk/prod/debug/app-prod-debug.apk
+          if-no-files-found: error
+          retention-days: 14
       - name: Collect Gradle diagnostics on failure
         if: failure()
         run: |
