@@ -122,8 +122,8 @@ jobs:
 
       - name: Embed terminal stack sources into packaged assets
         run: |
-          mkdir -p install_time_assets/src/main/assets/terminal/root/andclaw-terminal
           rm -rf install_time_assets/src/main/assets/terminal/*
+          mkdir -p install_time_assets/src/main/assets/terminal/root/andclaw-terminal
           cp -r terminal/backend install_time_assets/src/main/assets/terminal/root/andclaw-terminal/backend
           cp -r terminal/frontend install_time_assets/src/main/assets/terminal/root/andclaw-terminal/frontend
           cp docs/terminal-integration.md install_time_assets/src/main/assets/terminal/root/andclaw-terminal/terminal-integration.md
