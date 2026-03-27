@@ -122,11 +122,11 @@ jobs:
 
       - name: Embed terminal stack sources into packaged assets
         run: |
-          mkdir -p install_time_assets/src/main/assets/terminal
+          mkdir -p install_time_assets/src/main/assets/terminal/root/andclaw-terminal
           rm -rf install_time_assets/src/main/assets/terminal/*
-          cp -r terminal/backend install_time_assets/src/main/assets/terminal/backend
-          cp -r terminal/frontend install_time_assets/src/main/assets/terminal/frontend
-          cp docs/terminal-integration.md install_time_assets/src/main/assets/terminal/terminal-integration.md
+          cp -r terminal/backend install_time_assets/src/main/assets/terminal/root/andclaw-terminal/backend
+          cp -r terminal/frontend install_time_assets/src/main/assets/terminal/root/andclaw-terminal/frontend
+          cp docs/terminal-integration.md install_time_assets/src/main/assets/terminal/root/andclaw-terminal/terminal-integration.md
 
       - name: Verify required packaged files exist
         run: |
@@ -140,9 +140,9 @@ jobs:
           test -f install_time_assets/src/main/assets/playwright-chromium-arm64.tar.gz.bin
           test -f install_time_assets/src/main/assets/executable-manifest.json
           test -f install_time_assets/src/main/assets/bundle-fingerprint.json
-          test -f install_time_assets/src/main/assets/terminal/backend/src/server.js
-          test -f install_time_assets/src/main/assets/terminal/frontend/app.js
-          test -f install_time_assets/src/main/assets/terminal/terminal-integration.md
+          test -f install_time_assets/src/main/assets/terminal/root/andclaw-terminal/backend/src/server.js
+          test -f install_time_assets/src/main/assets/terminal/root/andclaw-terminal/frontend/app.js
+          test -f install_time_assets/src/main/assets/terminal/root/andclaw-terminal/terminal-integration.md
 
       - name: Build prod debug APK (full installable package)
         run: ./gradlew --no-daemon --stacktrace --info assembleProdDebug
@@ -156,8 +156,8 @@ jobs:
           unzip -l "$APK_PATH" | grep -q "assets/system-tools-arm64.tar.gz.bin"
           unzip -l "$APK_PATH" | grep -q "assets/openclaw/usr/local/bin/openclaw"
           unzip -l "$APK_PATH" | grep -q "assets/playwright-chromium-arm64.tar.gz.bin"
-          unzip -l "$APK_PATH" | grep -q "assets/terminal/backend/src/server.js"
-          unzip -l "$APK_PATH" | grep -q "assets/terminal/frontend/app.js"
+          unzip -l "$APK_PATH" | grep -q "assets/terminal/root/andclaw-terminal/backend/src/server.js"
+          unzip -l "$APK_PATH" | grep -q "assets/terminal/root/andclaw-terminal/frontend/app.js"
 
       - name: Collect Gradle diagnostics on failure
         if: failure()

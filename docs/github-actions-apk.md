@@ -20,7 +20,7 @@ Included runtime content comes from this project and setup script:
 - system-tools bundle (git/curl/python and related libs)
 - OpenClaw tree
 - Playwright Chromium bundle
-- Terminal stack sources from `terminal/backend` and `terminal/frontend` copied into packaged assets
+- Terminal stack sources from `terminal/backend` and `terminal/frontend` copied into packaged assets under `terminal/root/andclaw-terminal`
 
 Because debug builds in this project directly include install-time assets from
 `install_time_assets/src/main/assets`, the artifact APK is a full runnable app package for testing.

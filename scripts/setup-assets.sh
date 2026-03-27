@@ -804,14 +804,14 @@ TERMINAL_DOC="$PROJECT_DIR/docs/terminal-integration.md"
 echo "[7/8] terminal 자산 동기화 중..."
 if [ -d "$TERMINAL_SRC_DIR" ]; then
     rm -rf "$TERMINAL_ASSET_DIR"
-    mkdir -p "$TERMINAL_ASSET_DIR"
-    cp -R "$TERMINAL_SRC_DIR/backend" "$TERMINAL_ASSET_DIR/backend"
-    cp -R "$TERMINAL_SRC_DIR/frontend" "$TERMINAL_ASSET_DIR/frontend"
+    mkdir -p "$TERMINAL_ASSET_DIR/root/andclaw-terminal"
+    cp -R "$TERMINAL_SRC_DIR/backend" "$TERMINAL_ASSET_DIR/root/andclaw-terminal/backend"
+    cp -R "$TERMINAL_SRC_DIR/frontend" "$TERMINAL_ASSET_DIR/root/andclaw-terminal/frontend"
     if [ -f "$TERMINAL_DOC" ]; then
-        cp "$TERMINAL_DOC" "$TERMINAL_ASSET_DIR/terminal-integration.md"
+        cp "$TERMINAL_DOC" "$TERMINAL_ASSET_DIR/root/andclaw-terminal/terminal-integration.md"
     fi
     # 개발 환경 잔여물 제거 (패키지 부피 최소화)
-    rm -rf "$TERMINAL_ASSET_DIR/backend/node_modules"
+    rm -rf "$TERMINAL_ASSET_DIR/root/andclaw-terminal/backend/node_modules"
     find "$TERMINAL_ASSET_DIR" -name ".DS_Store" -delete 2>/dev/null || true
     echo "   terminal assets synced: $(du -sh "$TERMINAL_ASSET_DIR" | cut -f1)"
 else
