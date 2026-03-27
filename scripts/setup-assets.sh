@@ -797,8 +797,29 @@ else
     BUNDLE_FINGERPRINT_NEEDS_UPDATE="true"
 fi
 
+# ── 7. Terminal stack assets sync ──
+TERMINAL_ASSET_DIR="$ASSETS_DIR/terminal"
+TERMINAL_SRC_DIR="$PROJECT_DIR/terminal"
+TERMINAL_DOC="$PROJECT_DIR/docs/terminal-integration.md"
+echo "[7/8] terminal 자산 동기화 중..."
+if [ -d "$TERMINAL_SRC_DIR" ]; then
+    rm -rf "$TERMINAL_ASSET_DIR"
+    mkdir -p "$TERMINAL_ASSET_DIR"
+    cp -R "$TERMINAL_SRC_DIR/backend" "$TERMINAL_ASSET_DIR/backend"
+    cp -R "$TERMINAL_SRC_DIR/frontend" "$TERMINAL_ASSET_DIR/frontend"
+    if [ -f "$TERMINAL_DOC" ]; then
+        cp "$TERMINAL_DOC" "$TERMINAL_ASSET_DIR/terminal-integration.md"
+    fi
+    # 개발 환경 잔여물 제거 (패키지 부피 최소화)
+    rm -rf "$TERMINAL_ASSET_DIR/backend/node_modules"
+    find "$TERMINAL_ASSET_DIR" -name ".DS_Store" -delete 2>/dev/null || true
+    echo "   terminal assets synced: $(du -sh "$TERMINAL_ASSET_DIR" | cut -f1)"
+else
+    echo "   WARNING: terminal 디렉토리가 없어 terminal assets 동기화를 건너뜁니다"
+fi
+
 # ── 7. 정리 ──
-echo "[7/7] 정리 중..."
+echo "[8/8] 정리 중..."
 
 # 기존 통합 번들 삭제
 OLD_BUNDLE="$ASSETS_DIR/openclaw-bundle-arm64.tar.gz.bin"
