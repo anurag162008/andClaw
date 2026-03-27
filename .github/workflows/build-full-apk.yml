@@ -147,6 +147,18 @@ jobs:
       - name: Build prod debug APK (full installable package)
         run: ./gradlew --no-daemon --stacktrace --info assembleProdDebug
 
+      - name: Verify runtime payload is embedded inside APK
+        run: |
+          APK_PATH="app/build/outputs/apk/prod/debug/app-prod-debug.apk"
+          test -f "$APK_PATH"
+          unzip -l "$APK_PATH" | grep -q "assets/rootfs.tar.gz.bin"
+          unzip -l "$APK_PATH" | grep -q "assets/node-arm64.tar.gz.bin"
+          unzip -l "$APK_PATH" | grep -q "assets/system-tools-arm64.tar.gz.bin"
+          unzip -l "$APK_PATH" | grep -q "assets/openclaw/usr/local/bin/openclaw"
+          unzip -l "$APK_PATH" | grep -q "assets/playwright-chromium-arm64.tar.gz.bin"
+          unzip -l "$APK_PATH" | grep -q "assets/terminal/backend/src/server.js"
+          unzip -l "$APK_PATH" | grep -q "assets/terminal/frontend/app.js"
+
       - name: Collect Gradle diagnostics on failure
         if: failure()
         run: |
