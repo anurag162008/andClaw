@@ -89,6 +89,25 @@ jobs:
             "platforms;android-35" \
             "build-tools;35.0.0"
 
+
+      - name: Create local.properties for Android SDK
+        run: |
+          printf "sdk.dir=%s\n" "$ANDROID_SDK_ROOT" > local.properties
+
+      - name: Ensure debug.keystore exists
+        run: |
+          if [ ! -f debug.keystore ]; then
+            keytool -genkeypair \
+              -keystore debug.keystore \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -dname "CN=Android Debug,O=Android,C=US" \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000
+          fi
+
       - name: Make scripts executable
         run: chmod +x gradlew scripts/setup-assets.sh scripts/build-proot-loader32-16kb.sh
 
@@ -126,7 +145,32 @@ jobs:
           test -f install_time_assets/src/main/assets/terminal/terminal-integration.md
 
       - name: Build prod debug APK (full installable package)
-        run: ./gradlew --no-daemon --stacktrace assembleProdDebug
+        run: ./gradlew --no-daemon --stacktrace --info assembleProdDebug
+
+      - name: Collect Gradle diagnostics on failure
+        if: failure()
+        run: |
+          echo "=== app/build outputs tree ==="
+          find app/build -maxdepth 4 -type f 2>/dev/null | sort || true
+          echo "=== Gradle daemon logs ==="
+          find ~/.gradle/daemon -type f -name "*.log" 2>/dev/null | while read -r f; do
+            echo "--- $f (tail) ---"
+            tail -n 200 "$f" || true
+          done
+          echo "=== Build reports ==="
+          find . -path "*/build/reports/*" -type f 2>/dev/null | sort || true
+
+      - name: Upload Gradle failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: andclaw-gradle-failure-diagnostics
+          path: |
+            **/build/reports/**
+            **/build/outputs/logs/**
+            ${{ env.HOME }}/.gradle/daemon/**
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Build artifact manifest and checksums
         run: |

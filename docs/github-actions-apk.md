@@ -9,6 +9,7 @@ This repository includes a workflow at:
 The workflow assembles a **prod debug APK** after preparing all runtime bundles via `scripts/setup-assets.sh`.
 It enables arm64 Docker emulation (QEMU) in CI so Docker `--platform linux/arm64` steps used by asset preparation run correctly on GitHub-hosted runners.
 It installs Android SDK components for API 35 (`platforms;android-35`, `build-tools;35.0.0`, `platform-tools`) before Gradle build.
+It creates `local.properties` from `ANDROID_SDK_ROOT` and auto-generates `debug.keystore` (if missing) to avoid signing/config failures in clean CI environments.
 
 Included runtime content comes from this project and setup script:
 
@@ -22,6 +23,9 @@ Included runtime content comes from this project and setup script:
 
 Because debug builds in this project directly include install-time assets from
 `install_time_assets/src/main/assets`, the artifact APK is a full runnable app package for testing.
+
+
+If Gradle build fails, the workflow uploads `andclaw-gradle-failure-diagnostics` with build reports and daemon logs for debugging.
 
 ## Downloadable artifacts
 
