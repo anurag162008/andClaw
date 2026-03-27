@@ -8,6 +8,7 @@ DEFAULT_OUTPUT="$PROJECT_DIR/app/src/main/jniLibs/arm64-v8a/libproot-loader32.so
 
 OUTPUT_PATH="${1:-$DEFAULT_OUTPUT}"
 PROOT_COMMIT="${2:-4dba3afbf3a63af89b4d9c1a59bf2bda10f4d10f}"
+DOCKER_BASE_IMAGE="${DOCKER_BASE_IMAGE:-public.ecr.aws/ubuntu/ubuntu:24.04}"
 
 if ! command -v docker >/dev/null 2>&1; then
     echo "ERROR: Docker가 필요합니다"
@@ -24,7 +25,7 @@ echo "[loader32] Building 16KB-compatible loader32 from termux/proot commit: $PR
 
 docker run --platform linux/arm64 --name "andclaw-loader32-$$" \
     -e "PROOT_COMMIT=$PROOT_COMMIT" \
-    ubuntu:24.04 \
+    "$DOCKER_BASE_IMAGE" \
     bash -c '
         set -euo pipefail
         export DEBIAN_FRONTEND=noninteractive

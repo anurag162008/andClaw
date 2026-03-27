@@ -7,6 +7,7 @@ This repository includes a workflow at:
 ## What it builds
 
 The workflow prepares runtime bundles via `scripts/setup-assets.sh`, then builds a **prod debug APK**.
+To reduce Docker Hub auth/rate-limit failures, Docker arm64 build steps use `public.ecr.aws/ubuntu/ubuntu:24.04` by default via `DOCKER_BASE_IMAGE`.
 
 The APK is validated to include bundled runtime payloads:
 

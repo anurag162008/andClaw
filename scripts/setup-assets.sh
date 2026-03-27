@@ -45,6 +45,7 @@ PLAYWRIGHT_VERSION="1.49.1"
 TERMUX_PROOT_COMMIT="${TERMUX_PROOT_COMMIT:-4dba3afbf3a63af89b4d9c1a59bf2bda10f4d10f}"
 CUSTOM_LOADER32_SCRIPT="$SCRIPT_DIR/build-proot-loader32-16kb.sh"
 BUNDLE_FINGERPRINT_NEEDS_UPDATE="false"
+DOCKER_BASE_IMAGE="${DOCKER_BASE_IMAGE:-public.ecr.aws/ubuntu/ubuntu:24.04}"
 
 require_readelf() {
     if ! command -v readelf >/dev/null 2>&1; then
@@ -294,11 +295,11 @@ check_docker() {
         exit 1
     fi
 
-    if ! docker run --rm --platform linux/arm64 ubuntu:24.04 true >/dev/null 2>&1; then
+    if ! docker run --rm --platform linux/arm64 "$DOCKER_BASE_IMAGE" true >/dev/null 2>&1; then
         echo "   arm64 Docker 에뮬레이션이 없어 binfmt 설치를 시도합니다..."
         docker run --privileged --rm tonistiigi/binfmt --install arm64 >/dev/null
 
-        if ! docker run --rm --platform linux/arm64 ubuntu:24.04 true >/dev/null 2>&1; then
+        if ! docker run --rm --platform linux/arm64 "$DOCKER_BASE_IMAGE" true >/dev/null 2>&1; then
             echo "   ERROR: linux/arm64 Docker 실행에 실패했습니다 (binfmt/QEMU 확인 필요)"
             exit 1
         fi
@@ -317,7 +318,7 @@ else
 
     docker rm -f andclaw-tools-builder 2>/dev/null || true
 
-    docker run --platform linux/arm64 --name andclaw-tools-builder ubuntu:24.04 bash -c "
+    docker run --platform linux/arm64 --name andclaw-tools-builder "$DOCKER_BASE_IMAGE" bash -c "
         set -e
         export DEBIAN_FRONTEND=noninteractive
         echo '--- apt-get update ---'
@@ -633,7 +634,7 @@ else
     rm -rf "$OPENCLAW_ASSET_DIR"
     mkdir -p "$OPENCLAW_ASSET_DIR/usr/local/lib/node_modules" "$OPENCLAW_ASSET_DIR/usr/local/bin"
 
-    docker run --platform linux/arm64 --name andclaw-openclaw-builder ubuntu:24.04 bash -c "
+    docker run --platform linux/arm64 --name andclaw-openclaw-builder "$DOCKER_BASE_IMAGE" bash -c "
         set -e
         export DEBIAN_FRONTEND=noninteractive
         apt-get update -qq
@@ -744,7 +745,7 @@ else
 
     docker rm -f andclaw-playwright-builder 2>/dev/null || true
 
-    docker run --platform linux/arm64 --name andclaw-playwright-builder ubuntu:24.04 bash -c "
+    docker run --platform linux/arm64 --name andclaw-playwright-builder "$DOCKER_BASE_IMAGE" bash -c "
         set -e
         export DEBIAN_FRONTEND=noninteractive
         apt-get update -qq
