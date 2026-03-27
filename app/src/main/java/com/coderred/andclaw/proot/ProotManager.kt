@@ -31,6 +31,9 @@ class ProotManager(private val context: Context) {
         const val SYSTEM_TOOLS_ASSET = "system-tools-arm64.tar.gz.bin"
         const val OPENCLAW_ASSET_DIR = "openclaw"
         const val PLAYWRIGHT_ASSET = "playwright-chromium-arm64.tar.gz.bin"
+        const val TERMINAL_ASSET_DIR = "terminal"
+        const val TERMINAL_ROOT_DIR = "root/andclaw-terminal"
+        const val TERMINAL_PORT = 7681
         private const val PLAYWRIGHT_CHROME_MARKER = ".playwright_chrome_path"
     }
 
@@ -109,6 +112,9 @@ class ProotManager(private val context: Context) {
 
     val isFullySetup: Boolean
         get() = isProotAvailable && isRootfsInstalled && isNodeInstalled && isOpenClawInstalled
+
+    val isTerminalInstalled: Boolean
+        get() = File(rootfsDir, "$TERMINAL_ROOT_DIR/backend/src/server.js").exists()
 
     fun refreshChromiumExecutableMarker(): Boolean {
         val detectedPath = detectChromiumExecutablePath() ?: run {
