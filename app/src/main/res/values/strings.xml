@@ -107,6 +107,10 @@ Do not close or force-stop the app while recovery is in progress.</string>
     <string name="dashboard_apikey_required_message">Please set up your API key in Settings before starting the gateway.</string>
     <string name="dashboard_apikey_go_settings">Go to Settings</string>
     <string name="dashboard_apikey_dismiss">Later</string>
+    <string name="dashboard_btn_dashboard">Dashboard</string>
+    <string name="dashboard_btn_terminal">Terminal</string>
+    <string name="dashboard_terminal_open_failed">No app available to open terminal link.</string>
+    <string name="dashboard_terminal_not_ready">Terminal backend is not ready yet. Run setup/update and try again.</string>
     <string name="dashboard_btn_stop">Stop</string>
     <string name="dashboard_btn_restart">Restart</string>
     <string name="dashboard_channels_value">%1$d</string>

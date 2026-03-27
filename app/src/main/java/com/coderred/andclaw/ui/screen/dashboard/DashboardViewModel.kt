@@ -1,6 +1,7 @@
 package com.coderred.andclaw.ui.screen.dashboard
 
 import android.app.Application
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -24,6 +25,7 @@ import com.coderred.andclaw.data.parseOpenRouterModels
 import com.coderred.andclaw.proot.BundleUpdateFailureState
 import com.coderred.andclaw.proot.BundleUpdateOutcome
 import com.coderred.andclaw.proot.GatewayWsClient
+import com.coderred.andclaw.proot.ProotManager
 import com.coderred.andclaw.proot.WhatsAppLoginCoordinator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -56,6 +58,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         private const val WHATSAPP_GATEWAY_RESTART_RETRY_INTERVAL_MS = 250L
         private const val DASHBOARD_TOKEN_READ_ATTEMPTS = 8
         private const val DASHBOARD_TOKEN_READ_DELAY_MS = 250L
+        private const val TERMINAL_URL = "http://127.0.0.1:${ProotManager.TERMINAL_PORT}"
+        private const val TERMINAL_WAIT_RETRY_MS = 350L
+        private const val TERMINAL_WAIT_ATTEMPTS = 8
     }
 
     private val app = application as AndClawApp
@@ -214,6 +219,73 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 Log.w(TAG, "Skipping dashboard open: gateway auth token unavailable")
             }
         }
+    }
+
+    fun openTerminal(context: Context, onResult: (opened: Boolean, message: String?) -> Unit) {
+        viewModelScope.launch {
+            val prepared = withContext(Dispatchers.IO) { ensureTerminalServerRunning() }
+            if (!prepared) {
+                onResult(false, getApplication<Application>().getString(R.string.dashboard_terminal_not_ready))
+                return@launch
+            }
+            try {
+                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(TERMINAL_URL)))
+                onResult(true, null)
+            } catch (_: ActivityNotFoundException) {
+                onResult(false, "No app available to open terminal link.")
+            }
+        }
+    }
+
+    private suspend fun ensureTerminalServerRunning(): Boolean {
+        if (!app.prootManager.isRootfsInstalled || !app.prootManager.isNodeInstalled) {
+            Log.w(TAG, "Terminal open skipped: setup is incomplete (rootfs/node missing)")
+            return false
+        }
+
+        if (!app.prootManager.isTerminalInstalled) {
+            val installedNow = runCatching {
+                app.setupManager.ensureTerminalStackInstalledIfBundled()
+            }.getOrDefault(false)
+            if (!installedNow) {
+                Log.w(TAG, "Terminal open skipped: terminal assets are not installed in rootfs")
+                return false
+            }
+        }
+        if (isTerminalPortListening()) return true
+
+        val startCommand = buildString {
+            append("cd /${ProotManager.TERMINAL_ROOT_DIR}/backend || exit 1; ")
+            append("if [ ! -d node_modules ]; then npm install --omit=dev || exit 1; fi; ")
+            append("if command -v ss >/dev/null 2>&1 && ss -ltn | grep -q ':${ProotManager.TERMINAL_PORT} '; then exit 0; fi; ")
+            append("OPENCLAW_DIR=/root PORT=${ProotManager.TERMINAL_PORT} nohup npm start >/root/.andclaw-terminal.log 2>&1 &")
+        }
+        val startResult = app.prootManager.executeWithResult(
+            command = startCommand,
+            timeoutMs = 180_000L,
+        )
+        if (startResult == null || (startResult.exitCode != 0 && !isTerminalPortListening())) {
+            Log.w(TAG, "Terminal backend start failed: ${startResult?.output}")
+            return false
+        }
+
+        repeat(TERMINAL_WAIT_ATTEMPTS) {
+            if (isTerminalPortListening()) return true
+            Thread.sleep(TERMINAL_WAIT_RETRY_MS)
+        }
+        Log.w(TAG, "Terminal backend did not bind port ${ProotManager.TERMINAL_PORT}")
+        return false
+    }
+
+    private fun isTerminalPortListening(): Boolean {
+        val checkCommand =
+            "if command -v ss >/dev/null 2>&1; then ss -ltn | grep -q ':${ProotManager.TERMINAL_PORT} '; " +
+                "else netstat -ltn | grep -q ':${ProotManager.TERMINAL_PORT} '; fi"
+        val result = app.prootManager.executeWithResult(
+            command = checkCommand,
+            timeoutMs = 8_000L,
+        )
+        return result?.exitCode == 0
     }
 
     fun setSelectedModel(model: OpenRouterModel) {
