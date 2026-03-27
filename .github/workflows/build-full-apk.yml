@@ -36,6 +36,7 @@ concurrency:
 
 jobs:
   build:
+    if: github.repository_owner == 'coderred' && github.event.repository.fork == false
     runs-on: ubuntu-24.04
     timeout-minutes: 180
 

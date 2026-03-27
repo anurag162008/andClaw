@@ -55,3 +55,4 @@ After each workflow run, download from the Actions run page:
 
 - Manual (`workflow_dispatch`)
 - Pushes to `main` / `master` when Android/build related files change, including `terminal/**`
+- Guarded to run only on the canonical non-fork repository owned by `coderred`

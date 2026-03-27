@@ -237,10 +237,20 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    private fun ensureTerminalServerRunning(): Boolean {
-        if (!app.prootManager.isTerminalInstalled) {
-            Log.w(TAG, "Terminal open skipped: terminal assets are not installed in rootfs")
+    private suspend fun ensureTerminalServerRunning(): Boolean {
+        if (!app.prootManager.isRootfsInstalled || !app.prootManager.isNodeInstalled) {
+            Log.w(TAG, "Terminal open skipped: setup is incomplete (rootfs/node missing)")
             return false
+        }
+
+        if (!app.prootManager.isTerminalInstalled) {
+            val installedNow = runCatching {
+                app.setupManager.ensureTerminalStackInstalledIfBundled()
+            }.getOrDefault(false)
+            if (!installedNow) {
+                Log.w(TAG, "Terminal open skipped: terminal assets are not installed in rootfs")
+                return false
+            }
         }
         if (isTerminalPortListening()) return true
 

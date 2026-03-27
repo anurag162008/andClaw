@@ -1056,6 +1056,20 @@ class SetupManager(
         log("   Terminal stack installed")
     }
 
+    suspend fun ensureTerminalStackInstalledIfBundled(): Boolean = withContext(Dispatchers.IO) {
+        if (!prootManager.isRootfsInstalled) return@withContext false
+        val hasTerminalDir = context.assets.list(ProotManager.TERMINAL_ASSET_DIR)?.isNotEmpty() == true
+        if (!hasTerminalDir) return@withContext false
+        if (prootManager.isTerminalInstalled) return@withContext true
+
+        return@withContext try {
+            installTerminalAssetsIfPresent()
+            prootManager.isTerminalInstalled
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     // ── 번들 업데이트 (앱 업데이트 후 게이트웨이 시작 전 호출) ──
 
     /**
