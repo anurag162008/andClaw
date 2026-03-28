@@ -16,6 +16,25 @@ Google Play: https://play.google.com/store/apps/details?id=com.coderred.andclaw
 - Runtime recovery support through foreground service, boot auto-start, app-update restart, and watchdog recovery
 - Play Asset Delivery support for large install-time assets
 
+## Transfer Tools
+
+- Windows GUI/CLI decrypter/editor/packer: `tools/windows-transfer-decrypter/transfer_decrypter.py`
+- Android-compatible decrypter utility class: `app/src/main/java/com/coderred/andclaw/data/transfer/TransferDecrypter.kt`
+- Android interactive Transfer Lab UI activity: `app/src/main/java/com/coderred/andclaw/TransferLabActivity.kt`
+
+Both tools use the same `ATF2` format (`PBKDF2-HMAC-SHA256` + `AES-256-GCM` chunk encryption), and now expose matching helper features (decrypt/open/create/analyze) for better cross-platform parity.
+Transfer Lab and Windows GUI both include auto-heal behavior (retry + safer fallbacks) for common transient failures.
+
+Current limitations:
+- Android `TransferLabActivity` is path-driven for power users; SAF picker based document UX is not wired yet.
+- Transfer analysis validates container structure and decryptability, but does not semantically validate application-specific payload files.
+
+Launch Transfer Lab directly via deep link:
+
+```bash
+adb shell am start -a android.intent.action.VIEW -d "andclaw://tools/transfer-lab"
+```
+
 ## Requirements
 
 - Android Studio / Gradle environment

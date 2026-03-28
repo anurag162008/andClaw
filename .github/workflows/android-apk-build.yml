@@ -1,0 +1,69 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/android-apk-build.yml'
+      - 'app/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - 'gradle/**'
+      - 'gradlew'
+      - 'gradlew.bat'
+      - 'install_time_assets/**'
+  pull_request:
+    paths:
+      - '.github/workflows/android-apk-build.yml'
+      - 'app/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - 'gradle/**'
+      - 'gradlew'
+      - 'gradlew.bat'
+      - 'install_time_assets/**'
+
+jobs:
+  build-prod-debug-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate Gradle Wrapper
+        uses: gradle/actions/wrapper-validation@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Ensure gradlew is executable
+        run: chmod +x ./gradlew
+
+      - name: Build prodDebug APK
+        run: ./gradlew --no-daemon --stacktrace assembleProdDebug
+
+      - name: Verify APK exists
+        run: |
+          APK_PATH="app/build/outputs/apk/prod/debug/app-prod-debug.apk"
+          if [ ! -f "$APK_PATH" ]; then
+            echo "Missing APK: $APK_PATH"
+            exit 1
+          fi
+          echo "Found APK: $APK_PATH"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: andclaw-prod-debug-apk
+          path: app/build/outputs/apk/prod/debug/app-prod-debug.apk
+          if-no-files-found: error

@@ -18,7 +18,7 @@ import sys
 import traceback
 import zipfile
 from io import BytesIO
-from tkinter import Tk, StringVar, filedialog, messagebox, ttk
+from tkinter import END, Tk, StringVar, Text, filedialog, messagebox, ttk
 
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -32,6 +32,7 @@ SALT_LENGTH_BYTES = 16
 IV_LENGTH_BYTES = 12
 CHUNK_SIZE = 1 * 1024 * 1024
 MAX_CHUNK_SIZE = 16 * 1024 * 1024
+MAX_RETRIES = 2
 
 OUTPUT_FORMAT_ZIP = "zip"
 OUTPUT_FORMAT_EXTRACT = "extract"
@@ -45,6 +46,16 @@ class TransferHeader:
     salt: bytes
     base_iv: bytes
     chunk_size: int
+
+
+@dataclasses.dataclass
+class TransferAnalysis:
+    iterations: int
+    salt_length: int
+    iv_length: int
+    chunk_size: int
+    chunk_count: int
+    likely_zip_payload: bool
 
 
 def _derive_key(password: str, salt: bytes, iterations: int) -> bytes:
@@ -125,6 +136,37 @@ def decrypt_transfer_bytes(input_path: pathlib.Path, password: str) -> bytes:
         chunk_index += 1
 
     return b"".join(plain_parts)
+
+
+def analyze_transfer_file(input_path: pathlib.Path, password: str) -> TransferAnalysis:
+    raw = input_path.read_bytes()
+    header, offset = _read_header(raw)
+    chunk_count = 0
+    max_enc_chunk_size = header.chunk_size + (GCM_TAG_LENGTH_BITS // 8)
+
+    scan_offset = offset
+    while scan_offset < len(raw):
+        if scan_offset + 4 > len(raw):
+            raise ValueError("Corrupted transfer file: incomplete chunk length")
+        (enc_len,) = struct.unpack_from(">I", raw, scan_offset)
+        scan_offset += 4
+        if enc_len <= 0 or enc_len > max_enc_chunk_size:
+            raise ValueError("Corrupted transfer file: invalid encrypted chunk length")
+        if scan_offset + enc_len > len(raw):
+            raise ValueError("Corrupted transfer file: truncated encrypted chunk")
+        scan_offset += enc_len
+        chunk_count += 1
+
+    decrypted = decrypt_transfer_bytes(input_path, password)
+    is_zip = decrypted.startswith(b"PK\x03\x04") or decrypted.startswith(b"PK\x05\x06")
+    return TransferAnalysis(
+        iterations=header.iterations,
+        salt_length=len(header.salt),
+        iv_length=len(header.base_iv),
+        chunk_size=header.chunk_size,
+        chunk_count=chunk_count,
+        likely_zip_payload=is_zip,
+    )
 
 
 def encrypt_transfer_bytes(plain: bytes, password: str) -> bytes:
@@ -224,7 +266,7 @@ def decrypt_folder(
     success = 0
     for source in transfer_files:
         try:
-            decrypted = decrypt_transfer_bytes(source, password)
+            decrypted = _with_retry(lambda: decrypt_transfer_bytes(source, password))
             _write_output(decrypted, source, output_dir, output_format)
             success += 1
         except Exception as exc:  # noqa: BLE001
@@ -234,13 +276,18 @@ def decrypt_folder(
 
 
 def open_transfer_for_edit(input_transfer: pathlib.Path, output_folder: pathlib.Path, password: str) -> str:
-    decrypted = decrypt_transfer_bytes(input_transfer, password)
+    decrypted = _with_retry(lambda: decrypt_transfer_bytes(input_transfer, password))
     output_folder.mkdir(parents=True, exist_ok=True)
 
     is_zip = decrypted.startswith(b"PK\x03\x04") or decrypted.startswith(b"PK\x05\x06")
     if is_zip:
-        _safe_extract_zip_bytes(decrypted, output_folder)
-        return "extract"
+        try:
+            _safe_extract_zip_bytes(decrypted, output_folder)
+            return "extract"
+        except Exception:
+            # Self-heal fallback to preserve recoverable bytes.
+            (output_folder / "payload-recovered.bin").write_bytes(decrypted)
+            return "raw"
 
     (output_folder / "payload.bin").write_bytes(decrypted)
     return "raw"
@@ -256,24 +303,40 @@ def create_transfer(source_path: pathlib.Path, output_transfer: pathlib.Path, pa
     else:
         raise ValueError("Source path not found")
 
-    encrypted = encrypt_transfer_bytes(payload, password)
+    encrypted = _with_retry(lambda: encrypt_transfer_bytes(payload, password))
     output_transfer.parent.mkdir(parents=True, exist_ok=True)
-    output_transfer.write_bytes(encrypted)
+    temp_output = output_transfer.with_suffix(output_transfer.suffix + ".tmp")
+    temp_output.write_bytes(encrypted)
+    temp_output.replace(output_transfer)
+
+
+def _with_retry(fn, retries: int = MAX_RETRIES):
+    last_exc = None
+    for _ in range(retries):
+        try:
+            return fn()
+        except Exception as exc:  # noqa: BLE001
+            last_exc = exc
+    raise last_exc
 
 
 class DecrypterApp:
     def __init__(self, root: Tk) -> None:
         self.root = root
-        self.root.title("AndClaw .transfer Tool")
-        self.root.geometry("760x380")
+        self.root.title("AndClaw .transfer Tool // Hacker Console")
+        self.root.geometry("940x620")
+        self.root.configure(bg="#040804")
 
         self.input_dir = StringVar()
         self.output_dir = StringVar()
         self.password = StringVar()
         self.output_format = StringVar(value=OUTPUT_FORMAT_ZIP)
+        self.status = StringVar(value="READY")
 
         frame = ttk.Frame(root, padding=16)
         frame.pack(fill="both", expand=True)
+        frame.configure(style="Hack.TFrame")
+        self._apply_hacker_style()
 
         ttk.Label(frame, text="Input folder (.transfer files)").grid(row=0, column=0, sticky="w")
         ttk.Entry(frame, textvariable=self.input_dir, width=72).grid(row=1, column=0, sticky="ew", padx=(0, 8))
@@ -295,16 +358,55 @@ class DecrypterApp:
             width=22,
         ).grid(row=7, column=0, sticky="w")
 
-        ttk.Button(frame, text="Decrypt Folder", command=self.run_decrypt).grid(row=8, column=0, sticky="ew", pady=(14, 0))
-        ttk.Button(frame, text="Open One .transfer (edit)", command=self.run_open_for_edit).grid(row=9, column=0, sticky="ew", pady=(8, 0))
-        ttk.Button(frame, text="Create .transfer", command=self.run_create_transfer).grid(row=10, column=0, sticky="ew", pady=(8, 0))
+        ttk.Button(frame, text="Decrypt Folder", command=self.run_decrypt, style="Hack.TButton").grid(row=8, column=0, sticky="ew", pady=(14, 0))
+        ttk.Button(frame, text="Open One .transfer (edit)", command=self.run_open_for_edit, style="Hack.TButton").grid(row=9, column=0, sticky="ew", pady=(8, 0))
+        ttk.Button(frame, text="Create .transfer", command=self.run_create_transfer, style="Hack.TButton").grid(row=10, column=0, sticky="ew", pady=(8, 0))
+        ttk.Button(frame, text="Analyze .transfer", command=self.run_analyze_transfer, style="Hack.TButton").grid(row=11, column=0, sticky="ew", pady=(8, 0))
 
         ttk.Label(
             frame,
             text="Tip: Open for edit extracts zip payload; after changes use Create .transfer.",
-        ).grid(row=11, column=0, sticky="w", pady=(10, 0))
+            style="Hack.TLabel",
+        ).grid(row=12, column=0, sticky="w", pady=(10, 0))
+
+        ttk.Label(frame, text="Status:", style="Hack.TLabel").grid(row=13, column=0, sticky="w", pady=(8, 0))
+        ttk.Label(frame, textvariable=self.status, style="HackStatus.TLabel").grid(row=14, column=0, sticky="w")
+
+        self.log_text = Text(
+            frame,
+            height=10,
+            background="#020d02",
+            foreground="#5BFF9A",
+            insertbackground="#5BFF9A",
+            highlightthickness=1,
+            highlightbackground="#1A7A3E",
+            relief="flat",
+        )
+        self.log_text.grid(row=15, column=0, columnspan=2, sticky="nsew", pady=(10, 0))
 
         frame.columnconfigure(0, weight=1)
+        frame.rowconfigure(15, weight=1)
+        self._log("Console online. Enter paths/password and run actions.")
+
+    def _apply_hacker_style(self) -> None:
+        style = ttk.Style(self.root)
+        style.theme_use("clam")
+        style.configure("Hack.TFrame", background="#040804")
+        style.configure("Hack.TLabel", background="#040804", foreground="#53FF8A")
+        style.configure("HackStatus.TLabel", background="#040804", foreground="#E8FF65")
+        style.configure(
+            "Hack.TButton",
+            background="#11361F",
+            foreground="#9DFFBF",
+            borderwidth=0,
+            focusthickness=0,
+            padding=(8, 6),
+        )
+        style.map("Hack.TButton", background=[("active", "#1C5A34")], foreground=[("active", "#D6FFE7")])
+
+    def _log(self, line: str) -> None:
+        self.log_text.insert(END, f"{line}\n")
+        self.log_text.see(END)
 
     def browse_input(self) -> None:
         path = filedialog.askdirectory(title="Select input folder")
@@ -326,6 +428,7 @@ class DecrypterApp:
 
     def run_decrypt(self) -> None:
         try:
+            self.status.set("RUNNING: DECRYPT")
             input_dir = pathlib.Path(self.input_dir.get().strip())
             output_dir = pathlib.Path(self.output_dir.get().strip())
             success, failures = decrypt_folder(
@@ -335,14 +438,21 @@ class DecrypterApp:
                 self.output_format.get(),
             )
             if failures:
+                self.status.set(f"DONE WITH ERRORS: ok={success}, fail={len(failures)}")
+                self._log(f"[decrypt] success={success}, failures={len(failures)}")
                 messagebox.showwarning("Completed with errors", f"{success} success, {len(failures)} failed\n\n" + "\n".join(failures[:10]))
             else:
+                self.status.set(f"DONE: {success} files")
+                self._log(f"[decrypt] all processed successfully: {success}")
                 messagebox.showinfo("Success", f"Sab files process ho gayi: {success}")
         except Exception as exc:  # noqa: BLE001
+            self.status.set("ERROR")
+            self._log(f"[decrypt][error] {exc}")
             messagebox.showerror("Error", str(exc))
 
     def run_open_for_edit(self) -> None:
         try:
+            self.status.set("RUNNING: OPEN")
             src = filedialog.askopenfilename(title="Select .transfer file", filetypes=[("Transfer Files", "*.transfer")])
             if not src:
                 return
@@ -350,15 +460,29 @@ class DecrypterApp:
             if not target:
                 return
             mode = open_transfer_for_edit(pathlib.Path(src), pathlib.Path(target), self._require_password())
+            self.status.set(f"DONE: OPEN ({mode})")
+            self._log(f"[open] mode={mode} output={target}")
             messagebox.showinfo("Success", f"Opened in {mode} mode: {target}")
         except Exception as exc:  # noqa: BLE001
+            self.status.set("ERROR")
+            self._log(f"[open][error] {exc}")
             messagebox.showerror("Error", str(exc))
 
     def run_create_transfer(self) -> None:
         try:
-            src = filedialog.askdirectory(title="Select source folder to pack (editable content)")
-            if not src:
-                return
+            self.status.set("RUNNING: CREATE")
+            use_folder = messagebox.askyesno(
+                "Source selection",
+                "Folder pack karna hai? (Yes = folder, No = file/zip/raw)",
+            )
+            if use_folder:
+                src = filedialog.askdirectory(title="Select source folder to pack (editable content)")
+                if not src:
+                    return
+            else:
+                src = filedialog.askopenfilename(title="Select source file (.zip ya raw)")
+                if not src:
+                    return
             out = filedialog.asksaveasfilename(
                 title="Save .transfer as",
                 defaultextension=".transfer",
@@ -367,8 +491,43 @@ class DecrypterApp:
             if not out:
                 return
             create_transfer(pathlib.Path(src), pathlib.Path(out), self._require_password())
+            self.status.set("DONE: CREATE")
+            self._log(f"[create] source={src} output={out}")
             messagebox.showinfo("Success", f"Transfer file created: {out}")
         except Exception as exc:  # noqa: BLE001
+            self.status.set("ERROR")
+            self._log(f"[create][error] {exc}")
+            messagebox.showerror("Error", str(exc))
+
+    def run_analyze_transfer(self) -> None:
+        try:
+            self.status.set("RUNNING: ANALYZE")
+            src = filedialog.askopenfilename(title="Select .transfer file", filetypes=[("Transfer Files", "*.transfer")])
+            if not src:
+                return
+            info = analyze_transfer_file(pathlib.Path(src), self._require_password())
+            self.status.set("DONE: ANALYZE")
+            self._log(
+                "[analyze] "
+                f"iter={info.iterations}, salt={info.salt_length}, iv={info.iv_length}, "
+                f"chunk={info.chunk_size}, count={info.chunk_count}, zip={info.likely_zip_payload}"
+            )
+            messagebox.showinfo(
+                "Transfer Analysis",
+                "\n".join(
+                    [
+                        f"Iterations: {info.iterations}",
+                        f"Salt length: {info.salt_length} bytes",
+                        f"IV length: {info.iv_length} bytes",
+                        f"Chunk size: {info.chunk_size} bytes",
+                        f"Chunk count: {info.chunk_count}",
+                        f"Likely ZIP payload: {info.likely_zip_payload}",
+                    ]
+                ),
+            )
+        except Exception as exc:  # noqa: BLE001
+            self.status.set("ERROR")
+            self._log(f"[analyze][error] {exc}")
             messagebox.showerror("Error", str(exc))
 
 
@@ -389,6 +548,17 @@ def _cli(argv: list[str]) -> int:
     if len(argv) == 5 and argv[1] == "--create-transfer":
         create_transfer(pathlib.Path(argv[2]), pathlib.Path(argv[3]), argv[4])
         print("OK: transfer created")
+        return 0
+
+    if len(argv) == 4 and argv[1] == "--analyze-transfer":
+        info = analyze_transfer_file(pathlib.Path(argv[2]), argv[3])
+        print("OK: transfer analyzed")
+        print(f"iterations={info.iterations}")
+        print(f"salt_length={info.salt_length}")
+        print(f"iv_length={info.iv_length}")
+        print(f"chunk_size={info.chunk_size}")
+        print(f"chunk_count={info.chunk_count}")
+        print(f"likely_zip_payload={info.likely_zip_payload}")
         return 0
 
     # Backward compatibility with earlier version

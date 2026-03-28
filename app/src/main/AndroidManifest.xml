@@ -57,6 +57,22 @@
             </intent-filter>
         </activity>
 
+        <!-- Transfer Lab Activity (power-user interactive tool UI) -->
+        <activity
+            android:name=".TransferLabActivity"
+            android:exported="true"
+            android:theme="@style/Theme.AndClaw">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="andclaw"
+                    android:host="tools"
+                    android:path="/transfer-lab" />
+            </intent-filter>
+        </activity>
+
         <!-- Gateway Foreground Service -->
         <service
             android:name=".service.GatewayService"
