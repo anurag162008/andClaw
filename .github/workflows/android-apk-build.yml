@@ -43,11 +43,21 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Install native prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends binutils xz-utils zstd
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
       - name: Ensure gradlew is executable
         run: chmod +x ./gradlew
+
+      - name: Prepare bundled runtime assets
+        run: |
+          chmod +x ./scripts/setup-assets.sh ./scripts/build-proot-loader32-16kb.sh
+          ./scripts/setup-assets.sh
 
       - name: Build prodDebug APK
         run: ./gradlew --no-daemon --stacktrace assembleProdDebug

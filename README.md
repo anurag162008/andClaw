@@ -66,6 +66,8 @@ adb shell am start -a android.intent.action.VIEW -d "andclaw://tools/transfer-la
 ./gradlew bundleProdRelease
 ```
 
+CI workflow (`.github/workflows/android-apk-build.yml`) also runs `./scripts/setup-assets.sh` before APK assembly so bundled runtime assets are included in the produced APK artifact.
+
 Artifacts:
 
 - Recommended release AAB: `app/build/outputs/bundle/prodRelease/app-prod-release.aab`
